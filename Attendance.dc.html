@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-d51dd5df-3a37-48bf-8bfb-9ed187b8661e/styles.css">
+<script src="_ds/modernist-d51dd5df-3a37-48bf-8bfb-9ed187b8661e/_ds_bundle.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>:root{--color-accent:#2360e8;--color-accent-100:#eef3ff;--color-accent-200:#dbe6ff;--color-accent-300:#bcd0ff;--color-accent-400:#8cb0ff;--color-accent-500:#4f86ff;--color-accent-600:#1c52cf;--color-accent-700:#1742a8;--color-accent-800:#12337d;--color-accent-900:#10224c;--color-accent-2:#2360e8}body{margin:0}a{color:var(--color-accent)}a:hover{color:var(--color-accent-600)}.btn,.tag,.seg-opt{white-space:nowrap}@keyframes dcScan{from{top:12%}to{top:88%}}</style>
+</helmet>
+<div style="min-height:100vh;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body)">
+
+<sc-if value="{{ showScreenNav }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:6px 12px;background:var(--color-text);color:var(--color-bg);font-size:12px">
+  <span style="font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-right:12px;opacity:.7">Screens</span>
+  <sc-for list="{{ screens }}" as="sc" hint-placeholder-count="6">
+    <button onClick="{{ sc.go }}" style="display:flex;gap:6px;align-items:baseline;border:0;cursor:pointer;padding:5px 10px;font:600 12px var(--font-body);background:{{ sc.bg }};color:var(--color-bg)"><span style="opacity:.7">{{ sc.num }}</span>{{ sc.label }}</button>
+  </sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.classLogin }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="01 Class login" style="min-height:calc(100vh - 36px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))">
+  <div style="background:var(--color-accent);color:var(--color-bg);padding:clamp(24px,6vw,48px);display:flex;flex-direction:column;justify-content:space-between;gap:48px">
+    <div style="font-weight:800;font-size:18px">Register</div>
+    <div>
+      <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:600">Classroom scan station</div>
+      <h1 style="font-size:clamp(52px,7vw,104px);line-height:.92;letter-spacing:-.035em;margin:16px 0 0">Unlock this room.</h1>
+    </div>
+    <div style="border-top:2px solid var(--color-bg);padding-top:12px;font-size:14px;display:flex;justify-content:space-between;gap:16px"><span>Riverside Primary School</span><span>Fri 25 Sep 2026</span></div>
+  </div>
+  <div style="padding:clamp(24px,6vw,48px);display:flex;flex-direction:column;justify-content:center">
+    <div style="max-width:400px;width:100%;display:flex;flex-direction:column;gap:24px">
+      <div>
+        <h2 style="margin:0 0 8px">Class password</h2>
+        <p class="text-muted" style="margin:0;font-size:14px">Your teacher sets this password for each class. Entering it opens the QR scanner for today’s register.</p>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input class="input" type="password" value="{{ pw }}" onChange="{{ onPw }}" placeholder="••••••••" style="min-height:52px;font-size:20px;letter-spacing:.2em"></input>
+      </div>
+      <button class="btn btn-primary" onClick="{{ goScan }}" style="justify-content:space-between;min-height:52px;font-size:16px;padding:0 16px">Open scanner
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+      </button>
+      <div style="border-top:2px solid var(--color-divider);padding-top:12px;display:flex;justify-content:space-between;font-size:13px">
+        <span class="text-muted">Teacher or office staff?</span>
+        <a href="#" onClick="{{ goStaffLogin }}">Staff sign in</a>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.staffLogin }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="02 Staff login" style="min-height:calc(100vh - 36px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))">
+  <div style="background:var(--color-text);color:var(--color-bg);padding:clamp(24px,6vw,48px);display:flex;flex-direction:column;justify-content:space-between;gap:48px">
+    <div style="font-weight:800;font-size:18px">Register</div>
+    <div>
+      <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;color:var(--color-accent-400)">Teachers &amp; staff</div>
+      <h1 style="font-size:clamp(52px,7vw,104px);line-height:.92;letter-spacing:-.035em;margin:16px 0 0">Every pupil, accounted for.</h1>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);border-top:2px solid var(--color-bg);font-size:13px">
+      <div style="padding:12px 12px 0 0"><div style="font-size:28px;font-weight:800">72</div>pupils</div>
+      <div style="padding:12px 12px 0;border-left:1px solid color-mix(in srgb,var(--color-bg) 40%,transparent)"><div style="font-size:28px;font-weight:800">6</div>classes</div>
+      <div style="padding:12px 12px 0;border-left:1px solid color-mix(in srgb,var(--color-bg) 40%,transparent)"><div style="font-size:28px;font-weight:800">08:45</div>late after</div>
+    </div>
+  </div>
+  <div style="padding:clamp(24px,6vw,48px);display:flex;flex-direction:column;justify-content:center">
+    <div style="max-width:400px;width:100%;display:flex;flex-direction:column;gap:20px">
+      <h2 style="margin:0">Staff sign in</h2>
+      <div class="field"><label>School email</label><input class="input" type="email" placeholder="name@riverside.sch.uk" style="min-height:44px"></input></div>
+      <div class="field">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><label style="display:block;font-size:12px;margin-bottom:5px;color:color-mix(in srgb,var(--color-text) 70%,transparent)">Password</label><a href="#" style="font-size:12px">Forgot password?</a></div>
+        <input class="input" type="password" placeholder="••••••••" style="min-height:44px"></input>
+      </div>
+      <label class="radio"><input type="checkbox" checked="{{ true }}"></input><span class="dot" style="border-radius:0"></span>Keep me signed in on this device</label>
+      <button class="btn btn-primary" onClick="{{ goToday }}" style="justify-content:space-between;min-height:48px;font-size:15px;padding:0 16px">Sign in
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+      </button>
+      <div style="border-top:2px solid var(--color-divider);padding-top:12px;display:flex;justify-content:space-between;font-size:13px">
+        <span class="text-muted">Setting up a classroom device?</span>
+        <a href="#" onClick="{{ goClassLogin }}">Use class password</a>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.scan }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="03 QR scan" style="min-height:calc(100vh - 36px);display:flex;flex-direction:column">
+  <div class="nav" style="flex-wrap:wrap">
+    <span class="nav-brand">Register <span style="font-weight:400;opacity:.5">/ Scan station</span></span>
+    <span style="font-size:14px"><b>Class 4B</b> · Room R14 · Morning register</span>
+    <button class="btn btn-secondary" onClick="{{ goClassLogin }}">Lock station</button>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:0">
+    <div style="padding:24px;display:flex;flex-direction:column;gap:16px;border-right:2px solid var(--color-divider)">
+      <div style="position:relative;aspect-ratio:4/3;background:var(--color-neutral-900);overflow:hidden">
+        <div style="position:absolute;left:16px;top:12px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-400)">Live camera · front</div>
+        <div style="position:absolute;inset:18% 26%;">
+          <div style="position:absolute;left:0;top:0;width:40px;height:40px;border-left:4px solid var(--color-accent);border-top:4px solid var(--color-accent)"></div>
+          <div style="position:absolute;right:0;top:0;width:40px;height:40px;border-right:4px solid var(--color-accent);border-top:4px solid var(--color-accent)"></div>
+          <div style="position:absolute;left:0;bottom:0;width:40px;height:40px;border-left:4px solid var(--color-accent);border-bottom:4px solid var(--color-accent)"></div>
+          <div style="position:absolute;right:0;bottom:0;width:40px;height:40px;border-right:4px solid var(--color-accent);border-bottom:4px solid var(--color-accent)"></div>
+          {{ scanLine }}
+        </div>
+        <div style="position:absolute;left:16px;bottom:14px;right:16px;color:var(--color-bg);font-size:18px;font-weight:600">Hold your QR card inside the frame</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onClick="{{ simulate }}">Simulate a scan</button>
+        <button class="btn btn-secondary" onClick="{{ goToday }}">Teacher view</button>
+      </div>
+      <p class="text-muted" style="font-size:13px;margin:0">No card? A teacher can mark pupils manually from the attendance records.</p>
+    </div>
+    <div style="display:flex;flex-direction:column">
+      <div style="background:{{ result.bg }};color:{{ result.fg }};padding:clamp(20px,4vw,32px) clamp(16px,3vw,24px);min-height:240px;display:flex;flex-direction:column;justify-content:space-between;gap:24px;border-bottom:2px solid var(--color-divider)">
+        <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:600">{{ result.kicker }}</div>
+        <div>
+          <div style="font-size:clamp(36px,4.4vw,60px);font-weight:800;line-height:.95;letter-spacing:-.03em">{{ result.name }}</div>
+          <div style="font-size:16px;margin-top:10px">{{ result.meta }}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:2px solid var(--color-divider)">
+        <div style="padding:16px 24px"><div class="text-muted" style="font-size:12px">Checked in</div><div style="font-size:32px;font-weight:800">{{ scanCount }}<span style="opacity:.35"> / 12</span></div></div>
+        <div style="padding:16px 24px;border-left:1px solid var(--color-divider)"><div class="text-muted" style="font-size:12px">Late</div><div style="font-size:32px;font-weight:800;color:var(--color-accent-700)">{{ lateCount }}</div></div>
+      </div>
+      <div style="padding:16px 24px">
+        <h6 class="text-muted" style="margin:0 0 4px">Recent scans</h6>
+        <table class="table"><tbody>
+          <sc-for list="{{ recent }}" as="r" hint-placeholder-count="5">
+            <tr><td style="font-weight:600">{{ r.name }}</td><td class="text-muted" style="text-align:right">{{ r.time }}</td><td style="width:80px;text-align:right"><span class="tag {{ r.tagCls }}">{{ r.label }}</span></td></tr>
+          </sc-for>
+        </tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ shell }}" hint-placeholder-val="{{ false }}">
+<div class="nav" style="gap:20px;overflow-x:auto;white-space:nowrap">
+  <span class="nav-brand">Register</span>
+  <a href="#" onClick="{{ goToday }}" aria-current="{{ cur.today }}">Today</a>
+  <a href="#" onClick="{{ goRecords }}" aria-current="{{ cur.records }}">Attendance records</a>
+  <a href="#" onClick="{{ goPupils }}" aria-current="{{ cur.pupils }}">Pupils &amp; QR codes</a>
+  <a href="#" onClick="{{ goScan }}">Scan station</a>
+  <span style="display:flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap;padding-left:16px;border-left:1px solid var(--color-divider)"><span style="width:28px;height:28px;background:var(--color-text);color:var(--color-bg);display:grid;place-items:center;font-weight:800;font-size:12px">SH</span>Ms Hughes</span>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.today }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="04 Today" style="padding:clamp(20px,4vw,32px) clamp(16px,3vw,24px);max-width:1280px">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:24px">
+    <div><h6 class="text-muted" style="margin:0 0 6px">Morning register</h6><h1 style="margin:0">Friday 25 September</h1></div>
+    <div style="font-size:14px" class="text-muted">Registers close at 09:15 · Late after 08:45</div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));border-top:2px solid var(--color-text);border-bottom:2px solid var(--color-divider)">
+    <sc-for list="{{ stats }}" as="st" hint-placeholder-count="5">
+      <div style="padding:16px 16px 20px 0;border-right:1px solid var(--color-divider);padding-left:16px">
+        <div class="text-muted" style="font-size:12px">{{ st.label }}</div>
+        <div style="font-size:44px;font-weight:800;line-height:1.1;color:{{ st.color }}">{{ st.value }}</div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:40px;margin-top:32px">
+    <div style="flex:2 1 520px;min-width:0">
+      <h4>Classes</h4>
+      <div style="overflow-x:auto">
+      <table class="table" style="min-width:520px">
+        <thead><tr><th>Class</th><th>Teacher</th><th>Register</th><th style="width:40%">Present</th><th></th></tr></thead>
+        <tbody>
+          <sc-for list="{{ classRows }}" as="c" hint-placeholder-count="6">
+            <tr>
+              <td style="font-weight:800">{{ c.id }}</td>
+              <td>{{ c.teacher }}</td>
+              <td><span class="tag {{ c.tagCls }}">{{ c.session }}</span></td>
+              <td><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;height:8px;background:var(--color-neutral-200)"><div style="height:8px;background:var(--color-text);width:{{ c.bar }}"></div></div><span style="font-size:13px;min-width:44px">{{ c.present }}/12</span></div></td>
+              <td style="text-align:right"><button class="btn btn-ghost" onClick="{{ c.open }}">Open</button></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+      </div>
+    </div>
+    <div style="flex:1 1 300px;min-width:0">
+      <h4>Absent · no reason given</h4>
+      <p class="text-muted" style="font-size:13px">Follow up with parents before 10:00.</p>
+      <div style="border-top:2px solid var(--color-divider)">
+        <sc-for list="{{ absentList }}" as="a" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--color-divider)">
+            <span style="width:36px;font-weight:800;font-size:13px">{{ a.cls }}</span>
+            <span style="flex:1">{{ a.name }}</span>
+            <button class="btn btn-ghost" onClick="{{ a.excuse }}">Mark excused</button>
+          </div>
+        </sc-for>
+        <sc-if value="{{ noAbsent }}" hint-placeholder-val="{{ false }}"><p class="text-muted" style="padding:12px 0;font-size:14px">Everyone is accounted for.</p></sc-if>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.pupils }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="05 Pupils and QR codes" style="padding:clamp(20px,4vw,32px) clamp(16px,3vw,24px);max-width:1280px">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:20px">
+    <div><h6 class="text-muted" style="margin:0 0 6px">Pupil data</h6><h1 style="margin:0">Pupils &amp; QR codes</h1></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-secondary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 9V3h12v6"></path><rect x="6" y="14" width="12" height="8"></rect></svg>Print class cards</button>
+      <button class="btn btn-primary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Add pupil</button>
+    </div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 0;border-top:2px solid var(--color-divider);border-bottom:1px solid var(--color-divider)">
+    <div style="position:relative;flex:1 1 240px;max-width:360px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:10px;top:10px;opacity:.5"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+      <input class="input" value="{{ q }}" onChange="{{ onQ }}" placeholder="Search name or pupil ID" style="padding-left:34px"></input>
+    </div>
+    <div class="seg">
+      <sc-for list="{{ pSeg }}" as="o" hint-placeholder-count="7">
+        <span class="seg-opt" onClick="{{ o.pick }}" style="background:{{ o.bg }};color:{{ o.fg }}">{{ o.id }}</span>
+      </sc-for>
+    </div>
+    <span class="text-muted" style="font-size:13px;margin-left:auto">{{ pCount }}</span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start">
+    <div style="flex:2 1 520px;min-width:0;overflow-x:auto;overflow-y:hidden">
+      <table class="table" style="min-width:520px">
+        <thead><tr><th>Pupil</th><th>Class</th><th>QR code</th><th>Issued</th><th>Last scan</th></tr></thead>
+        <tbody>
+          <sc-for list="{{ pRows }}" as="p" hint-placeholder-count="8">
+            <tr onClick="{{ p.select }}" style="cursor:pointer;background:{{ p.bg }}">
+              <td><div style="font-weight:600">{{ p.name }}</div><div class="text-muted" style="font-size:12px">{{ p.id }}</div></td>
+              <td>{{ p.cls }}</td>
+              <td><span class="tag {{ p.tagCls }}">{{ p.qrStatus }}</span></td>
+              <td class="text-muted">{{ p.issued }}</td>
+              <td class="text-muted">{{ p.last }}</td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+    <div style="flex:1 1 280px;max-width:400px;position:sticky;top:16px;border-top:2px solid var(--color-text);padding-top:16px">
+      <h6 class="text-muted" style="margin:0 0 4px">Selected pupil</h6>
+      <h3 style="margin:0">{{ sel.name }}</h3>
+      <div class="text-muted" style="font-size:13px;margin-bottom:16px">{{ sel.id }} · Class {{ sel.cls }}</div>
+      <div style="background:#fff;padding:16px;border:1px solid var(--color-divider);position:relative">
+        <svg viewBox="-2 -2 29 29" style="display:block;width:100%;opacity:{{ sel.qrOpacity }}"><path d="{{ sel.qr }}" fill="var(--color-text)" fill-rule="evenodd"></path></svg>
+        <sc-if value="{{ sel.revoked }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);background:var(--color-accent);color:var(--color-bg);padding:10px 12px;font-weight:800">Revoked — this code no longer checks in</div>
+        </sc-if>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;font-size:13px;border-bottom:1px solid var(--color-divider)">
+        <div style="padding:10px 0"><div class="text-muted" style="font-size:11px">Code version</div>v{{ sel.version }}</div>
+        <div style="padding:10px 0 10px 12px;border-left:1px solid var(--color-divider)"><div class="text-muted" style="font-size:11px">Issued</div>{{ sel.issued }}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0;margin-top:8px">
+        <button class="btn btn-secondary btn-block" onClick="{{ openPrint }}" style="justify-content:space-between">Print ID card<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 9V3h12v6"></path><rect x="6" y="14" width="12" height="8"></rect></svg></button>
+        <button class="btn btn-secondary btn-block" style="justify-content:space-between">Download PNG<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg></button>
+        <button class="btn btn-secondary btn-block" onClick="{{ openRegen }}" style="justify-content:space-between">Regenerate code<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg></button>
+        <button class="btn btn-ghost btn-block" onClick="{{ toggleRevoke }}" style="padding-inline:0">{{ sel.revokeLabel }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.records }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="06 Attendance records" style="padding:clamp(20px,4vw,32px) clamp(16px,3vw,24px)">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:20px">
+    <div><h6 class="text-muted" style="margin:0 0 6px">Attendance records</h6><h1 style="margin:0">Class {{ rCls }}</h1><div class="text-muted" style="font-size:15px;margin-top:4px">{{ rTeacher }}</div></div>
+    <button class="btn btn-secondary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>Export CSV</button>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding:12px 0;border-top:2px solid var(--color-divider);border-bottom:1px solid var(--color-divider)">
+    <div class="seg">
+      <sc-for list="{{ rSeg }}" as="o" hint-placeholder-count="6">
+        <span class="seg-opt" onClick="{{ o.pick }}" style="background:{{ o.bg }};color:{{ o.fg }}">{{ o.id }}</span>
+      </sc-for>
+    </div>
+    <div style="display:flex;align-items:center;gap:4px">
+      <button class="btn btn-icon btn-secondary" style="width:32px;height:32px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"></path></svg></button>
+      <span style="font-weight:600;padding:0 8px">September 2026</span>
+      <button class="btn btn-icon btn-secondary" style="width:32px;height:32px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"></path></svg></button>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-left:auto;font-size:12px">
+      <sc-for list="{{ legend }}" as="l" hint-placeholder-count="4">
+        <span style="display:flex;align-items:center;gap:6px"><span style="width:16px;height:16px;display:grid;place-items:center;font-size:10px;font-weight:600;background:{{ l.bg }};color:{{ l.fg }}">{{ l.label }}</span>{{ l.name }}</span>
+      </sc-for>
+    </div>
+  </div>
+  <p class="text-muted" style="font-size:12px;margin:10px 0 0">Click a cell to correct a mark.</p>
+  <div style="overflow-x:auto;margin-top:8px">
+    <table style="border-collapse:collapse;font-size:13px;min-width:100%">
+      <thead>
+        <tr>
+          <th style="text-align:left;position:sticky;left:0;background:var(--color-bg);padding:8px 12px 8px 0;border-bottom:2px solid var(--color-divider);font-size:11px;letter-spacing:.08em;text-transform:uppercase;min-width:120px">Pupil</th>
+          <sc-for list="{{ days }}" as="d" hint-placeholder-count="19">
+            <th style="padding:4px 1px;border-bottom:2px solid var(--color-divider);font-weight:600;min-width:30px;color:{{ d.color }}"><div style="font-size:10px;opacity:.6">{{ d.wd }}</div>{{ d.n }}</th>
+          </sc-for>
+          <th style="padding:8px 0 8px 12px;border-bottom:2px solid var(--color-divider);font-size:11px;letter-spacing:.08em;text-transform:uppercase;text-align:right">Late</th>
+          <th style="padding:8px 0 8px 12px;border-bottom:2px solid var(--color-divider);font-size:11px;letter-spacing:.08em;text-transform:uppercase;text-align:right">Absent</th>
+          <th style="padding:8px 0 8px 12px;border-bottom:2px solid var(--color-divider);font-size:11px;letter-spacing:.08em;text-transform:uppercase;text-align:right">Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <sc-for list="{{ rRows }}" as="row" hint-placeholder-count="12">
+          <tr>
+            <td style="position:sticky;left:0;background:var(--color-bg);padding:4px 12px 4px 0;border-bottom:1px solid var(--color-divider);font-weight:600;white-space:nowrap">{{ row.name }}</td>
+            <sc-for list="{{ row.cells }}" as="c" hint-placeholder-count="19">
+              <td style="padding:2px 1px;border-bottom:1px solid var(--color-divider)"><button onClick="{{ c.toggle }}" title="{{ c.title }}" style="width:28px;height:26px;border:0;margin:0 auto;display:grid;place-items:center;cursor:pointer;font:600 11px var(--font-body);background:{{ c.bg }};color:{{ c.fg }};box-shadow:{{ c.ring }}">{{ c.label }}</button></td>
+            </sc-for>
+            <td style="padding:4px 0 4px 12px;border-bottom:1px solid var(--color-divider);text-align:right">{{ row.late }}</td>
+            <td style="padding:4px 0 4px 12px;border-bottom:1px solid var(--color-divider);text-align:right">{{ row.absent }}</td>
+            <td style="padding:4px 0 4px 12px;border-bottom:1px solid var(--color-divider);text-align:right;font-weight:800;color:{{ row.rateColor }}">{{ row.rate }}</td>
+          </tr>
+        </sc-for>
+        <tr>
+          <td style="position:sticky;left:0;background:var(--color-bg);padding:8px 12px 8px 0;border-top:2px solid var(--color-divider);font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:600">Class present</td>
+          <sc-for list="{{ daily }}" as="dd" hint-placeholder-count="19">
+            <td style="padding:8px 1px;border-top:2px solid var(--color-divider);text-align:center;font-size:11px">{{ dd.v }}</td>
+          </sc-for>
+          <td colSpan="3" style="padding:8px 0 8px 12px;border-top:2px solid var(--color-divider);text-align:right;font-weight:800">{{ classRate }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ dlg.print }}" hint-placeholder-val="{{ false }}">
+<div class="dialog-backdrop" onClick="{{ closeDlg }}">
+  <div class="dialog" onClick="{{ stop }}" style="width:min(480px,100%)">
+    <div class="dialog-title">Print ID card</div>
+    <div style="display:grid;grid-template-columns:1fr 150px;background:#fff;border:2px solid var(--color-text);aspect-ratio:85.6/54">
+      <div style="padding:14px;display:flex;flex-direction:column;justify-content:space-between;border-right:2px solid var(--color-text)">
+        <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;color:var(--color-accent)">Riverside Primary</div>
+        <div><div style="font-size:22px;font-weight:800;line-height:1">{{ sel.name }}</div><div style="font-size:12px;margin-top:6px">Class {{ sel.cls }} · {{ sel.id }}</div></div>
+      </div>
+      <div style="padding:10px;display:grid;place-items:center"><svg viewBox="-2 -2 29 29" style="width:100%"><path d="{{ sel.qr }}" fill="var(--color-text)" fill-rule="evenodd"></path></svg></div>
+    </div>
+    <div class="dialog-body">Standard CR80 card (85.6 × 54 mm). Print on card stock or laminate.</div>
+    <div class="dialog-actions"><button class="btn btn-secondary" onClick="{{ closeDlg }}">Cancel</button><button class="btn btn-primary" onClick="{{ closeDlg }}">Print</button></div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ dlg.regen }}" hint-placeholder-val="{{ false }}">
+<div class="dialog-backdrop" onClick="{{ closeDlg }}">
+  <div class="dialog" onClick="{{ stop }}">
+    <div class="dialog-title">Regenerate {{ sel.name }}’s code?</div>
+    <div class="dialog-body">The current card (v{{ sel.version }}) stops working immediately. Use this if a card is lost or shared. You’ll need to print a new card.</div>
+    <div class="dialog-actions"><button class="btn btn-secondary" onClick="{{ closeDlg }}">Cancel</button><button class="btn btn-primary" onClick="{{ regen }}">Regenerate</button></div>
+  </div>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;classLogin&quot;,&quot;staffLogin&quot;,&quot;scan&quot;,&quot;today&quot;,&quot;pupils&quot;,&quot;records&quot;],&quot;default&quot;:&quot;classLogin&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;markStyle&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;letters&quot;,&quot;blocks&quot;],&quot;default&quot;:&quot;letters&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Attendance grid&quot;},&quot;showScreenNav&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const CLASSES=[{id:'4A',teacher:'Ms Hughes'},{id:'4B',teacher:'Mr Adeyemi'},{id:'5A',teacher:'Mrs Kowalski'},{id:'5B',teacher:'Mr Ferreira'},{id:'6A',teacher:'Ms Lindqvist'},{id:'6B',teacher:'Mr Osei'}];
+const FIRST=['Aiko','Ben','Chloe','Daniel','Ella','Finn','Grace','Harry','Isla','Jonah','Keira','Leo','Maya','Noah','Olivia','Priya','Quinn','Rosa','Sami','Theo','Uma','Vince','Willow','Yusuf'];
+const LAST=['Tanaka','Carter','Martin','Okafor','Novak','Murphy','Liu','Singh','Brown','Weiss','Walsh','Rossi','Patel','Kim','Evans','Haddad','Moreau','Byrne'];
+const PUPILS=Array.from({length:72},(_,i)=>({i,id:'P-'+(26100+i*7),name:FIRST[i%24]+' '+LAST[(i*5+Math.floor(i/24))%18],cls:CLASSES[Math.floor(i/12)].id}));
+const DAYNUMS=[1,2,3,4,7,8,9,10,11,14,15,16,17,18,21,22,23,24,25];
+const WD=['S','M','T','W','T','F','S'];
+const TODAY=DAYNUMS.length-1;
+function rng(seed){let s=(seed>>>0)||1;return()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;};}
+function baseStatus(p,d){const r=rng(p*7919+d*104729+12345);r();r();const v=r();return v<0.83?'P':v<0.91?'L':v<0.965?'A':'E';}
+function qrPath(seed){const N=25,r=rng(seed*9973+7);r();let d='';const inF=(x,y)=>(x<8&&y<8)||(x>N-9&&y<8)||(x<8&&y>N-9);
+for(let y=0;y<N;y++)for(let x=0;x<N;x++){if(inF(x,y))continue;if(r()<0.5)d+='M'+x+' '+y+'h1v1h-1z';}
+[[0,0],[N-7,0],[0,N-7]].forEach(([a,b])=>{d+='M'+a+' '+b+'h7v7h-7zM'+(a+1)+' '+(b+1)+'v5h5v-5zM'+(a+2)+' '+(b+2)+'h3v3h-3z';});return d;}
+const ORDER=['P','L','A','E'];
+const NAMES={P:'Present',L:'Late',A:'Absent',E:'Excused'};
+const MARKS={
+ letters:{P:['var(--color-neutral-200)','var(--color-text)','P'],L:['var(--color-accent-200)','var(--color-accent-800)','L'],A:['var(--color-accent)','var(--color-bg)','A'],E:['transparent','var(--color-neutral-700)','E']},
+ blocks:{P:['var(--color-neutral-300)','transparent',''],L:['var(--color-accent-300)','transparent',''],A:['var(--color-accent)','transparent',''],E:['var(--color-neutral-600)','transparent','']}};
+const SCREENS=[['classLogin','01','Class login'],['staffLogin','02','Staff login'],['scan','03','QR scan'],['today','04','Today'],['pupils','05','Pupils & QR'],['records','06','Attendance records']];
+const B4=PUPILS.filter(p=>p.cls==='4B');
+const INIT_SCANS=B4.slice(0,7).map((p,k)=>({id:p.id,name:p.name,time:'08:'+String(21+k*2).padStart(2,'0'),late:false}));
+
+class Component extends DCLogic {
+  state={screen:null,pw:'',ov:{},q:'',pCls:'4B',rCls:'4B',sel:null,revoked:{},ver:{},issued:{},dialog:null,scans:INIT_SCANS,sim:0,result:null};
+  status(p,d){const k=p.id+'-'+d;return this.state.ov[k]||baseStatus(p.i,d);}
+  simulate(){const s=this.state;const n=s.sim+1;let res,scans=s.scans;
+    const next=B4.find(p=>!scans.some(x=>x.id===p.id));
+    if((n%4===0||!next)&&scans.length){const last=scans[scans.length-1];res={kind:'dup',name:last.name,time:last.time};}
+    else{const m=38+scans.length*2;const t=(m>=60?'09:'+String(m-60).padStart(2,'0'):'08:'+String(m).padStart(2,'0'));const late=m>45;
+      scans=[...scans,{id:next.id,name:next.name,time:t,late}];res={kind:late?'late':'ok',name:next.name,time:t};}
+    this.setState({sim:n,scans,result:res});}
+  renderVals(){
+    const s=this.state,P=this.props;
+    const screen=s.screen||P.startScreen||'classLogin';
+    const marks=MARKS[P.markStyle==='blocks'?'blocks':'letters'];
+    const go=k=>e=>{if(e&&e.preventDefault)e.preventDefault();this.setState({screen:k,dialog:null});};
+    const is={};SCREENS.forEach(([k])=>is[k]=screen===k);
+    const cur={today:is.today?'page':undefined,records:is.records?'page':undefined,pupils:is.pupils?'page':undefined};
+    const screens=SCREENS.map(([k,num,label])=>({num,label,go:go(k),bg:k===screen?'var(--color-accent)':'transparent'}));
+    // today
+    const cnt={P:0,L:0,A:0,E:0};PUPILS.forEach(p=>cnt[this.status(p,TODAY)]++);
+    const stats=[{label:'Present',value:cnt.P,color:'var(--color-text)'},{label:'Late',value:cnt.L,color:'var(--color-accent-700)'},{label:'Absent',value:cnt.A,color:'var(--color-accent)'},{label:'Excused',value:cnt.E,color:'var(--color-text)'},{label:'Attendance',value:Math.round((cnt.P+cnt.L)/72*100)+'%',color:'var(--color-text)'}];
+    const classRows=CLASSES.map(c=>{const ps=PUPILS.filter(p=>p.cls===c.id);const pr=ps.filter(p=>'PL'.includes(this.status(p,TODAY))).length;const open=c.id==='4B';
+      return {...c,present:pr,bar:Math.round(pr/12*100)+'%',session:open?'Scanning now':'Submitted 09:02',tagCls:open?'tag-accent':'tag-neutral',open:()=>this.setState({screen:'records',rCls:c.id})};});
+    const absentList=PUPILS.filter(p=>this.status(p,TODAY)==='A').map(p=>({name:p.name,cls:p.cls,excuse:()=>this.setState(st=>({ov:{...st.ov,[p.id+'-'+TODAY]:'E'}}))}));
+    // pupils
+    const q=s.q.trim().toLowerCase();
+    const list=PUPILS.filter(p=>(s.pCls==='All'||p.cls===s.pCls)&&(!q||p.name.toLowerCase().includes(q)||p.id.toLowerCase().includes(q)));
+    const selP=PUPILS.find(p=>p.id===s.sel)||list[0]||PUPILS[0];
+    const lastScan=p=>{if(s.revoked[p.id])return '—';const st=this.status(p,TODAY);const r=rng(p.i+99);r();
+      return st==='P'?'Today 08:'+String(20+Math.floor(r()*24)).padStart(2,'0'):st==='L'?'Today 08:'+String(46+Math.floor(r()*12)):'Thu 24 Sep';};
+    const issued=p=>s.issued[p.id]||(p.i%9===4?'14 Sep 2026':'01 Sep 2026');
+    const pRows=list.map(p=>{const rv=!!s.revoked[p.id];return {name:p.name,id:p.id,cls:p.cls,qrStatus:rv?'Revoked':'Active',tagCls:rv?'tag-accent':'tag-neutral',issued:issued(p),last:lastScan(p),select:()=>this.setState({sel:p.id}),bg:p.id===selP.id?'var(--color-accent-100)':'transparent'};});
+    const ver=(s.ver[selP.id]||0)+1,rv=!!s.revoked[selP.id];
+    const sel={name:selP.name,id:selP.id,cls:selP.cls,qr:qrPath(selP.i+ver*1000),version:ver,issued:issued(selP),revoked:rv,qrOpacity:rv?0.15:1,revokeLabel:rv?'Reactivate code':'Revoke code'};
+    const seg=(opts,val,key)=>opts.map(id=>({id,bg:id===val?'var(--color-accent)':'transparent',fg:id===val?'var(--color-bg)':'inherit',pick:()=>this.setState({[key]:id})}));
+    // records
+    const rc=CLASSES.find(c=>c.id===s.rCls);
+    const rp=PUPILS.filter(p=>p.cls===s.rCls);
+    const days=DAYNUMS.map((n,k)=>({n,wd:WD[new Date(2026,8,n).getDay()],color:k===TODAY?'var(--color-accent)':'inherit'}));
+    let tot=0,tp=0;
+    const rRows=rp.map(p=>{let late=0,ab=0,pr=0;const cells=DAYNUMS.map((n,d)=>{const st=this.status(p,d);if(st==='L')late++;if(st==='A')ab++;if('PL'.includes(st))pr++;const m=marks[st];
+      return {bg:m[0],fg:m[1],label:m[2],ring:st==='E'?'inset 0 0 0 1px var(--color-neutral-500)':'none',title:p.name+' · '+n+' Sep · '+NAMES[st],
+        toggle:()=>{const nx=ORDER[(ORDER.indexOf(st)+1)%4];this.setState(x=>({ov:{...x.ov,[p.id+'-'+d]:nx}}));}};});
+      tot+=DAYNUMS.length;tp+=pr;const rate=Math.round(pr/DAYNUMS.length*100);
+      return {name:p.name,cells,late,absent:ab,rate:rate+'%',rateColor:rate<90?'var(--color-accent-700)':'inherit'};});
+    const daily=DAYNUMS.map((n,d)=>({v:rp.filter(p=>'PL'.includes(this.status(p,d))).length}));
+    const legend=ORDER.map(k=>({name:NAMES[k],bg:marks[k][0],fg:marks[k][1],label:marks[k][2]}));
+    // scan
+    const r=s.result;
+    const result=!r?{bg:'var(--color-surface)',fg:'var(--color-text)',kicker:'Ready',name:'Scan your card',meta:'Morning register is open until 09:15'}
+      :r.kind==='ok'?{bg:'var(--color-text)',fg:'var(--color-bg)',kicker:'Checked in · on time',name:r.name,meta:'Good morning! Recorded at '+r.time}
+      :r.kind==='late'?{bg:'var(--color-accent)',fg:'var(--color-bg)',kicker:'Checked in · late',name:r.name,meta:'Arrived '+r.time+' — please see the office'}
+      :{bg:'var(--color-accent-100)',fg:'var(--color-accent-800)',kicker:'Already scanned',name:r.name,meta:'You checked in at '+r.time+'. No need to scan again.'};
+    const recent=s.scans.slice(-5).reverse().map(x=>({name:x.name,time:x.time,label:x.late?'Late':'On time',tagCls:x.late?'tag-accent':'tag-neutral'}));
+    return {
+      showScreenNav:P.showScreenNav??true,screens,is,cur,shell:is.today||is.pupils||is.records,
+      pw:s.pw,onPw:e=>this.setState({pw:e.target.value}),
+      goScan:go('scan'),goStaffLogin:go('staffLogin'),goClassLogin:go('classLogin'),goToday:go('today'),goRecords:go('records'),goPupils:go('pupils'),
+      stats,classRows,absentList,noAbsent:absentList.length===0,
+      q:s.q,onQ:e=>this.setState({q:e.target.value}),pSeg:seg(['All',...CLASSES.map(c=>c.id)],s.pCls,'pCls'),pCount:list.length+' pupils',pRows,sel,
+      openPrint:()=>this.setState({dialog:'print'}),openRegen:()=>this.setState({dialog:'regen'}),closeDlg:()=>this.setState({dialog:null}),stop:e=>e.stopPropagation(),
+      regen:()=>this.setState(x=>({dialog:null,ver:{...x.ver,[selP.id]:(x.ver[selP.id]||0)+1},issued:{...x.issued,[selP.id]:'25 Sep 2026'},revoked:{...x.revoked,[selP.id]:false}})),
+      toggleRevoke:()=>this.setState(x=>({revoked:{...x.revoked,[selP.id]:!x.revoked[selP.id]}})),
+      dlg:{print:s.dialog==='print',regen:s.dialog==='regen'},
+      rCls:s.rCls,rTeacher:rc.teacher,rSeg:seg(CLASSES.map(c=>c.id),s.rCls,'rCls'),days,rRows,daily,legend,classRate:Math.round(tp/tot*100)+'% overall',
+      result,recent,scanCount:s.scans.length,lateCount:s.scans.filter(x=>x.late).length,simulate:()=>this.simulate(),
+      scanLine:React.createElement('div',{style:{position:'absolute',left:'6%',right:'6%',height:2,background:'var(--color-accent)',boxShadow:'0 0 14px 2px var(--color-accent)',animation:'dcScan 2.2s ease-in-out infinite alternate'}})
+    };
+  }
+}
+</script>
+</body>
+</html>
