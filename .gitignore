@@ -1,0 +1,79 @@
+# ─────────────────────────────────────────────────────────────
+# Asisten AI / agent (Claude Code, Laravel Boost, Cursor, dll.)
+# ─────────────────────────────────────────────────────────────
+/.claude/
+/CLAUDE.md
+/CLAUDE.local.md
+/AGENTS.md
+/boost.json
+/.ai/
+/.mcp.json
+/.codex
+/.cursor/
+/.cursorrules
+/.windsurf/
+/.windsurfrules
+/.junie/
+/.gemini/
+/GEMINI.md
+/.github/copilot-instructions.md
+/.aider*
+
+# ─────────────────────────────────────────────────────────────
+# Rahasia & konfigurasi lokal (salin dari .env.example)
+# ─────────────────────────────────────────────────────────────
+.env
+.env.backup
+.env.production
+.env.*.local
+/auth.json
+
+# ─────────────────────────────────────────────────────────────
+# Dependensi (dipasang ulang dengan composer install / npm install)
+# ─────────────────────────────────────────────────────────────
+/vendor
+/node_modules
+
+# ─────────────────────────────────────────────────────────────
+# Hasil build frontend (dibuat ulang dengan npm run build)
+# ─────────────────────────────────────────────────────────────
+/public/build
+/public/hot
+/public/fonts-manifest.dev.json
+/public/storage
+
+# ─────────────────────────────────────────────────────────────
+# Data runtime: log, cache, sesi, upload surat, kunci
+# (isi storage/ lainnya diatur .gitignore di dalam foldernya)
+# ─────────────────────────────────────────────────────────────
+*.log
+/storage/*.key
+/storage/pail
+/.phpunit.cache
+.phpunit.result.cache
+*.sqlite
+*.sqlite-journal
+
+# ─────────────────────────────────────────────────────────────
+# Editor & IDE
+# ─────────────────────────────────────────────────────────────
+/.idea
+/.vscode
+/.zed
+/.nova
+/.fleet
+/.phpactor.json
+_ide_helper.php
+_ide_helper_models.php
+.phpstorm.meta.php
+Homestead.json
+Homestead.yaml
+*.swp
+*.swo
+
+# ─────────────────────────────────────────────────────────────
+# Sistem operasi
+# ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
