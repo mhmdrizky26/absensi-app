@@ -141,9 +141,28 @@ class DutyTest extends TestCase
             ->where('classrooms.1.session.state', 'open')
             ->where('classrooms.2.session.state', 'not_opened')
             ->where('classrooms.2.total', 1)
-            ->has('absent', 1)
-            ->where('absent.0.name', 'Budi')
+            ->missing('absent')
         );
+    }
+
+    public function test_class_detail_lists_every_student_with_todays_mark(): void
+    {
+        $sick = $this->studentInClass(['name' => 'Citra']);
+        $this->mark($sick, AttendanceStatus::Sick)->update(['note' => 'Demam']);
+        $this->mark($this->studentInClass(['name' => 'Ayu']), AttendanceStatus::Present);
+        $this->mark($this->studentInClass(['name' => 'Budi']), AttendanceStatus::Present, '2026-09-25');
+        $this->studentInClass(['name' => 'Dodi', 'status' => StudentStatus::Transferred]);
+
+        $this->actingAs($this->piket)->getJson("/pantauan/kelas/{$this->classroom->id}")
+            ->assertOk()
+            ->assertJsonPath('name', 'VII-A')
+            ->assertJsonPath('students.*.name', ['Ayu', 'Budi', 'Citra'])
+            ->assertJsonPath('students.0.status', 'H')
+            ->assertJsonPath('students.1.status', null)
+            ->assertJsonPath('students.2.status', 'S')
+            ->assertJsonPath('students.2.note', 'Demam');
+
+        $this->actingAs(User::factory()->waliKelas()->create())->getJson("/pantauan/kelas/{$this->classroom->id}")->assertForbidden();
     }
 
     public function test_forgotten_sessions_are_closed_after_the_window(): void

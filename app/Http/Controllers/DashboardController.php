@@ -7,6 +7,7 @@ use App\Enums\StudentStatus;
 use App\Models\AcademicYear;
 use App\Models\Student;
 use App\Models\User;
+use App\Support\AttendanceTrend;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,10 +16,10 @@ use Inertia\Response;
 class DashboardController extends Controller
 {
     /**
-     * Show the staff dashboard. Its content depends on the user's role; the
-     * duty teacher's home is today's monitor.
+     * Show the staff dashboard: the role's menu and, below it, attendance
+     * trends. The duty teacher's home is today's monitor.
      */
-    public function __invoke(Request $request): Response|RedirectResponse
+    public function __invoke(Request $request, AttendanceTrend $trend): Response|RedirectResponse
     {
         if ($request->user()->hasRole(Role::GuruPiket)) {
             return redirect()->route('duty.monitor');
@@ -26,6 +27,7 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard', [
             'stats' => $request->user()->hasRole(Role::Admin) ? $this->adminStats() : null,
+            'trends' => $trend->overview($request->user(), $request->integer('classroom') ?: null, $request->string('periode')->value() === 'tahun'),
         ]);
     }
 

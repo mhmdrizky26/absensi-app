@@ -32,6 +32,7 @@ class DatabaseSeeder extends Seeder
 
         User::factory()->guruPiket()->create(['name' => 'Budi Santoso, S.Pd.', 'username' => 'piket']);
         User::factory()->guruPiket()->create(['name' => 'Dewi Lestari, S.Pd.', 'username' => 'piket2']);
+        User::factory()->guruBk()->create(['name' => 'Sri Wahyuni, S.Psi.', 'username' => 'bk']);
 
         $academicYear = AcademicYear::factory()->active()->create([
             'name' => '2026/2027',

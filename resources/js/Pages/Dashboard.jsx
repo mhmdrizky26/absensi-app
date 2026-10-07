@@ -14,7 +14,9 @@ import {
     UserCog,
     Users,
     CalendarX,
+    TriangleAlert,
 } from 'lucide-react';
+import TrendPanel from '@/Components/TrendPanel';
 import AppLayout from '@/Layouts/AppLayout';
 
 /**
@@ -24,22 +26,26 @@ const MODULES = {
     admin: [
         { icon: School, title: 'Kelas & kode kelas', body: 'Kelas VII–IX, wali kelas, dan kode kelas untuk scan.', href: '/kelas' },
         { icon: Users, title: 'Siswa', body: 'Data siswa per kelas dan import dari Excel.', href: '/siswa' },
-        { icon: UserCog, title: 'Pengguna', body: 'Akun admin, guru piket, dan wali kelas.', href: '/pengguna' },
+        { icon: UserCog, title: 'Pengguna', body: 'Akun admin, guru piket, wali kelas, dan guru BK.', href: '/pengguna' },
         { icon: CalendarRange, title: 'Tahun ajaran', body: 'Tahun ajaran aktif dan tanggal semester.', href: '/tahun-ajaran' },
         { icon: QrCode, title: 'Kartu QR', body: 'Cetak kartu QR massal per kelas, ganti kartu yang hilang.', href: '/kartu' },
         { icon: ListChecks, title: 'Pantauan hari ini', body: 'Kelas yang sudah dan belum absen, siswa alpa dan terlambat.', href: '/pantauan' },
         { icon: CalendarX, title: 'Jam absensi & libur', body: 'Jam buka-tutup scan dan kalender hari libur.', href: '/pengaturan' },
         { icon: BadgeCheck, title: 'Dispensasi', body: 'Pantau pengajuan dispensasi dan persetujuannya.', href: '/dispensasi' },
         { icon: ChartColumn, title: 'Rekap sekolah', body: 'Kehadiran seluruh kelas per bulan dan semester, export Excel.', href: '/rekap/sekolah' },
+        { icon: TriangleAlert, title: 'Siswa berisiko', body: 'Peringatan dini siswa yang sering alpa atau kehadirannya menurun.', href: '/siswa-berisiko' },
+    ],
+    guru_bk: [
+        { icon: TriangleAlert, title: 'Siswa berisiko', body: 'Peringatan dini: siswa yang sering alpa, alpa beruntun, atau kehadirannya menurun, lengkap dengan alasannya.', href: '/siswa-berisiko' },
     ],
     guru_piket: [
-        { icon: ListChecks, title: 'Pantauan hari ini', body: 'Kelas yang sudah dan belum absen, siswa alpa hari ini.', href: '/pantauan' },
+        { icon: ListChecks, title: 'Pantauan hari ini', body: 'Kelas yang sudah dan belum absen. Klik kelas untuk melihat siapa hadir, izin, sakit, dispensasi, atau alpa.', href: '/pantauan' },
         { icon: ScanLine, title: 'Scan terlambat', body: 'Scan kartu siswa yang datang setelah sesi kelas ditutup.', href: '/terlambat' },
-        { icon: FilePen, title: 'Input izin & sakit', body: 'Catat surat izin atau sakit yang dititipkan orang tua.', href: '/izin' },
         { icon: BadgeCheck, title: 'Dispensasi', body: 'Setujui dispensasi kegiatan sekolah bersama wali kelas.', href: '/dispensasi' },
     ],
     wali_kelas: [
         { icon: ClipboardList, title: 'Rekap kelas', body: 'Kehadiran kelas Anda dalam grid bulanan.', href: '/rekap' },
+        { icon: TriangleAlert, title: 'Siswa berisiko', body: 'Siswa kelas Anda yang perlu didekati, beserta alasannya.', href: '/siswa-berisiko' },
         { icon: FilePen, title: 'Input izin & sakit', body: 'Catat surat izin atau sakit siswa kelas Anda.', href: '/izin' },
         { icon: BadgeCheck, title: 'Dispensasi', body: 'Ajukan dan setujui dispensasi siswa kelas Anda bersama guru piket.', href: '/dispensasi' },
         { icon: ClockAlert, title: 'Koreksi status', body: 'Klik sel di rekap bulanan untuk mengubah status, lengkap dengan alasan.', href: '/rekap' },
@@ -54,7 +60,7 @@ const today = new Intl.DateTimeFormat('id-ID', {
     year: 'numeric',
 }).format(new Date());
 
-export default function Dashboard({ stats }) {
+export default function Dashboard({ stats, trends }) {
     const { auth } = usePage().props;
     const modules = MODULES[auth.user.role] ?? [];
 
@@ -120,6 +126,8 @@ export default function Dashboard({ stats }) {
                     );
                 })}
             </div>
+
+            {trends && <TrendPanel {...trends} />}
         </>
     );
 }

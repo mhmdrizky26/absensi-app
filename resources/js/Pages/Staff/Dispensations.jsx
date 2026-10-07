@@ -164,7 +164,7 @@ export default function Dispensations({ awaiting, others, homeroom }) {
                     <h4 style={{ margin: 0 }}>Ajukan dispensasi</h4>
 
                     <Field label="Siswa" htmlFor="student" error={form.errors.student_id} hint={homeroom ? `Wali kelas hanya bisa memilih siswa kelas ${homeroom}.` : undefined}>
-                        <StudentPicker id="student" value={student} onChange={chooseStudent} error={form.errors.student_id} placeholder={homeroom ? `Cari siswa kelas ${homeroom}` : undefined} />
+                        <StudentPicker id="student" value={student} onChange={chooseStudent} error={form.errors.student_id} date={form.data.from} placeholder={homeroom ? `Cari siswa kelas ${homeroom}` : undefined} />
                     </Field>
 
                     <div className="form-grid">

@@ -234,7 +234,7 @@ textarea.input { min-height: 90px; resize: vertical; }
 
 /* — dialog — */
 .dialog-backdrop {
-  position: fixed; inset: 0; display: grid; place-items: center;
+  position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;
   padding: var(--space-4);
   background: color-mix(in srgb, var(--color-neutral-900) 50%, transparent);
 }

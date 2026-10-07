@@ -4,9 +4,11 @@ namespace Tests\Feature\Staff;
 
 use App\Enums\AttendanceSource;
 use App\Enums\AttendanceStatus;
+use App\Enums\DispensationStatus;
 use App\Models\AcademicYear;
 use App\Models\Attendance;
 use App\Models\Classroom;
+use App\Models\Dispensation;
 use App\Models\Holiday;
 use App\Models\Student;
 use App\Models\User;
@@ -54,12 +56,12 @@ class ExcuseTest extends TestCase
         ];
     }
 
-    public function test_piket_records_sick_leave_over_school_days_only(): void
+    public function test_sick_leave_is_recorded_over_school_days_only(): void
     {
         Holiday::factory()->create(['date' => '2026-10-02']);
 
         // Kamis 1 Okt s.d. Senin 5 Okt: Jumat libur, Sabtu–Minggu bukan hari sekolah.
-        $this->actingAs(User::factory()->guruPiket()->create())
+        $this->actingAs(User::factory()->admin()->create())
             ->post('/izin', $this->payload(['from' => '2026-10-01', 'to' => '2026-10-05']))
             ->assertSessionHas('success', 'Ayu dicatat Sakit untuk 2 hari (1 Okt, 5 Okt).');
 
@@ -87,7 +89,7 @@ class ExcuseTest extends TestCase
         Storage::fake('local');
         $piket = User::factory()->guruPiket()->create();
 
-        $this->actingAs($piket)->post('/izin', $this->payload(['attachment' => UploadedFile::fake()->image('surat.jpg')]));
+        $this->actingAs(User::factory()->admin()->create())->post('/izin', $this->payload(['attachment' => UploadedFile::fake()->image('surat.jpg')]));
 
         $attendance = Attendance::firstOrFail();
         $this->assertNotNull($attendance->attachment_path);
@@ -111,9 +113,18 @@ class ExcuseTest extends TestCase
         $this->assertDatabaseCount('attendances', 1);
     }
 
+    public function test_guru_piket_has_no_excuse_page(): void
+    {
+        $piket = User::factory()->guruPiket()->create();
+
+        $this->actingAs($piket)->get('/izin')->assertForbidden();
+        $this->actingAs($piket)->post('/izin', $this->payload())->assertForbidden();
+        $this->assertDatabaseCount('attendances', 0);
+    }
+
     public function test_one_letter_covers_at_most_fourteen_days(): void
     {
-        $this->actingAs(User::factory()->guruPiket()->create())
+        $this->actingAs(User::factory()->admin()->create())
             ->post('/izin', $this->payload(['to' => '2026-10-12']))
             ->assertSessionHasErrors('to');
     }
@@ -133,5 +144,27 @@ class ExcuseTest extends TestCase
             ->getJson('/cari-siswa?q=ayu')
             ->assertJsonCount(1, 'students')
             ->assertJsonPath('students.0.name', 'Ayu Lestari');
+    }
+
+    public function test_search_hides_students_already_excused_or_dispensed_on_the_date(): void
+    {
+        $sick = Student::factory()->create(['name' => 'Ayu Sakit']);
+        $dispensed = Student::factory()->create(['name' => 'Ayu Lomba']);
+        $rejected = Student::factory()->create(['name' => 'Ayu Ditolak']);
+        foreach ([$sick, $dispensed, $rejected] as $student) {
+            $student->placeIn($this->classroom, $this->academicYear);
+        }
+        Attendance::factory()->create(['student_id' => $sick->id, 'classroom_id' => $this->classroom->id, 'date' => '2026-09-28', 'status' => AttendanceStatus::Sick, 'source' => AttendanceSource::Staff]);
+        Dispensation::factory()->create(['student_id' => $dispensed->id, 'classroom_id' => $this->classroom->id, 'starts_on' => '2026-09-25', 'ends_on' => '2026-09-29']);
+        Dispensation::factory()->create(['student_id' => $rejected->id, 'classroom_id' => $this->classroom->id, 'status' => DispensationStatus::Rejected]);
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)->getJson('/cari-siswa?q=ayu&date=2026-09-28')
+            ->assertJsonPath('students.*.name', ['Ayu', 'Ayu Ditolak'])
+            ->assertJsonPath('hidden', 2);
+
+        $this->actingAs($admin)->getJson('/cari-siswa?q=ayu&date=2026-09-30')
+            ->assertJsonCount(4, 'students')
+            ->assertJsonPath('hidden', 0);
     }
 }

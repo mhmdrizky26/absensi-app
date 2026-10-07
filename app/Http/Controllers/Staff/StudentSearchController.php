@@ -16,7 +16,8 @@ class StudentSearchController extends Controller
 {
     /**
      * Find active students by name, NIS or NISN for staff forms. A wali kelas
-     * only finds students of their own class.
+     * only finds students of their own class. With `date`, students already
+     * excused or dispensed on that day are left out and counted as `hidden`.
      */
     public function index(Request $request): JsonResponse
     {
@@ -30,12 +31,17 @@ class StudentSearchController extends Controller
         $user = $request->user();
         $homeroomId = $user->hasRole(Role::WaliKelas) ? ($user->currentHomeroom()?->id ?? 0) : null;
 
-        $students = Student::query()
+        $matching = Student::query()
             ->where('status', StudentStatus::Active)
             ->search($term)
             ->whereHas('classrooms', fn (Builder $query) => $query
                 ->where('classrooms.academic_year_id', $academicYear->id)
-                ->when($homeroomId !== null, fn (Builder $query) => $query->whereKey($homeroomId)))
+                ->when($homeroomId !== null, fn (Builder $query) => $query->whereKey($homeroomId)));
+
+        $date = $request->date('date');
+        $available = (clone $matching)->when($date, fn (Builder $query) => $query->notExcusedOn($date));
+
+        $students = $available
             ->with(['classrooms' => fn (BelongsToMany $query) => $query->wherePivot('academic_year_id', $academicYear->id)])
             ->orderBy('name')
             ->limit(10)
@@ -47,6 +53,9 @@ class StudentSearchController extends Controller
                 'classroom' => $student->classrooms->first()?->name,
             ]);
 
-        return response()->json(['students' => $students]);
+        return response()->json([
+            'students' => $students,
+            'hidden' => $date ? $matching->count() - (clone $available)->count() : 0,
+        ]);
     }
 }

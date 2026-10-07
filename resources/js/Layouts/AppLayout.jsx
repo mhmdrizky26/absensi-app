@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
-import { LogOut, Menu, X } from 'lucide-react';
+import { LogOut, Menu, UserRound, X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import ProfileModal from '@/Components/ProfileModal';
 import { labelStackedTables } from '@/lib/stackTables';
 
 /**
@@ -16,6 +17,7 @@ const NAV_LINKS = {
         { href: '/izin', label: 'Izin & sakit' },
         { href: '/dispensasi', label: 'Dispensasi', badge: 'pendingDispensations' },
         { href: '/rekap', label: 'Rekap' },
+        { href: '/siswa-berisiko', label: 'Siswa berisiko' },
         { href: '/pengguna', label: 'Pengguna' },
         { href: '/tahun-ajaran', label: 'Tahun ajaran' },
         { href: '/pengaturan', label: 'Pengaturan' },
@@ -23,12 +25,16 @@ const NAV_LINKS = {
     guru_piket: [
         { href: '/pantauan', label: 'Pantauan' },
         { href: '/terlambat', label: 'Scan terlambat' },
-        { href: '/izin', label: 'Izin & sakit' },
         { href: '/dispensasi', label: 'Dispensasi', badge: 'pendingDispensations' },
+    ],
+    guru_bk: [
+        { href: '/dasbor', label: 'Dasbor' },
+        { href: '/siswa-berisiko', label: 'Siswa berisiko' },
     ],
     wali_kelas: [
         { href: '/dasbor', label: 'Dasbor' },
         { href: '/rekap', label: 'Rekap kelas' },
+        { href: '/siswa-berisiko', label: 'Siswa berisiko' },
         { href: '/izin', label: 'Izin & sakit' },
         { href: '/dispensasi', label: 'Dispensasi', badge: 'pendingDispensations' },
     ],
@@ -71,6 +77,9 @@ export default function AppLayout({ children }) {
     const mainRef = useRef(null);
     const [compact, setCompact] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
+    const [profileOpen, setProfileOpen] = useState(false);
+    // Admin mengubah akunnya sendiri lewat halaman Pengguna, jadi tanpa modal profil.
+    const hasProfile = user.role !== 'admin';
 
     // Lipat menu menjadi tombol ☰ kalau semua tautan tidak muat dalam satu baris.
     useLayoutEffect(() => {
@@ -140,14 +149,25 @@ export default function AppLayout({ children }) {
                 </div>
 
                 <div ref={sideRef} className="nav-side">
-                    <span className="nav-user" title={`${user.name} · ${user.roleLabel}`}>
-                        <span className="avatar" aria-hidden="true">
-                            {initials(user.name)}
+                    {hasProfile ? (
+                        <button type="button" className="nav-user" title={`${user.name} · ${user.roleLabel} — ganti username atau password`} onClick={() => setProfileOpen(true)}>
+                            <span className="avatar" aria-hidden="true">
+                                {initials(user.name)}
+                            </span>
+                            <span className="nav-user-name">
+                                {user.name} <span className="text-muted">· {user.roleLabel}</span>
+                            </span>
+                        </button>
+                    ) : (
+                        <span className="nav-user" title={`${user.name} · ${user.roleLabel}`}>
+                            <span className="avatar" aria-hidden="true">
+                                {initials(user.name)}
+                            </span>
+                            <span className="nav-user-name">
+                                {user.name} <span className="text-muted">· {user.roleLabel}</span>
+                            </span>
                         </span>
-                        <span className="nav-user-name">
-                            {user.name} <span className="text-muted">· {user.roleLabel}</span>
-                        </span>
-                    </span>
+                    )}
                     {compact ? (
                         <button type="button" className="btn btn-secondary nav-menu-button" aria-expanded={menuOpen} aria-controls="nav-drawer" onClick={() => setMenuOpen((open) => !open)}>
                             {menuOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
@@ -169,6 +189,18 @@ export default function AppLayout({ children }) {
                             <span className="text-muted">{user.roleLabel}</span>
                         </div>
                         <NavLinks links={links} url={url} counts={counts} className="nav-drawer-link" onNavigate={() => setMenuOpen(false)} />
+                        {hasProfile && (
+                            <button
+                                type="button"
+                                className="nav-drawer-link"
+                                onClick={() => {
+                                    setMenuOpen(false);
+                                    setProfileOpen(true);
+                                }}
+                            >
+                                Profil <UserRound size={16} aria-hidden="true" />
+                            </button>
+                        )}
                         <Link href="/keluar" method="post" as="button" className="nav-drawer-link nav-drawer-logout">
                             Keluar <LogOut size={16} aria-hidden="true" />
                         </Link>
@@ -176,6 +208,7 @@ export default function AppLayout({ children }) {
                 )}
             </nav>
             {compact && menuOpen && <div className="nav-scrim" onClick={() => setMenuOpen(false)} />}
+            {hasProfile && profileOpen && <ProfileModal user={user} onClose={() => setProfileOpen(false)} />}
 
             <main ref={mainRef} className="page">
                 {flash.success && (

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Account\ProfileController;
 use App\Http\Controllers\Admin\AcademicYearActivationController;
 use App\Http\Controllers\Admin\AcademicYearController;
 use App\Http\Controllers\Admin\CardController;
@@ -23,8 +24,10 @@ use App\Http\Controllers\ClassScan\ScanController;
 use App\Http\Controllers\ClassScan\ScannerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Duty\LateScanController;
+use App\Http\Controllers\Duty\MonitorClassroomController;
 use App\Http\Controllers\Duty\MonitorController;
 use App\Http\Controllers\Recap\AttendanceCorrectionController;
+use App\Http\Controllers\Recap\EarlyWarningController;
 use App\Http\Controllers\Recap\MarkHistoryController;
 use App\Http\Controllers\Recap\MonthlyRecapController;
 use App\Http\Controllers\Recap\RecapExportController;
@@ -59,15 +62,20 @@ Route::middleware('auth')->group(function () {
 
     Route::get('dasbor', DashboardController::class)->name('dashboard');
 
+    // Profil untuk guru; admin mengatur akunnya sendiri lewat halaman Pengguna.
+    Route::middleware('role:guru_piket,wali_kelas,guru_bk')->group(function () {
+        Route::put('profil/username', [ProfileController::class, 'updateUsername'])->name('profile.username');
+        Route::put('profil/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+    });
+
     Route::middleware('role:admin,guru_piket')->group(function () {
         Route::get('pantauan', [MonitorController::class, 'index'])->name('duty.monitor');
+        Route::get('pantauan/kelas/{classroom}', [MonitorClassroomController::class, 'show'])->name('duty.monitor.classroom');
         Route::get('terlambat', [LateScanController::class, 'create'])->name('duty.late');
         Route::post('terlambat', [LateScanController::class, 'store'])->name('duty.late.store');
     });
 
     Route::middleware('role:admin,guru_piket,wali_kelas')->group(function () {
-        Route::get('izin', [ExcuseController::class, 'index'])->name('excuses.index');
-        Route::post('izin', [ExcuseController::class, 'store'])->name('excuses.store');
         Route::get('surat/{attendance}', [AttachmentController::class, 'show'])->name('attachments.show');
         Route::get('cari-siswa', [StudentSearchController::class, 'index'])->name('students.search');
 
@@ -77,6 +85,18 @@ Route::middleware('auth')->group(function () {
         Route::post('dispensasi/{dispensation}/tolak', [DispensationController::class, 'reject'])->name('dispensations.reject');
         Route::delete('dispensasi/{dispensation}', [DispensationController::class, 'destroy'])->name('dispensations.destroy');
         Route::get('dispensasi/{dispensation}/surat', [DispensationController::class, 'attachment'])->name('dispensations.attachment');
+    });
+
+    // Izin & sakit dicatat admin dan wali kelas; guru piket melihatnya per kelas di Pantauan.
+    Route::middleware('role:admin,wali_kelas')->group(function () {
+        Route::get('izin', [ExcuseController::class, 'index'])->name('excuses.index');
+        Route::post('izin', [ExcuseController::class, 'store'])->name('excuses.store');
+    });
+
+    // Peringatan dini: seluruh sekolah untuk admin dan guru BK, kelas sendiri untuk wali kelas.
+    Route::middleware('role:admin,guru_bk,wali_kelas')->group(function () {
+        Route::get('siswa-berisiko', [EarlyWarningController::class, 'index'])->name('early-warning');
+        Route::get('siswa-berisiko/{student}', [EarlyWarningController::class, 'show'])->name('early-warning.student');
     });
 
     Route::middleware('role:admin,wali_kelas')->prefix('rekap')->group(function () {

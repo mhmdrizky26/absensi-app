@@ -19,7 +19,7 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
     const [batchOpen, setBatchOpen] = useState(false);
     const [deleting, setDeleting] = useState(null);
     const [regenerating, setRegenerating] = useState(null);
-    const [showCodes, setShowCodes] = useState(true);
+    const [showCodes, setShowCodes] = useState(false);
     const [standardizing, setStandardizing] = useState(false);
 
     const form = useForm({ grade: 7, section: '', homeroom_teacher_id: '', access_code: '' });

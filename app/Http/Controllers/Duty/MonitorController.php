@@ -18,7 +18,7 @@ class MonitorController extends Controller
 {
     /**
      * Today's attendance across the school: which classes have scanned,
-     * how many of each mark, and who is Alpa or late.
+     * how many of each mark, and who came late.
      */
     public function index(AttendanceWindow $window): Response
     {
@@ -71,10 +71,10 @@ class MonitorController extends Controller
             ];
         });
 
-        $studentsWith = fn (AttendanceStatus $status) => Attendance::query()
+        $late = Attendance::query()
             ->with(['student:id,name,nis', 'classroom:id,name'])
             ->whereDate('attendances.date', $today)
-            ->where('attendances.status', $status)
+            ->where('attendances.status', AttendanceStatus::Late)
             ->join('classrooms', 'classrooms.id', '=', 'attendances.classroom_id')
             ->join('students', 'students.id', '=', 'attendances.student_id')
             ->orderBy('classrooms.grade')
@@ -103,8 +103,7 @@ class MonitorController extends Controller
                 'holiday' => $holiday?->description,
             ],
             'classrooms' => $rows,
-            'absent' => $studentsWith(AttendanceStatus::Absent),
-            'late' => $studentsWith(AttendanceStatus::Late),
+            'late' => $late,
         ]);
     }
 }
