@@ -1,6 +1,9 @@
 import { Head, Link, usePoll } from '@inertiajs/react';
-import { FilePen, ScanLine } from 'lucide-react';
+import { ChevronRight, Paperclip, ScanLine } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import Modal from '@/Components/Modal';
 import AppLayout from '@/Layouts/AppLayout';
+import { getJson } from '@/lib/http';
 
 const timeFormatter = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' });
 const dayFormatter = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -27,10 +30,102 @@ function SessionTag({ session, windowOpened }) {
     return windowOpened ? <span className="tag tag-danger">Belum absen</span> : <span className="tag tag-outline">Belum dibuka</span>;
 }
 
-export default function Monitor({ date, window: scanWindow, classrooms, absent, late }) {
-    usePoll(30000, { only: ['classrooms', 'absent', 'late'] });
+/**
+ * Daftar siswa satu kelas hari ini, dikelompokkan per status.
+ */
+function ClassroomDetail({ classroom, onClose }) {
+    const [detail, setDetail] = useState(null);
+    const [failed, setFailed] = useState(false);
+    const [filter, setFilter] = useState('all');
 
-    const totals = { H: 0, T: 0, S: 0, I: 0, A: 0 };
+    useEffect(() => {
+        getJson(`/pantauan/kelas/${classroom.id}`)
+            .then(setDetail)
+            .catch(() => setFailed(true));
+    }, [classroom.id]);
+
+    const groups = detail
+        ? [...STATUS_LABELS, [null, 'Belum tercatat']]
+              .map(([status, label]) => ({ key: status ?? 'none', status, label, students: detail.students.filter((student) => student.status === status) }))
+              .filter((group) => group.students.length > 0)
+        : [];
+    const shown = groups.filter((group) => filter === 'all' || group.key === filter);
+
+    return (
+        <Modal open title={`Kelas ${classroom.name}`} onClose={onClose} width={560}>
+            <p className="text-muted" style={{ margin: '0 0 16px', fontSize: 14 }}>
+                {classroom.homeroomTeacher ? `Wali kelas ${classroom.homeroomTeacher} · ` : ''}
+                {classroom.total} siswa
+            </p>
+
+            {failed && <p className="alert alert-error">Data kelas gagal dimuat. Tutup lalu coba lagi.</p>}
+            {!detail && !failed && <p className="text-muted">Memuat…</p>}
+
+            {groups.length > 0 && (
+                <div className="class-filter" role="group" aria-label="Tampilkan status">
+                    <button type="button" className={`class-filter-chip ${filter === 'all' ? 'is-active' : ''}`} aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>
+                        Semua <b>{detail.students.length}</b>
+                    </button>
+                    {groups.map((group) => (
+                        <button key={group.key} type="button" className={`class-filter-chip ${filter === group.key ? 'is-active' : ''}`} aria-pressed={filter === group.key} onClick={() => setFilter(group.key)}>
+                            <span className={`mark ${group.status ? `mark-${group.status}` : 'mark-empty'}`} aria-hidden="true">
+                                {group.status ?? '·'}
+                            </span>
+                            {group.label} <b>{group.students.length}</b>
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            <div className="class-detail">
+                {shown.map((group) => (
+                    <section key={group.key}>
+                        <h5 className="class-detail-head">
+                            {group.status ? <span className={`tag status-${group.status}`}>{group.label}</span> : <span className="tag tag-outline">{group.label}</span>}
+                            <span className="text-muted">{group.students.length} siswa</span>
+                        </h5>
+                        {group.students.map((student) => (
+                            <div key={student.id} className="class-detail-row">
+                                <span style={{ flex: 1 }}>
+                                    {student.name}
+                                    <span className="cell-sub">
+                                        NIS {student.nis}
+                                        {student.note ? ` · ${student.note}` : ''}
+                                        {student.attachmentId && (
+                                            <>
+                                                {' · '}
+                                                <a href={`/surat/${student.attachmentId}`} target="_blank" rel="noreferrer">
+                                                    <Paperclip size={12} aria-hidden="true" /> surat
+                                                </a>
+                                            </>
+                                        )}
+                                    </span>
+                                </span>
+                                {student.recordedAt && (
+                                    <span className="text-muted" style={{ fontSize: 13 }}>
+                                        {formatTime(student.recordedAt)}
+                                    </span>
+                                )}
+                            </div>
+                        ))}
+                    </section>
+                ))}
+            </div>
+
+            <div className="dialog-actions">
+                <button type="button" className="btn btn-secondary" onClick={onClose}>
+                    Tutup
+                </button>
+            </div>
+        </Modal>
+    );
+}
+
+export default function Monitor({ date, window: scanWindow, classrooms, late }) {
+    usePoll(30000, { only: ['classrooms', 'late'] });
+    const [openClassroom, setOpenClassroom] = useState(null);
+
+    const totals = Object.fromEntries(STATUS_LABELS.map(([status]) => [status, 0]));
     let students = 0;
 
     for (const classroom of classrooms) {
@@ -52,9 +147,6 @@ export default function Monitor({ date, window: scanWindow, classrooms, absent, 
                     <h1>{dayFormatter.format(new Date(`${date}T00:00:00`))}</h1>
                 </div>
                 <div className="page-actions">
-                    <Link href="/izin" className="btn btn-secondary">
-                        <FilePen size={16} aria-hidden="true" /> Izin & sakit
-                    </Link>
                     <Link href="/terlambat" className="btn btn-primary">
                         <ScanLine size={16} aria-hidden="true" /> Scan terlambat
                     </Link>
@@ -66,12 +158,12 @@ export default function Monitor({ date, window: scanWindow, classrooms, absent, 
             )}
 
             <p className="text-muted" style={{ fontSize: 14 }}>
-                Scan kelas {formatTime(scanWindow.opensAt)}–{formatTime(scanWindow.closesAt)}. Kelas yang lupa menekan "Selesai" ditutup otomatis pukul {formatTime(scanWindow.closesAt)}. Halaman ini diperbarui setiap 30 detik.
+                Scan kelas {formatTime(scanWindow.opensAt)}–{formatTime(scanWindow.closesAt)}. Kelas yang lupa menekan "Selesai" ditutup otomatis pukul {formatTime(scanWindow.closesAt)}. Halaman ini diperbarui setiap 30 detik. Klik kelas untuk melihat daftar siswanya hari ini.
             </p>
 
             <div className="stat-strip">
                 {STATUS_LABELS.map(([status, label]) => (
-                    <div key={status} className="stat">
+                    <div key={status} className={`stat status-${status}`}>
                         <div className="stat-label">{label}</div>
                         <div className="stat-value" style={status === 'A' && totals.A > 0 ? { color: 'var(--color-danger)' } : undefined}>
                             {totals[status]}
@@ -112,8 +204,12 @@ export default function Monitor({ date, window: scanWindow, classrooms, absent, 
                                     const percent = classroom.total ? Math.round((present / classroom.total) * 100) : 0;
 
                                     return (
-                                        <tr key={classroom.id}>
-                                            <td style={{ fontWeight: 800 }}>{classroom.name}</td>
+                                        <tr key={classroom.id} className="row-link" onClick={() => setOpenClassroom(classroom)}>
+                                            <td style={{ fontWeight: 800 }}>
+                                                <button type="button" className="row-link-button" onClick={() => setOpenClassroom(classroom)}>
+                                                    {classroom.name} <ChevronRight size={14} aria-hidden="true" />
+                                                </button>
+                                            </td>
                                             <td>
                                                 <SessionTag session={classroom.session} windowOpened={windowOpened && scanWindow.isSchoolDay} />
                                             </td>
@@ -142,24 +238,10 @@ export default function Monitor({ date, window: scanWindow, classrooms, absent, 
                 </section>
 
                 <aside style={{ minWidth: 0 }}>
-                    <h4>Alpa hari ini ({absent.length})</h4>
+                    <h4>Terlambat ({late.length})</h4>
                     <p className="text-muted" style={{ fontSize: 13 }}>
-                        Siswa yang datang terlambat di-scan lewat "Scan terlambat". Surat sakit/izin dicatat lewat "Izin & sakit".
+                        Siswa yang datang setelah sesi kelas ditutup di-scan lewat "Scan terlambat".
                     </p>
-                    <div className="scan-roster" style={{ borderTop: '2px solid var(--color-divider)' }}>
-                        {absent.length === 0 && <p className="text-muted">Belum ada siswa Alpa.</p>}
-                        {absent.map((row) => (
-                            <div key={row.id} className="scan-roster-row">
-                                <span style={{ width: 48, fontWeight: 800, fontSize: 13 }}>{row.classroom}</span>
-                                <span style={{ flex: 1 }}>
-                                    {row.name}
-                                    <span className="cell-sub">NIS {row.nis}</span>
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-
-                    <h4 style={{ marginTop: 32 }}>Terlambat ({late.length})</h4>
                     <div className="scan-roster" style={{ borderTop: '2px solid var(--color-divider)' }}>
                         {late.length === 0 && <p className="text-muted">Belum ada siswa terlambat.</p>}
                         {late.map((row) => (
@@ -174,6 +256,8 @@ export default function Monitor({ date, window: scanWindow, classrooms, absent, 
                     </div>
                 </aside>
             </div>
+
+            {openClassroom && <ClassroomDetail classroom={openClassroom} onClose={() => setOpenClassroom(null)} />}
         </>
     );
 }

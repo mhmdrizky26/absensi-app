@@ -6,11 +6,12 @@ use App\Enums\Role;
 use App\Models\AcademicYear;
 use App\Models\Classroom;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 /**
- * Which classrooms a user may see in recaps: an admin sees every class of
- * the active year, a wali kelas only the class they lead.
+ * Which classrooms a user may see in recaps: an admin or guru BK sees every
+ * class of the active year, a wali kelas only the class they lead.
  */
 class RecapScope
 {
@@ -26,7 +27,7 @@ class RecapScope
         }
 
         if ($user->hasRole(Role::WaliKelas)) {
-            return collect([$user->currentHomeroom()])->filter()->values();
+            return new EloquentCollection(array_filter([$user->currentHomeroom()]));
         }
 
         return $academicYear->classrooms()->orderBy('grade')->orderBy('name')->get();

@@ -50,6 +50,11 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => ['role' => Role::WaliKelas]);
     }
 
+    public function guruBk(): static
+    {
+        return $this->state(fn (array $attributes) => ['role' => Role::GuruBk]);
+    }
+
     public function inactive(): static
     {
         return $this->state(fn (array $attributes) => ['is_active' => false]);

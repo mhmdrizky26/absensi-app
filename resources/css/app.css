@@ -116,13 +116,21 @@ button.btn { font: inherit; font-family: var(--font-heading); font-weight: var(-
 .nav-drawer-logout { font-weight: 800; border-bottom: 0; }
 .nav-scrim { position: fixed; inset: 0; z-index: 20; background: color-mix(in srgb, var(--color-neutral-900) 35%, transparent); }
 .nav-user {
+    color: inherit;
+    font: inherit;
+    background: transparent;
+    border: 0;
+    border-left: 1px solid var(--color-divider);
+    cursor: pointer;
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 13px;
-    padding-left: 16px;
-    border-left: 1px solid var(--color-divider);
+    padding: 0 0 0 16px;
 }
+button.nav-user:hover .nav-user-name { text-decoration: underline; text-underline-offset: 3px; }
+button.nav-user:hover .avatar { background: var(--color-accent); }
+span.nav-user { cursor: default; }
 .avatar {
     width: 28px;
     height: 28px;
@@ -340,6 +348,9 @@ a.module:hover { background: color-mix(in srgb, var(--color-text) 5%, transparen
     gap: 16px;
 }
 .code-input { min-height: 56px !important; font-size: 26px; letter-spacing: .35em; font-weight: 800; text-transform: uppercase; }
+.code-reveal { position: relative; }
+.code-reveal .code-input { padding-right: 56px; }
+.code-reveal-toggle { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); min-height: 44px; min-width: 44px; padding: 0; justify-content: center; }
 @media (max-width: 640px) {
     /* Di HP kolom kode kelas harus langsung terlihat tanpa menggulir. */
     .auth-class { align-content: start; }
@@ -423,6 +434,25 @@ a.module:hover { background: color-mix(in srgb, var(--color-text) 5%, transparen
 
 /* — guru piket & staf — */
 .tag-danger { background: color-mix(in srgb, var(--color-danger) 14%, transparent); color: var(--color-danger); font-weight: 600; }
+.row-link { cursor: pointer; }
+.row-link:hover td { background: color-mix(in srgb, var(--color-accent) 6%, transparent); }
+.row-link-button { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: transparent; font: inherit; font-weight: 800; color: var(--color-accent); cursor: pointer; }
+.class-detail {
+    display: flex; flex-direction: column; gap: 20px; max-height: min(60vh, 560px); overflow-y: auto; margin-bottom: 8px;
+    padding-right: 12px; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--color-neutral-400) transparent;
+}
+.class-detail::-webkit-scrollbar { width: 6px; }
+.class-detail::-webkit-scrollbar-track { background: transparent; }
+.class-detail::-webkit-scrollbar-thumb { background: var(--color-neutral-400); border-radius: 3px; }
+.class-detail::-webkit-scrollbar-thumb:hover { background: var(--color-neutral-600); }
+.class-detail-row { display: flex; align-items: center; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--color-divider); font-size: 14px; }
+.class-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.class-filter-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border: 1px solid var(--color-divider); background: transparent; font: inherit; font-size: 13px; color: inherit; cursor: pointer; }
+.class-filter-chip:first-child { padding-left: 10px; }
+.class-filter-chip:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.class-filter-chip.is-active { border-color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent); }
+.class-filter-chip .mark { width: 22px; height: 22px; cursor: inherit; }
+.class-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 4px; padding-bottom: 6px; border-bottom: 2px solid var(--color-divider); font-size: 14px; }
 .monitor-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 40px; align-items: start; }
 .late-layout, .excuse-layout, .settings-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: start; }
 .excuse-layout { grid-template-columns: minmax(300px, 420px) minmax(0, 1fr); }
@@ -454,6 +484,8 @@ a.module:hover { background: color-mix(in srgb, var(--color-text) 5%, transparen
 
 /* — rekap — */
 a.seg-opt { color: inherit; text-decoration: none; }
+.seg-fill { display: flex; }
+.seg-fill .seg-opt { flex: 1 1 0; justify-content: center; padding-block: 10px; font-size: 14px; font-weight: 600; }
 .seg-opt[data-active] { background: var(--color-accent); color: var(--color-bg); }
 .recap-toolbar {
     display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px;
@@ -473,12 +505,31 @@ a.seg-opt { color: inherit; text-decoration: none; }
 }
 button.mark:hover:not(:disabled) { outline: 2px solid var(--color-accent); outline-offset: 0; }
 button.mark:disabled { cursor: default; }
-.mark-H { background: var(--color-neutral-200); color: var(--color-text); }
-.mark-T { background: var(--color-accent-200); color: var(--color-accent-800); }
-.mark-D { background: var(--color-accent); color: #fff; }
-.mark-S { background: transparent; color: var(--color-neutral-700); box-shadow: inset 0 0 0 1px var(--color-neutral-400); }
-.mark-I { background: transparent; color: var(--color-accent-700); box-shadow: inset 0 0 0 1px var(--color-accent-300); }
-.mark-A { background: var(--color-danger); color: #fff; }
+/* Warna per status: Hadir hijau lembut (paling banyak), status lain berwarna penuh supaya menonjol. */
+:root {
+    --status-H-bg: #d4efdc; --status-H-fg: #14612f; --status-H-line: #2e9e5b;
+    --status-T-bg: #f5b324; --status-T-fg: #3b2700; --status-T-line: #f5b324;
+    --status-D-bg: var(--color-accent); --status-D-fg: #fff; --status-D-line: var(--color-accent);
+    --status-S-bg: #a23aa8; --status-S-fg: #fff; --status-S-line: #a23aa8;
+    --status-I-bg: #0b7a77; --status-I-fg: #fff; --status-I-line: #0b7a77;
+    --status-A-bg: var(--color-danger); --status-A-fg: #fff; --status-A-line: var(--color-danger);
+
+    /* Warna seri grafik (divalidasi: beda jelas, juga untuk buta warna). */
+    --chart-T: #d08c00; --chart-D: #2360e8; --chart-S: #a23aa8; --chart-I: #00918a; --chart-A: #c62828;
+}
+.mark-H, .tag.status-H { background: var(--status-H-bg); color: var(--status-H-fg); }
+.mark-T, .tag.status-T { background: var(--status-T-bg); color: var(--status-T-fg); }
+.mark-D, .tag.status-D { background: var(--status-D-bg); color: var(--status-D-fg); }
+.mark-S, .tag.status-S { background: var(--status-S-bg); color: var(--status-S-fg); }
+.mark-I, .tag.status-I { background: var(--status-I-bg); color: var(--status-I-fg); }
+.mark-A, .tag.status-A { background: var(--status-A-bg); color: var(--status-A-fg); }
+.tag[class*='status-'] { font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.stat.status-H { box-shadow: inset 0 4px 0 var(--status-H-line); }
+.stat.status-T { box-shadow: inset 0 4px 0 var(--status-T-line); }
+.stat.status-D { box-shadow: inset 0 4px 0 var(--status-D-line); }
+.stat.status-S { box-shadow: inset 0 4px 0 var(--status-S-line); }
+.stat.status-I { box-shadow: inset 0 4px 0 var(--status-I-line); }
+.stat.status-A { box-shadow: inset 0 4px 0 var(--status-A-line); }
 .mark-empty { color: var(--color-neutral-400); }
 
 .recap-grid-wrap { overflow-x: auto; border-top: 2px solid var(--color-text); }
@@ -590,3 +641,91 @@ button.mark:disabled { cursor: default; }
 @media (max-width: 720px) { .promotion-bar { position: static; } }
 .code-field { display: flex; flex-wrap: wrap; gap: 6px; }
 .code-field .input { flex: 1 1 140px; width: auto; }
+
+/* — grafik tren (dasbor) — */
+.trend-head { margin-top: 48px; padding-top: 24px; border-top: 2px solid var(--color-text); }
+.chart-grid-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 32px 40px; margin-top: 32px; }
+.chart-card { min-width: 0; border-top: 2px solid var(--color-text); padding-top: 14px; }
+.chart-subtitle { margin: 2px 0 8px; font-size: 13px; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; overflow: visible; }
+.chart-grid { stroke: color-mix(in srgb, var(--color-text) 10%, transparent); stroke-width: 1; }
+.chart-baseline { stroke: color-mix(in srgb, var(--color-text) 35%, transparent); stroke-width: 1; }
+.chart-crosshair { stroke: color-mix(in srgb, var(--color-text) 30%, transparent); stroke-width: 1; }
+.chart-axis { font-size: 11px; fill: color-mix(in srgb, var(--color-text) 60%, transparent); font-variant-numeric: tabular-nums; }
+.chart-value { font-size: 12px; font-weight: 700; fill: var(--color-text); }
+.chart-dot { stroke: var(--color-bg); stroke-width: 2; }
+.chart-tip {
+    position: absolute; transform: translate(-50%, -100%); pointer-events: none; z-index: 2;
+    display: flex; flex-direction: column; gap: 2px; min-width: 120px; padding: 8px 10px;
+    background: var(--color-text); color: var(--color-bg); font-size: 12px; white-space: nowrap; box-shadow: var(--shadow-md);
+}
+.chart-tip-row { display: flex; align-items: center; gap: 6px; }
+.chart-tip-row b { margin-left: auto; padding-left: 12px; }
+.chart-tip-row i, .chart-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; margin-bottom: 4px; }
+.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-table { margin-top: 8px; font-size: 13px; }
+.chart-table summary { cursor: pointer; color: var(--color-accent); width: max-content; }
+.chart-table .table-wrap { margin-top: 8px; }
+.stat-delta { font-size: 12px; margin-top: 2px; color: color-mix(in srgb, var(--color-text) 60%, transparent); }
+.stat-delta.is-down { color: var(--color-danger); }
+.stat-delta.is-up { color: #1d7a45; }
+.rank-list { display: flex; flex-direction: column; }
+.rank-row {
+    display: grid; grid-template-columns: minmax(110px, 180px) minmax(80px, 1fr) 48px 64px; align-items: center; gap: 12px;
+    padding: 8px 4px; border: 0; border-bottom: 1px solid var(--color-divider); background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.rank-row:hover { background: color-mix(in srgb, var(--color-accent) 6%, transparent); }
+.rank-name { font-weight: 700; }
+.rank-name .cell-sub { font-weight: 400; }
+.rank-bar { height: 10px; background: var(--color-neutral-200); }
+.rank-bar span { display: block; height: 100%; background: var(--color-accent); border-radius: 0 4px 4px 0; }
+.rank-value { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rank-absent { text-align: right; font-size: 12px; color: color-mix(in srgb, var(--color-text) 60%, transparent); }
+@media (max-width: 560px) {
+    .rank-row { grid-template-columns: minmax(0, 1fr) 48px; }
+    .rank-bar { grid-column: 1 / -1; grid-row: 2; }
+    .rank-absent { display: none; }
+}
+
+/* — siswa berisiko — */
+.tag-warning { background: color-mix(in srgb, #d08c00 18%, transparent); color: #7a4f00; font-weight: 600; }
+.early-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 40px; align-items: start; margin-top: 24px; }
+@media (max-width: 960px) { .early-layout { grid-template-columns: minmax(0, 1fr); } }
+.risk-list { display: flex; flex-direction: column; gap: 12px; }
+.risk-card { border: 1px solid var(--color-divider); border-left: 4px solid #d08c00; padding: 12px 14px; background: var(--color-bg); }
+.risk-card.is-tinggi { border-left-color: var(--color-danger); }
+.risk-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.risk-reasons { margin: 8px 0; padding-left: 18px; font-size: 14px; display: flex; flex-direction: column; gap: 2px; }
+.risk-reasons li.is-tinggi::marker { color: var(--color-danger); }
+.risk-reasons li.is-perhatian::marker { color: #d08c00; }
+.risk-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 13px; }
+.risk-recent { display: inline-flex; gap: 2px; }
+.risk-recent .mark { width: 20px; height: 20px; font-size: 10px; cursor: default; }
+.risk-rate { color: color-mix(in srgb, var(--color-text) 70%, transparent); }
+.risk-foot .btn { margin-left: auto; }
+.risk-rules { border-top: 2px solid var(--color-text); padding-top: 14px; }
+.risk-rules h4 { margin-top: 0; }
+.risk-rules ul { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.risk-rules li { display: flex; gap: 8px; align-items: baseline; }
+.risk-rules .tag { flex: none; min-width: 72px; justify-content: center; }
+
+/* — rekap satu siswa (modal) — */
+.student-recap { display: flex; flex-direction: column; gap: 16px; }
+.student-recap-totals { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.student-recap-rate { grid-column: span 2; display: flex; flex-direction: column; justify-content: center; padding: 6px 10px; border-left: 3px solid var(--color-accent); }
+.student-recap-rate b { font-size: 28px; line-height: 1.1; }
+.student-recap-count { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.student-recap-count b { display: block; font-size: 16px; }
+.student-recap-scroll {
+    max-height: min(52vh, 480px); overflow-y: auto; padding-right: 12px; display: flex; flex-direction: column; gap: 16px;
+    scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--color-neutral-400) transparent;
+}
+.student-recap-month h5 { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 8px; padding-bottom: 6px; border-bottom: 2px solid var(--color-divider); font-size: 14px; text-transform: capitalize; }
+.student-recap-month h5 .text-muted { font-weight: 400; font-size: 12px; text-transform: none; }
+.student-recap-days { display: flex; flex-wrap: wrap; gap: 4px; }
+.student-recap-day { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; }
+.student-recap-date { font-size: 10px; color: color-mix(in srgb, var(--color-text) 55%, transparent); font-variant-numeric: tabular-nums; }
+.student-recap-day .mark { width: 26px; height: 26px; cursor: default; }
+.student-recap-note { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 6px 0; border-bottom: 1px solid var(--color-divider); font-size: 13px; }

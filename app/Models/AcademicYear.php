@@ -60,6 +60,19 @@ class AcademicYear extends Model
     }
 
     /**
+     * The semester $today falls in, from its first day up to $today.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable, 2: string}
+     */
+    public function semesterSoFar(CarbonInterface $today): array
+    {
+        $semester = $this->semesterOn($today);
+        [$from, $to] = $this->semesterRange($semester);
+
+        return [$from, $to->min($today->toImmutable()->startOfDay()), $semester];
+    }
+
+    /**
      * The semester a date falls in; dates before the year count as ganjil.
      */
     public function semesterOn(CarbonInterface $date): string

@@ -62,7 +62,7 @@ export default function SchoolRecap({ academicYear, period, month, semester, lab
 
             <div className="stat-strip">
                 {STATUSES.map(([status, statusLabel]) => (
-                    <div key={status} className="stat">
+                    <div key={status} className={`stat status-${status}`}>
                         <div className="stat-label">{statusLabel}</div>
                         <div className="stat-value">{totals[status].toLocaleString('id-ID')}</div>
                     </div>

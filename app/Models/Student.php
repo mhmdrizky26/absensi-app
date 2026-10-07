@@ -2,9 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\AttendanceStatus;
+use App\Enums\DispensationStatus;
 use App\Enums\Gender;
 use App\Enums\StudentStatus;
 use App\Support\RandomCode;
+use Carbon\CarbonInterface;
 use Database\Factories\StudentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -13,6 +16,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['nis', 'nisn', 'name', 'gender', 'status'])]
 #[Hidden(['qr_token'])]
@@ -156,6 +160,22 @@ class Student extends Model
     }
 
     /**
+     * @return HasMany<Attendance, $this>
+     */
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
+    /**
+     * @return HasMany<Dispensation, $this>
+     */
+    public function dispensations(): HasMany
+    {
+        return $this->hasMany(Dispensation::class);
+    }
+
+    /**
      * The classroom this student sits in during the given academic year.
      */
     public function classroomIn(AcademicYear $academicYear): ?Classroom
@@ -174,6 +194,23 @@ class Student extends Model
         if ($classroom) {
             $this->classrooms()->attach($classroom->id, ['academic_year_id' => $academicYear->id]);
         }
+    }
+
+    /**
+     * Students not yet excused on the date: no Sakit/Izin/Dispensasi mark and
+     * no dispensation request (waiting or approved) covering it.
+     */
+    #[Scope]
+    protected function notExcusedOn(Builder $query, CarbonInterface $date): void
+    {
+        $query
+            ->whereDoesntHave('attendances', fn (Builder $query) => $query
+                ->whereDate('date', $date)
+                ->whereIn('status', [AttendanceStatus::Sick, AttendanceStatus::Excused, AttendanceStatus::Dispensation]))
+            ->whereDoesntHave('dispensations', fn (Builder $query) => $query
+                ->where('status', '!=', DispensationStatus::Rejected)
+                ->whereDate('starts_on', '<=', $date)
+                ->whereDate('ends_on', '>=', $date));
     }
 
     #[Scope]

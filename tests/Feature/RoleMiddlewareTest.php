@@ -36,4 +36,15 @@ class RoleMiddlewareTest extends TestCase
             ->get('/_test/khusus-admin-piket')
             ->assertForbidden();
     }
+
+    public function test_guru_bk_reaches_only_their_pages(): void
+    {
+        $bk = User::factory()->guruBk()->create();
+
+        $this->actingAs($bk)->get('/dasbor')->assertOk();
+
+        foreach (['/rekap', '/izin', '/pantauan', '/dispensasi', '/siswa', '/pengguna'] as $path) {
+            $this->actingAs($bk)->get($path)->assertForbidden();
+        }
+    }
 }

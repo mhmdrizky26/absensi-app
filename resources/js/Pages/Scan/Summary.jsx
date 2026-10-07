@@ -96,7 +96,7 @@ export default function Summary({ classroom, session, roster, marks }) {
                                                 {student.name}
                                                 <span className="cell-sub">NIS {student.nis}</span>
                                             </span>
-                                            <span className={`tag ${marks[student.id].status === 'A' ? 'tag-accent' : 'tag-neutral'}`}>{marks[student.id].statusLabel}</span>
+                                            <span className={`tag status-${marks[student.id].status}`}>{marks[student.id].statusLabel}</span>
                                         </div>
                                     ))}
                                 </div>

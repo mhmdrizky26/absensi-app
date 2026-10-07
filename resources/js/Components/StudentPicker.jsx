@@ -3,11 +3,13 @@ import { getJson } from '@/lib/http';
 
 /**
  * Cari siswa aktif berdasarkan nama/NIS/NISN lalu pilih satu. Wali kelas
- * hanya menemukan siswa kelasnya sendiri (dibatasi di server).
+ * hanya menemukan siswa kelasnya sendiri (dibatasi di server). Dengan `date`,
+ * siswa yang sudah izin/sakit/dispensasi pada tanggal itu tidak ditampilkan.
  */
-export default function StudentPicker({ id, value, onChange, placeholder = 'Ketik nama atau NIS', error }) {
+export default function StudentPicker({ id, value, onChange, placeholder = 'Ketik nama atau NIS', error, date }) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState([]);
+    const [hidden, setHidden] = useState(0);
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const requestId = useRef(0);
@@ -23,10 +25,12 @@ export default function StudentPicker({ id, value, onChange, placeholder = 'Keti
         setLoading(true);
         const timer = setTimeout(async () => {
             try {
-                const { students } = await getJson(`/cari-siswa?q=${encodeURIComponent(query.trim())}`);
+                const params = new URLSearchParams({ q: query.trim(), ...(date ? { date } : {}) });
+                const { students, hidden: hiddenCount } = await getJson(`/cari-siswa?${params}`);
 
                 if (current === requestId.current) {
                     setResults(students);
+                    setHidden(hiddenCount ?? 0);
                     setOpen(true);
                 }
             } catch {
@@ -39,7 +43,7 @@ export default function StudentPicker({ id, value, onChange, placeholder = 'Keti
         }, 250);
 
         return () => clearTimeout(timer);
-    }, [query]);
+    }, [query, date]);
 
     function choose(student) {
         onChange(student);
@@ -80,7 +84,7 @@ export default function StudentPicker({ id, value, onChange, placeholder = 'Keti
             {open && query.trim().length >= 2 && (
                 <div className="picker-results" role="listbox">
                     {loading && results.length === 0 && <div className="picker-empty">Mencari…</div>}
-                    {!loading && results.length === 0 && <div className="picker-empty">Siswa tidak ditemukan.</div>}
+                    {!loading && results.length === 0 && hidden === 0 && <div className="picker-empty">Siswa tidak ditemukan.</div>}
                     {results.map((student) => (
                         <button key={student.id} type="button" role="option" className="picker-option" onClick={() => choose(student)}>
                             <span>
@@ -90,6 +94,7 @@ export default function StudentPicker({ id, value, onChange, placeholder = 'Keti
                             <b>{student.classroom}</b>
                         </button>
                     ))}
+                    {!loading && hidden > 0 && <div className="picker-empty">{hidden} siswa tidak ditampilkan karena sudah tercatat izin, sakit, atau dispensasi pada tanggal itu.</div>}
                 </div>
             )}
         </div>

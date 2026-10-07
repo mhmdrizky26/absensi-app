@@ -53,7 +53,7 @@ export default function Excuses({ excuses, homeroom, isHomeroomTeacher }) {
                     <h4 style={{ margin: 0 }}>Catat izin atau sakit</h4>
 
                     <Field label="Siswa" htmlFor="student" error={form.errors.student_id} hint={homeroom ? `Wali kelas hanya bisa memilih siswa kelas ${homeroom}.` : undefined}>
-                        <StudentPicker id="student" value={student} onChange={chooseStudent} error={form.errors.student_id} placeholder={homeroom ? `Cari siswa kelas ${homeroom}` : undefined} />
+                        <StudentPicker id="student" value={student} onChange={chooseStudent} error={form.errors.student_id} date={form.data.from} placeholder={homeroom ? `Cari siswa kelas ${homeroom}` : undefined} />
                     </Field>
 
                     <Field label="Keterangan" error={form.errors.status}>
@@ -124,7 +124,7 @@ export default function Excuses({ excuses, homeroom, isHomeroomTeacher }) {
                                                 </span>
                                             </td>
                                             <td>
-                                                <span className="tag tag-neutral">{excuse.statusLabel}</span>
+                                                <span className={`tag status-${excuse.status}`}>{excuse.statusLabel}</span>
                                             </td>
                                             <td>
                                                 {excuse.note}
