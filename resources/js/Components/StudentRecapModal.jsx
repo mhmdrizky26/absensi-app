@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import Modal from '@/Components/Modal';
+import { presentCount } from '@/lib/attendance';
 import { formatDate } from '@/lib/format';
 import { getJson } from '@/lib/http';
 
@@ -50,7 +51,8 @@ export default function StudentRecapModal({ studentId, onClose, recapLink }) {
                                 </span>
                                 <span>
                                     {label}
-                                    <b>{recap.counts[status]}</b>
+                                    {['T', 'D'].includes(status) && <span className="cell-sub">termasuk hadir</span>}
+                                    <b>{status === 'H' ? presentCount(recap.counts) : recap.counts[status]}</b>
                                 </span>
                             </div>
                         ))}

@@ -29,7 +29,7 @@ class MonthlyRecapExport extends RecapSheet
             "Rekap Absensi Kelas {$this->classroom->name}",
             "{$this->schoolName} · {$this->month->translatedFormat('F Y')}",
             'Wali kelas: '.($this->classroom->homeroomTeacher?->name ?? '-'),
-            'H = Hadir, T = Terlambat, D = Dispensasi, S = Sakit, I = Izin, A = Alpa',
+            'H = Hadir, T = Terlambat, D = Dispensasi, S = Sakit, I = Izin, A = Alpa. Kolom jumlah H = semua yang hadir, termasuk T dan D.',
         ];
     }
 
@@ -52,7 +52,7 @@ class MonthlyRecapExport extends RecapSheet
                 $student['nis'],
                 $student['name'],
                 ...array_map(fn (string $day): string => $student['marks'][$day]['status'] ?? '', $this->grid['days']),
-                ...array_values($student['counts']),
+                ...array_values(AttendanceReport::withPresentTotal($student['counts'])),
                 $this->percent($student['rate']),
             ];
         }

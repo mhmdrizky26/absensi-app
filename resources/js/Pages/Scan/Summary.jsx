@@ -1,30 +1,72 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { Lock } from 'lucide-react';
+import { LogOut } from 'lucide-react';
+import { useState } from 'react';
+import { isPresent } from '@/lib/attendance';
 
 const timeFormatter = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' });
 const dayFormatter = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
 
-const STATUS_ORDER = ['A', 'S', 'I', 'D', 'T', 'H'];
+/** Tidak hadir, dari yang paling perlu diperhatikan. */
+const NOT_PRESENT = [
+    ['A', 'Alpa'],
+    ['S', 'Sakit'],
+    ['I', 'Izin'],
+];
+
+/** Tetap dihitung hadir, hanya diberi tanda. */
+const MARKED_PRESENT = [
+    ['T', 'Terlambat'],
+    ['D', 'Dispensasi'],
+];
 
 /**
- * Hasil absensi kelas setelah guru menekan "Selesai". Hanya bisa dilihat;
- * perubahan dilakukan wali kelas, dan siswa terlambat lewat guru piket.
+ * Kelompok siswa per status, dibagi ke beberapa kolom di layar lebar.
+ */
+function GroupList({ groups, marks }) {
+    return (
+        <div className="summary-groups">
+            {groups.map((group) => (
+                <section key={group.status}>
+                    <h5 className="class-detail-head">
+                        <span className={`tag status-${group.status}`}>{group.label}</span>
+                        <span className="text-muted">{group.students.length} siswa</span>
+                    </h5>
+                    <div className="summary-students">
+                        {group.students.map((student) => (
+                            <div key={student.id} className="class-detail-row">
+                                <span style={{ flex: 1 }}>
+                                    {student.name}
+                                    <span className="cell-sub">
+                                        NIS {student.nis}
+                                        {marks[student.id].note ? ` · ${marks[student.id].note}` : ''}
+                                    </span>
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+            ))}
+        </div>
+    );
+}
+
+/**
+ * Hasil absensi kelas setelah guru menekan "Selesai": hanya daftar siswa
+ * yang tidak tercatat Hadir. Hanya bisa dilihat; perubahan dilakukan wali
+ * kelas, dan siswa terlambat lewat guru piket.
  */
 export default function Summary({ classroom, session, roster, marks }) {
     const { flash } = usePage().props;
+    const [filter, setFilter] = useState('all');
 
-    const counts = { H: 0, T: 0, D: 0, S: 0, I: 0, A: 0 };
-    roster.forEach((student) => {
-        const status = marks[student.id]?.status;
-
-        if (status) {
-            counts[status]++;
-        }
-    });
-
-    const notPresent = roster
-        .filter((student) => marks[student.id] && !['H', 'T'].includes(marks[student.id].status))
-        .sort((a, b) => STATUS_ORDER.indexOf(marks[a.id].status) - STATUS_ORDER.indexOf(marks[b.id].status));
+    const present = roster.filter((student) => isPresent(marks[student.id]?.status)).length;
+    const groupsOf = (statuses) =>
+        statuses.map(([status, label]) => ({ status, label, students: roster.filter((student) => marks[student.id]?.status === status) })).filter((group) => group.students.length > 0);
+    const groups = groupsOf(NOT_PRESENT);
+    const marked = groupsOf(MARKED_PRESENT);
+    const allGroups = [...groups, ...marked];
+    const notPresent = groups.reduce((sum, group) => sum + group.students.length, 0);
+    const visible = (list) => list.filter((group) => filter === 'all' || group.status === filter);
 
     return (
         <>
@@ -38,12 +80,13 @@ export default function Summary({ classroom, session, roster, marks }) {
                     <span className="scan-class">
                         <b>Kelas {classroom.name}</b>
                     </span>
-                    <Link href="/absen/keluar" method="post" as="button" className="btn btn-secondary">
-                        <Lock size={16} aria-hidden="true" /> Keluar
+                    <Link href="/absen/keluar" method="post" as="button" className="btn btn-secondary nav-logout" aria-label="Keluar">
+                        <span className="nav-logout-label">Keluar</span>
+                        <LogOut size={16} aria-hidden="true" />
                     </Link>
                 </header>
 
-                <main className="page">
+                <main className="page summary-page">
                     {flash.success && (
                         <p className="alert" role="status">
                             {flash.success}
@@ -53,56 +96,54 @@ export default function Summary({ classroom, session, roster, marks }) {
                     <div className="page-head">
                         <div>
                             <h6 className="text-muted">
-                                {dayFormatter.format(new Date(`${session.date}T00:00:00`))} · ditutup pukul {timeFormatter.format(new Date(session.closedAt))}
+                                {dayFormatter.format(new Date(`${session.date}T00:00:00`))} · dikunci pukul {timeFormatter.format(new Date(session.closedAt))}
                             </h6>
-                            <h1>Absensi {classroom.name} selesai</h1>
+                            <h1>Siswa tidak hadir</h1>
                         </div>
                     </div>
 
-                    <div className="summary-layout">
-                        <section>
-                            <div className="stat-strip is-compact">
-                                {[
-                                    ['H', 'Hadir'],
-                                    ['T', 'Terlambat'],
-                                    ['D', 'Dispensasi'],
-                                    ['S', 'Sakit'],
-                                    ['I', 'Izin'],
-                                    ['A', 'Alpa'],
-                                ].map(([status, label]) => (
-                                    <div key={status} className="stat">
-                                        <div className="stat-label">{label}</div>
-                                        <div className="stat-value" style={status === 'A' && counts.A > 0 ? { color: 'var(--color-accent)' } : undefined}>
-                                            {counts[status]}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                    <p className="summary-line">
+                        <b>{notPresent}</b> siswa tidak hadir · <b>{present}</b> dari {roster.length} siswa hadir di kelas {classroom.name}
+                    </p>
 
-                            <p className="text-muted" style={{ fontSize: 13 }}>
-                                Absensi kelas ini sudah dikunci. Siswa yang datang terlambat melapor ke guru piket. Perubahan Alpa menjadi Sakit atau Izin dilakukan oleh wali kelas.
+                    {allGroups.length > 0 && (
+                        <div className="class-filter" role="group" aria-label="Tampilkan status">
+                            <button type="button" className={`class-filter-chip ${filter === 'all' ? 'is-active' : ''}`} aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>
+                                Semua <b>{allGroups.reduce((sum, group) => sum + group.students.length, 0)}</b>
+                            </button>
+                            {allGroups.map((group) => (
+                                <button key={group.status} type="button" className={`class-filter-chip ${filter === group.status ? 'is-active' : ''}`} aria-pressed={filter === group.status} onClick={() => setFilter(group.status)}>
+                                    <span className={`mark mark-${group.status}`} aria-hidden="true">
+                                        {group.status}
+                                    </span>
+                                    {group.label} <b>{group.students.length}</b>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {notPresent === 0 && filter === 'all' && (
+                        <div className="empty">
+                            <h4>Semua siswa hadir</h4>
+                            <p className="text-muted">Tidak ada siswa yang alpa, sakit, atau izin hari ini.</p>
+                        </div>
+                    )}
+
+                    <GroupList groups={visible(groups)} marks={marks} />
+
+                    {visible(marked).length > 0 && (
+                        <section className={filter === 'all' ? 'summary-marked' : undefined}>
+                            <h4>Hadir dengan catatan</h4>
+                            <p className="text-muted" style={{ fontSize: 13, marginTop: 0 }}>
+                                Sudah dihitung hadir; terlambat dan dispensasi hanya sebagai tanda.
                             </p>
+                            <GroupList groups={visible(marked)} marks={marks} />
                         </section>
+                    )}
 
-                        <section>
-                            <h4>Tidak hadir di kelas</h4>
-                            {notPresent.length === 0 ? (
-                                <p className="text-muted">Semua siswa hadir.</p>
-                            ) : (
-                                <div className="scan-roster" style={{ borderTop: '2px solid var(--color-text)' }}>
-                                    {notPresent.map((student) => (
-                                        <div key={student.id} className="scan-roster-row">
-                                            <span>
-                                                {student.name}
-                                                <span className="cell-sub">NIS {student.nis}</span>
-                                            </span>
-                                            <span className={`tag status-${marks[student.id].status}`}>{marks[student.id].statusLabel}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </section>
-                    </div>
+                    <p className="text-muted" style={{ fontSize: 13, marginTop: 24 }}>
+                        Absensi kelas ini sudah dikunci. Siswa yang datang terlambat melapor ke guru piket. Perubahan Alpa menjadi Sakit atau Izin dilakukan oleh wali kelas.
+                    </p>
                 </main>
             </div>
         </>

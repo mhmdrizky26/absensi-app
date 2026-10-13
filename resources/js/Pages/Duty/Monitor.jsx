@@ -3,6 +3,7 @@ import { ChevronRight, Paperclip, ScanLine } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Modal from '@/Components/Modal';
 import AppLayout from '@/Layouts/AppLayout';
+import { presentCount } from '@/lib/attendance';
 import { getJson } from '@/lib/http';
 
 const timeFormatter = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -31,6 +32,19 @@ function SessionTag({ session, windowOpened }) {
 }
 
 /**
+ * Kelompok di detail kelas. Terlambat masuk kelompok Hadir (hanya diberi tanda);
+ * dispensasi dihitung hadir tetapi siswanya tidak di kelas, jadi dipisah.
+ */
+const DETAIL_GROUPS = [
+    { key: 'H', label: 'Hadir', statuses: ['H', 'T'] },
+    { key: 'D', label: 'Dispensasi', statuses: ['D'] },
+    { key: 'S', label: 'Sakit', statuses: ['S'] },
+    { key: 'I', label: 'Izin', statuses: ['I'] },
+    { key: 'A', label: 'Alpa', statuses: ['A'] },
+    { key: 'none', label: 'Belum tercatat', statuses: [null] },
+];
+
+/**
  * Daftar siswa satu kelas hari ini, dikelompokkan per status.
  */
 function ClassroomDetail({ classroom, onClose }) {
@@ -45,9 +59,9 @@ function ClassroomDetail({ classroom, onClose }) {
     }, [classroom.id]);
 
     const groups = detail
-        ? [...STATUS_LABELS, [null, 'Belum tercatat']]
-              .map(([status, label]) => ({ key: status ?? 'none', status, label, students: detail.students.filter((student) => student.status === status) }))
-              .filter((group) => group.students.length > 0)
+        ? DETAIL_GROUPS.map((group) => ({ ...group, status: group.key === 'none' ? null : group.key, students: detail.students.filter((student) => group.statuses.includes(student.status)) })).filter(
+              (group) => group.students.length > 0,
+          )
         : [];
     const shown = groups.filter((group) => filter === 'all' || group.key === filter);
 
@@ -101,6 +115,7 @@ function ClassroomDetail({ classroom, onClose }) {
                                         )}
                                     </span>
                                 </span>
+                                {student.status === 'T' && <span className="tag status-T">Terlambat</span>}
                                 {student.recordedAt && (
                                     <span className="text-muted" style={{ fontSize: 13 }}>
                                         {formatTime(student.recordedAt)}
@@ -162,7 +177,16 @@ export default function Monitor({ date, window: scanWindow, classrooms, late }) 
             </p>
 
             <div className="stat-strip">
-                {STATUS_LABELS.map(([status, label]) => (
+                <div className="stat status-H">
+                    <div className="stat-label">Hadir</div>
+                    <div className="stat-value">{presentCount(totals)}</div>
+                    {(totals.T > 0 || totals.D > 0) && (
+                        <div className="stat-delta">
+                            termasuk {totals.T} terlambat · {totals.D} dispensasi
+                        </div>
+                    )}
+                </div>
+                {STATUS_LABELS.filter(([status]) => ['S', 'I', 'A'].includes(status)).map(([status, label]) => (
                     <div key={status} className={`stat status-${status}`}>
                         <div className="stat-label">{label}</div>
                         <div className="stat-value" style={status === 'A' && totals.A > 0 ? { color: 'var(--color-danger)' } : undefined}>
@@ -200,7 +224,7 @@ export default function Monitor({ date, window: scanWindow, classrooms, late }) 
                             </thead>
                             <tbody>
                                 {classrooms.map((classroom) => {
-                                    const present = classroom.counts.H + classroom.counts.T + classroom.counts.D;
+                                    const present = presentCount(classroom.counts);
                                     const percent = classroom.total ? Math.round((present / classroom.total) * 100) : 0;
 
                                     return (

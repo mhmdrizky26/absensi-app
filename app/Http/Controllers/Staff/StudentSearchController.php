@@ -14,8 +14,13 @@ use Illuminate\Http\Request;
 
 class StudentSearchController extends Controller
 {
+    public const BROWSE_LIMIT = 50;
+
+    public const SEARCH_LIMIT = 20;
+
     /**
-     * Find active students by name, NIS or NISN for staff forms. A wali kelas
+     * Find active students by name, NIS or NISN for staff forms; with an empty
+     * query, list them so the form shows students right away. A wali kelas
      * only finds students of their own class. With `date`, students already
      * excused or dispensed on that day are left out and counted as `hidden`.
      */
@@ -24,8 +29,8 @@ class StudentSearchController extends Controller
         $term = $request->string('q')->trim()->value();
         $academicYear = AcademicYear::active();
 
-        if (mb_strlen($term) < 2 || ! $academicYear) {
-            return response()->json(['students' => []]);
+        if (! $academicYear) {
+            return response()->json(['students' => [], 'hidden' => 0, 'total' => 0]);
         }
 
         $user = $request->user();
@@ -33,7 +38,7 @@ class StudentSearchController extends Controller
 
         $matching = Student::query()
             ->where('status', StudentStatus::Active)
-            ->search($term)
+            ->when($term !== '', fn (Builder $query) => $query->search($term))
             ->whereHas('classrooms', fn (Builder $query) => $query
                 ->where('classrooms.academic_year_id', $academicYear->id)
                 ->when($homeroomId !== null, fn (Builder $query) => $query->whereKey($homeroomId)));
@@ -41,10 +46,12 @@ class StudentSearchController extends Controller
         $date = $request->date('date');
         $available = (clone $matching)->when($date, fn (Builder $query) => $query->notExcusedOn($date));
 
+        $total = (clone $available)->count();
+
         $students = $available
             ->with(['classrooms' => fn (BelongsToMany $query) => $query->wherePivot('academic_year_id', $academicYear->id)])
             ->orderBy('name')
-            ->limit(10)
+            ->limit($term === '' ? self::BROWSE_LIMIT : self::SEARCH_LIMIT)
             ->get()
             ->map(fn (Student $student): array => [
                 'id' => $student->id,
@@ -55,7 +62,8 @@ class StudentSearchController extends Controller
 
         return response()->json([
             'students' => $students,
-            'hidden' => $date ? $matching->count() - (clone $available)->count() : 0,
+            'total' => $total,
+            'hidden' => $date ? $matching->count() - $total : 0,
         ]);
     }
 }

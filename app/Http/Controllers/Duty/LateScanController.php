@@ -78,7 +78,7 @@ class LateScanController extends Controller
         }
 
         $attendance = $setAttendanceStatus->handle($student, today(), AttendanceStatus::Late, AttendanceSource::DutyScan, $request->user(), [
-            'note' => 'Datang pukul '.now()->format('H:i').($existing ? ", sebelumnya {$existing->status->label()}" : '').'.',
+            'note' => 'Datang pukul '.now()->format('H:i').'.',
         ]);
 
         return response()->json([

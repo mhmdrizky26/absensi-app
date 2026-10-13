@@ -202,4 +202,19 @@ class RecapTest extends TestCase
         $this->actingAs($admin)->get('/rekap/ekspor/sekolah?jenis=bulan&bulan=2026-09');
         Excel::assertDownloaded('rekap-sekolah-september-2026.xlsx', fn (SchoolRecapExport $export): bool => collect($export->array())->last()[0] === 'Total');
     }
+
+    public function test_late_students_count_as_present_in_every_export(): void
+    {
+        Excel::fake();
+        $this->mark('2026-09-21', AttendanceStatus::Present);
+        $this->mark('2026-09-22', AttendanceStatus::Late);
+        $this->mark('2026-09-23', AttendanceStatus::Absent);
+
+        $this->actingAs($this->wali)->get('/rekap/ekspor/semester?semester=ganjil');
+        // Sakit, Izin, Alpa, Hadir (termasuk terlambat), Terlambat, Dispensasi, Kehadiran.
+        Excel::assertDownloaded('rapor-kehadiran-VII-A-ganjil.xlsx', fn (SemesterRecapExport $export): bool => array_slice($export->array()[5], 4) === [0, 0, 1, 2, 1, 0, '67%']);
+
+        $this->actingAs(User::factory()->admin()->create())->get('/rekap/ekspor/sekolah?jenis=bulan&bulan=2026-09');
+        Excel::assertDownloaded('rekap-sekolah-september-2026.xlsx', fn (SchoolRecapExport $export): bool => array_slice(collect($export->array())->last(), 3) === [2, 1, 0, 0, 0, 1, '67%']);
+    }
 }

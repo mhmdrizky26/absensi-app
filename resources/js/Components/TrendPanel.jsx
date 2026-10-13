@@ -1,14 +1,22 @@
 import { router } from '@inertiajs/react';
 import { ChartLegend, ColumnChart, LineChart, StackedColumnChart } from '@/Components/Charts';
+import { presentCount } from '@/lib/attendance';
 import { formatDate } from '@/lib/format';
 
-/** Status selain Hadir, dengan warna grafik yang sudah divalidasi aman untuk buta warna. */
+/** Tidak hadir (terlambat dan dispensasi dihitung hadir), dengan warna yang divalidasi aman untuk buta warna. */
 const NON_PRESENT = [
-    { key: 'T', label: 'Terlambat', color: 'var(--chart-T)' },
-    { key: 'D', label: 'Dispensasi', color: 'var(--chart-D)' },
     { key: 'S', label: 'Sakit', color: 'var(--chart-S)' },
     { key: 'I', label: 'Izin', color: 'var(--chart-I)' },
     { key: 'A', label: 'Alpa', color: 'var(--chart-A)' },
+];
+
+const COUNT_COLUMNS = [
+    ['H', 'Hadir', 'Hadir, termasuk terlambat dan dispensasi'],
+    ['T', 'T', 'Terlambat (termasuk hadir)'],
+    ['D', 'D', 'Dispensasi (termasuk hadir)'],
+    ['S', 'S', 'Sakit'],
+    ['I', 'I', 'Izin'],
+    ['A', 'A', 'Alpa'],
 ];
 
 const total = (counts) => Object.values(counts).reduce((sum, count) => sum + count, 0);
@@ -50,9 +58,9 @@ function CountsTable({ rows, firstColumn }) {
                 <thead>
                     <tr>
                         <th>{firstColumn}</th>
-                        {['H', 'T', 'D', 'S', 'I', 'A'].map((status) => (
-                            <th key={status} className="num">
-                                {status}
+                        {COUNT_COLUMNS.map(([status, heading, title]) => (
+                            <th key={status} className="num" title={title}>
+                                {heading}
                             </th>
                         ))}
                         <th className="num">%</th>
@@ -62,9 +70,9 @@ function CountsTable({ rows, firstColumn }) {
                     {rows.map((row) => (
                         <tr key={row.key}>
                             <td>{row.label}</td>
-                            {['H', 'T', 'D', 'S', 'I', 'A'].map((status) => (
+                            {COUNT_COLUMNS.map(([status]) => (
                                 <td key={status} className="num">
-                                    {row.counts[status].toLocaleString('id-ID')}
+                                    {(status === 'H' ? presentCount(row.counts) : row.counts[status]).toLocaleString('id-ID')}
                                 </td>
                             ))}
                             <td className="num">{row.rate === null ? '—' : `${row.rate}%`}</td>
@@ -134,7 +142,7 @@ export default function TrendPanel({ scopeLabel, classrooms, filters, homeroom, 
             ) : (
                 <>
                     <p className="text-muted" style={{ fontSize: 14, maxWidth: 760 }}>
-                        Data {formatDate(period.from)} s.d. {formatDate(period.to)}. Kehadiran = (Hadir + Terlambat + Dispensasi) ÷ semua hari yang tercatat. Arahkan kursor atau ketuk grafik untuk melihat angkanya.
+                        Data {formatDate(period.from)} s.d. {formatDate(period.to)}. Terlambat dan dispensasi tetap dihitung hadir. Kehadiran = hadir ÷ semua hari yang tercatat. Arahkan kursor atau ketuk grafik untuk melihat angkanya.
                     </p>
 
                     <div className="stat-strip">
@@ -168,9 +176,9 @@ export default function TrendPanel({ scopeLabel, classrooms, filters, homeroom, 
                             <ColumnChart data={monthlyRates} label="Kehadiran" highlight={highlightKeys(monthlyRates)} />
                         </ChartCard>
 
-                        <ChartCard title="Selain hadir per bulan" subtitle="Persen dari semua catatan bulan itu." table={<CountsTable rows={monthly} firstColumn="Bulan" />}>
+                        <ChartCard title="Tidak hadir per bulan" subtitle="Sakit, izin, dan alpa sebagai persen dari semua catatan bulan itu. Terlambat dan dispensasi dihitung hadir." table={<CountsTable rows={monthly} firstColumn="Bulan" />}>
                             <ChartLegend series={NON_PRESENT} />
-                            <StackedColumnChart data={absenceShares} series={NON_PRESENT} label="Komposisi status selain hadir per bulan" />
+                            <StackedColumnChart data={absenceShares} series={NON_PRESENT} label="Sakit, izin, dan alpa per bulan" />
                         </ChartCard>
 
                         <ChartCard title="Kehadiran harian" subtitle={`${daily.length} hari sekolah terakhir.`} table={<CountsTable rows={daily} firstColumn="Tanggal" />}>

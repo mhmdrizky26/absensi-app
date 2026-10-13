@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { Download, Printer } from 'lucide-react';
 import RecapTabs from '@/Components/RecapTabs';
 import AppLayout from '@/Layouts/AppLayout';
+import { presentCount } from '@/lib/attendance';
 
 const STATUSES = [
     ['H', 'Hadir'],
@@ -64,7 +65,8 @@ export default function SchoolRecap({ academicYear, period, month, semester, lab
                 {STATUSES.map(([status, statusLabel]) => (
                     <div key={status} className={`stat status-${status}`}>
                         <div className="stat-label">{statusLabel}</div>
-                        <div className="stat-value">{totals[status].toLocaleString('id-ID')}</div>
+                        <div className="stat-value">{(status === 'H' ? presentCount(totals) : totals[status]).toLocaleString('id-ID')}</div>
+                        {['T', 'D'].includes(status) && <div className="stat-delta">termasuk hadir</div>}
                     </div>
                 ))}
                 <div className="stat">
@@ -80,8 +82,8 @@ export default function SchoolRecap({ academicYear, period, month, semester, lab
                             <th style={{ width: 80 }}>Kelas</th>
                             <th>Wali kelas</th>
                             <th className="num">Siswa</th>
-                            {STATUSES.map(([status]) => (
-                                <th key={status} className="num">
+                            {STATUSES.map(([status, statusLabel]) => (
+                                <th key={status} className="num" title={status === 'H' ? 'Hadir, termasuk terlambat dan dispensasi' : statusLabel}>
                                     {status}
                                 </th>
                             ))}
@@ -98,7 +100,7 @@ export default function SchoolRecap({ academicYear, period, month, semester, lab
                                 <td className="num">{row.students}</td>
                                 {STATUSES.map(([status]) => (
                                     <td key={status} className="num" style={status === 'A' && row.counts.A > 0 ? { color: 'var(--color-danger)' } : undefined}>
-                                        {row.counts[status]}
+                                        {status === 'H' ? presentCount(row.counts) : row.counts[status]}
                                     </td>
                                 ))}
                                 <td>

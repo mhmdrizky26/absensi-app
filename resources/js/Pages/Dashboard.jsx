@@ -4,7 +4,6 @@ import {
     CalendarRange,
     ChartColumn,
     ClipboardList,
-    ClockAlert,
     FileDown,
     FilePen,
     ListChecks,
@@ -48,7 +47,6 @@ const MODULES = {
         { icon: TriangleAlert, title: 'Siswa berisiko', body: 'Siswa kelas Anda yang perlu didekati, beserta alasannya.', href: '/siswa-berisiko' },
         { icon: FilePen, title: 'Input izin & sakit', body: 'Catat surat izin atau sakit siswa kelas Anda.', href: '/izin' },
         { icon: BadgeCheck, title: 'Dispensasi', body: 'Ajukan dan setujui dispensasi siswa kelas Anda bersama guru piket.', href: '/dispensasi' },
-        { icon: ClockAlert, title: 'Koreksi status', body: 'Klik sel di rekap bulanan untuk mengubah status, lengkap dengan alasan.', href: '/rekap' },
         { icon: FileDown, title: 'Export untuk rapor', body: 'Rekap S/I/A per semester dalam Excel, atau cetak ke PDF.', href: '/rekap/semester' },
     ],
 };
