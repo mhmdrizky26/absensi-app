@@ -1,10 +1,10 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, Download, Paperclip, Printer } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import Field from '@/Components/Field';
 import Modal from '@/Components/Modal';
 import RecapTabs from '@/Components/RecapTabs';
 import AppLayout from '@/Layouts/AppLayout';
+import { presentCount } from '@/lib/attendance';
 import { formatDateTime } from '@/lib/format';
 import { getJson } from '@/lib/http';
 
@@ -29,20 +29,17 @@ function shiftMonth(month, delta) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function CorrectionDialog({ cell, onClose }) {
+/**
+ * Riwayat satu sel rekap (hanya dilihat; rekap tidak bisa diubah dari sini).
+ */
+function HistoryDialog({ cell, onClose }) {
     const [history, setHistory] = useState(null);
-    const form = useForm({ student_id: cell.student.id, date: cell.date, status: cell.status && cell.status !== 'D' ? cell.status : 'H', reason: '' });
 
     useEffect(() => {
         getJson(`/rekap/riwayat?student_id=${cell.student.id}&date=${cell.date}`)
             .then(setHistory)
             .catch(() => setHistory({ mark: null, logs: [] }));
     }, [cell]);
-
-    function submit(event) {
-        event.preventDefault();
-        form.post('/rekap/koreksi', { preserveScroll: true, onSuccess: onClose });
-    }
 
     return (
         <Modal open title={cell.student.name} onClose={onClose} width={520}>
@@ -77,29 +74,11 @@ function CorrectionDialog({ cell, onClose }) {
                 )}
             </div>
 
-            <form onSubmit={submit} noValidate>
-                <Field label="Ubah menjadi" error={form.errors.status || form.errors.student_id || form.errors.date}>
-                    <div className="seg">
-                        {STATUSES.filter(([value]) => value !== 'D').map(([value, label]) => (
-                            <label key={value} className="seg-opt">
-                                <input type="radio" name="status" checked={form.data.status === value} onChange={() => form.setData('status', value)} />
-                                {label}
-                            </label>
-                        ))}
-                    </div>
-                </Field>
-                <Field label="Alasan koreksi" htmlFor="reason" error={form.errors.reason} hint='Contoh: "ada surat sakit", "lupa di-scan, siswa hadir"'>
-                    <input id="reason" className="input" maxLength={200} value={form.data.reason} onChange={(event) => form.setData('reason', event.target.value)} />
-                </Field>
-                <div className="dialog-actions">
-                    <button type="button" className="btn btn-secondary" onClick={onClose}>
-                        Batal
-                    </button>
-                    <button type="submit" className="btn btn-primary" disabled={form.processing}>
-                        Simpan koreksi
-                    </button>
-                </div>
-            </form>
+            <div className="dialog-actions">
+                <button type="button" className="btn btn-secondary" onClick={onClose}>
+                    Tutup
+                </button>
+            </div>
         </Modal>
     );
 }
@@ -178,7 +157,7 @@ export default function MonthlyRecap({ classrooms, classroom, month, today, grid
             </div>
 
             <p className="text-muted no-print" style={{ fontSize: 13 }}>
-                Klik sel untuk melihat riwayat atau mengoreksi. Kehadiran = (Hadir + Terlambat + Dispensasi) ÷ semua hari yang tercatat. Dispensasi hanya lewat menu Dispensasi.
+                Rekap ini hanya untuk dilihat; klik sel untuk melihat riwayat dan alasannya. Terlambat dan dispensasi tetap dihitung hadir: kolom H berisi semua yang hadir, T dan D rinciannya. Kehadiran = hadir ÷ semua hari yang tercatat. Dispensasi hanya lewat menu Dispensasi.
             </p>
 
             {grid.days.length === 0 ? (
@@ -201,8 +180,8 @@ export default function MonthlyRecap({ classrooms, classroom, month, today, grid
                                         </th>
                                     );
                                 })}
-                                {STATUSES.map(([value]) => (
-                                    <th key={value} className="total-col">
+                                {STATUSES.map(([value, label]) => (
+                                    <th key={value} className="total-col" title={value === 'H' ? 'Hadir, termasuk terlambat dan dispensasi' : label}>
                                         {value}
                                     </th>
                                 ))}
@@ -236,7 +215,7 @@ export default function MonthlyRecap({ classrooms, classroom, month, today, grid
                                     })}
                                     {STATUSES.map(([value]) => (
                                         <td key={value} className="total-col">
-                                            {student.counts[value] || ''}
+                                            {(value === 'H' ? presentCount(student.counts) : student.counts[value]) || ''}
                                         </td>
                                     ))}
                                     <td className={`total-col ${student.rate !== null && student.rate < 80 ? 'is-low' : ''}`}>{student.rate === null ? '—' : `${student.rate}%`}</td>
@@ -258,7 +237,7 @@ export default function MonthlyRecap({ classrooms, classroom, month, today, grid
                 </div>
             )}
 
-            {cell && <CorrectionDialog cell={cell} onClose={() => setCell(null)} />}
+            {cell && <HistoryDialog cell={cell} onClose={() => setCell(null)} />}
         </>
     );
 }

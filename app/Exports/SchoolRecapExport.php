@@ -2,6 +2,8 @@
 
 namespace App\Exports;
 
+use App\Support\AttendanceReport;
+
 class SchoolRecapExport extends RecapSheet
 {
     /**
@@ -28,7 +30,7 @@ class SchoolRecapExport extends RecapSheet
 
     protected function headings(): array
     {
-        return ['Kelas', 'Wali kelas', 'Siswa', 'Hadir', 'Terlambat', 'Dispensasi', 'Sakit', 'Izin', 'Alpa', 'Kehadiran'];
+        return ['Kelas', 'Wali kelas', 'Siswa', 'Hadir', 'Terlambat (termasuk hadir)', 'Dispensasi (termasuk hadir)', 'Sakit', 'Izin', 'Alpa', 'Kehadiran'];
     }
 
     protected function rows(): array
@@ -37,11 +39,11 @@ class SchoolRecapExport extends RecapSheet
             $row['name'],
             $row['homeroomTeacher'] ?? '-',
             $row['students'],
-            ...array_values($row['counts']),
+            ...array_values(AttendanceReport::withPresentTotal($row['counts'])),
             $this->percent($row['rate']),
         ], $this->classroomRows);
 
-        $rows[] = ['Total', '', array_sum(array_column($this->classroomRows, 'students')), ...array_values($this->totals), $this->percent($this->rate)];
+        $rows[] = ['Total', '', array_sum(array_column($this->classroomRows, 'students')), ...array_values(AttendanceReport::withPresentTotal($this->totals)), $this->percent($this->rate)];
 
         return $rows;
     }

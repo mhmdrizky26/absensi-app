@@ -136,13 +136,36 @@ class AttendanceReport
     }
 
     /**
+     * Everyone at school: on time, late and on dispensation. Late is only a
+     * marker on top of being present.
+     *
+     * @param  array<string, int>  $counts
+     */
+    public static function present(array $counts): int
+    {
+        return $counts['H'] + $counts['T'] + $counts['D'];
+    }
+
+    /**
+     * The same counts, with H holding everyone present (H + T + D) so a
+     * "Hadir" column never leaves out late students. T and D stay as detail.
+     *
+     * @param  array<string, int>  $counts
+     * @return array<string, int>
+     */
+    public static function withPresentTotal(array $counts): array
+    {
+        return ['H' => self::present($counts)] + $counts;
+    }
+
+    /**
      * @param  array<string, int>  $counts
      */
     public function rate(array $counts): ?int
     {
         $total = array_sum($counts);
 
-        return $total === 0 ? null : (int) round(($counts['H'] + $counts['T'] + $counts['D']) / $total * 100);
+        return $total === 0 ? null : (int) round(self::present($counts) / $total * 100);
     }
 
     /**

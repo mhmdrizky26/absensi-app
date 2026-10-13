@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\AcademicYear;
+use App\Support\AttendanceReport;
 
 /**
  * A full-year attendance summary of the grade IX students, to keep as an
@@ -35,7 +36,7 @@ class GraduatesArchiveExport extends RecapSheet
 
     protected function headings(): array
     {
-        return ['No', 'Kelas', 'NIS', 'NISN', 'Nama', 'Hadir', 'Terlambat', 'Dispensasi', 'Sakit', 'Izin', 'Alpa', 'Kehadiran'];
+        return ['No', 'Kelas', 'NIS', 'NISN', 'Nama', 'Hadir', 'Terlambat (termasuk hadir)', 'Dispensasi (termasuk hadir)', 'Sakit', 'Izin', 'Alpa', 'Kehadiran'];
     }
 
     protected function rows(): array
@@ -46,7 +47,7 @@ class GraduatesArchiveExport extends RecapSheet
             $graduate['row']['nis'],
             $graduate['row']['nisn'],
             $graduate['row']['name'],
-            ...array_values($graduate['row']['counts']),
+            ...array_values(AttendanceReport::withPresentTotal($graduate['row']['counts'])),
             $this->percent($graduate['row']['rate']),
         ], $this->graduates, array_keys($this->graduates));
     }

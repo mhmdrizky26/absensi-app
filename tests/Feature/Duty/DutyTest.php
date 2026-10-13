@@ -78,7 +78,7 @@ class DutyTest extends TestCase
         $this->assertSame(AttendanceStatus::Late, $attendance->status);
         $this->assertSame(AttendanceSource::DutyScan, $attendance->source);
         $this->assertTrue($attendance->recorder->is($this->piket));
-        $this->assertSame('Datang pukul 07:45, sebelumnya Alpa.', $attendance->note);
+        $this->assertSame('Datang pukul 07:45.', $attendance->note);
 
         $log = $attendance->logs()->sole();
         $this->assertSame(AttendanceStatus::Absent, $log->from_status);

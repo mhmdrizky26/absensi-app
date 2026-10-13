@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react';
 import { Download, Printer } from 'lucide-react';
 import RecapTabs from '@/Components/RecapTabs';
 import AppLayout from '@/Layouts/AppLayout';
+import { presentCount } from '@/lib/attendance';
 import { formatDate } from '@/lib/format';
 
 export default function SemesterRecap({ academicYear, classrooms, classroom, semester, range, rows, totals }) {
@@ -84,8 +85,12 @@ export default function SemesterRecap({ academicYear, classrooms, classroom, sem
                             <th className="num">Izin</th>
                             <th className="num">Alpa</th>
                             <th className="num">Hadir</th>
-                            <th className="num">Terlambat</th>
-                            <th className="num">Dispensasi</th>
+                            <th className="num">
+                                Terlambat<span className="cell-sub">termasuk hadir</span>
+                            </th>
+                            <th className="num">
+                                Dispensasi<span className="cell-sub">termasuk hadir</span>
+                            </th>
                             <th className="num">Kehadiran</th>
                         </tr>
                     </thead>
@@ -105,7 +110,7 @@ export default function SemesterRecap({ academicYear, classrooms, classroom, sem
                                 <td className="num" style={row.counts.A >= 5 ? { color: 'var(--color-danger)', fontWeight: 800 } : undefined}>
                                     {row.counts.A}
                                 </td>
-                                <td className="num">{row.counts.H}</td>
+                                <td className="num">{presentCount(row.counts)}</td>
                                 <td className="num">{row.counts.T}</td>
                                 <td className="num">{row.counts.D}</td>
                                 <td className={`num ${row.rate !== null && row.rate < 80 ? 'is-low' : ''}`}>{row.rate === null ? '—' : `${row.rate}%`}</td>
@@ -118,7 +123,7 @@ export default function SemesterRecap({ academicYear, classrooms, classroom, sem
                             <th className="num">{totals.S}</th>
                             <th className="num">{totals.I}</th>
                             <th className="num">{totals.A}</th>
-                            <th className="num">{totals.H}</th>
+                            <th className="num">{presentCount(totals)}</th>
                             <th className="num">{totals.T}</th>
                             <th className="num">{totals.D}</th>
                             <th />

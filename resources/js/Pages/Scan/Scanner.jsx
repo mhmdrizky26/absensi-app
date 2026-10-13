@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Camera, CheckCircle2, CloudOff, Lock, RefreshCw } from 'lucide-react';
+import { Camera, CheckCircle2, CloudOff, LogOut, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import { signal, unlockAudio } from '@/lib/feedback';
@@ -225,8 +225,9 @@ export default function Scanner({ classroom, session, roster, marks: initialMark
                         <b>Kelas {classroom.name}</b>
                         <span className="scan-class-date"> · {dayFormatter.format(new Date(`${session.date}T00:00:00`))}</span>
                     </span>
-                    <Link href="/absen/keluar" method="post" as="button" className="btn btn-secondary" aria-label="Kunci scanner">
-                        <Lock size={16} aria-hidden="true" /> <span className="nav-logout-label">Kunci</span>
+                    <Link href="/absen/keluar" method="post" as="button" className="btn btn-secondary nav-logout" aria-label="Keluar">
+                        <span className="nav-logout-label">Keluar</span>
+                        <LogOut size={16} aria-hidden="true" />
                     </Link>
                 </header>
 

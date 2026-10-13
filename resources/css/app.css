@@ -471,7 +471,7 @@ a.module:hover { background: color-mix(in srgb, var(--color-text) 5%, transparen
 .picker-results {
     position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 2px);
     background: var(--color-bg); border: 1px solid var(--color-divider); box-shadow: var(--shadow-md);
-    max-height: 320px; overflow-y: auto;
+    max-height: 320px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--color-neutral-400) transparent;
 }
 .picker-option {
     display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 12px;
@@ -479,6 +479,7 @@ a.module:hover { background: color-mix(in srgb, var(--color-text) 5%, transparen
     background: transparent; font: inherit; font-size: 14px; text-align: left; cursor: pointer; color: inherit;
 }
 .picker-option:hover, .picker-option:focus-visible { background: var(--color-accent-100); }
+.picker-head { position: sticky; top: 0; z-index: 1; padding: 6px 10px; font-size: 12px; background: var(--color-surface); border-bottom: 1px solid var(--color-divider); color: color-mix(in srgb, var(--color-text) 65%, transparent); }
 .picker-empty { padding: 10px; font-size: 13px; color: color-mix(in srgb, var(--color-text) 55%, transparent); }
 .picker-chosen { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 10px; background: var(--color-accent-100); border: 1px solid var(--color-accent-300); }
 
@@ -597,6 +598,10 @@ button.mark:disabled { cursor: default; }
     .table-wrap { overflow-x: visible; }
 }
 
+.summary-line { font-size: 15px; margin: 0 0 16px; }
+.summary-marked { margin-top: 36px; }
+.summary-groups { display: flex; flex-direction: column; gap: 28px; }
+.summary-students { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); column-gap: 32px; }
 .import-layout, .summary-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 48px; align-items: start; }
 @media (max-width: 960px) { .import-layout, .summary-layout { grid-template-columns: minmax(0, 1fr); gap: 32px; } }
 .table.no-stack { font-size: 13px; }

@@ -167,4 +167,21 @@ class ExcuseTest extends TestCase
             ->assertJsonCount(4, 'students')
             ->assertJsonPath('hidden', 0);
     }
+
+    public function test_empty_search_lists_students_so_the_form_shows_them_right_away(): void
+    {
+        $wali = User::factory()->waliKelas()->create();
+        $this->classroom->update(['homeroom_teacher_id' => $wali->id]);
+        Student::factory()->count(2)->create()->each(fn (Student $student) => $student->placeIn($this->classroom, $this->academicYear));
+        $other = Classroom::factory()->for($this->academicYear)->create();
+        Student::factory()->count(60)->create()->each(fn (Student $student) => $student->placeIn($other, $this->academicYear));
+
+        $this->actingAs($wali)->getJson('/cari-siswa')
+            ->assertJsonCount(3, 'students')
+            ->assertJsonPath('total', 3);
+
+        $this->actingAs(User::factory()->admin()->create())->getJson('/cari-siswa?q=')
+            ->assertJsonCount(50, 'students')
+            ->assertJsonPath('total', 63);
+    }
 }

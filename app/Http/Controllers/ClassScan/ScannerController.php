@@ -37,6 +37,7 @@ class ScannerController extends Controller
                     'status' => $attendance->status->value,
                     'statusLabel' => $attendance->status->label(),
                     'recordedAt' => $attendance->recorded_at->toIso8601String(),
+                    'note' => $attendance->note,
                 ],
             ]);
 

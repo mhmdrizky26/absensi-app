@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\Classroom;
+use App\Support\AttendanceReport;
 
 class SemesterRecapExport extends RecapSheet
 {
@@ -32,7 +33,7 @@ class SemesterRecapExport extends RecapSheet
 
     protected function headings(): array
     {
-        return ['No', 'NIS', 'NISN', 'Nama', 'Sakit', 'Izin', 'Alpa', 'Hadir', 'Terlambat', 'Dispensasi', 'Kehadiran'];
+        return ['No', 'NIS', 'NISN', 'Nama', 'Sakit', 'Izin', 'Alpa', 'Hadir', 'Terlambat (termasuk hadir)', 'Dispensasi (termasuk hadir)', 'Kehadiran'];
     }
 
     protected function rows(): array
@@ -45,7 +46,7 @@ class SemesterRecapExport extends RecapSheet
             $row['counts']['S'],
             $row['counts']['I'],
             $row['counts']['A'],
-            $row['counts']['H'],
+            AttendanceReport::present($row['counts']),
             $row['counts']['T'],
             $row['counts']['D'],
             $this->percent($row['rate']),
