@@ -734,3 +734,17 @@ button.mark:disabled { cursor: default; }
 .student-recap-date { font-size: 10px; color: color-mix(in srgb, var(--color-text) 55%, transparent); font-variant-numeric: tabular-nums; }
 .student-recap-day .mark { width: 26px; height: 26px; cursor: default; }
 .student-recap-note { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 6px 0; border-bottom: 1px solid var(--color-divider); font-size: 13px; }
+
+/* — notifikasi WhatsApp & kontak orang tua — */
+.wa-toggle { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; cursor: pointer; }
+.wa-toggle input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--color-accent); flex: none; }
+.guardian-list { display: flex; flex-direction: column; gap: 10px; }
+.guardian-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(90px, .7fr) minmax(0, 1.2fr) auto; gap: 8px; align-items: start; padding: 10px; border: 1px solid var(--color-divider); }
+.guardian-row .field { margin: 0; }
+.guardian-row .wa-toggle { grid-column: 1 / -2; font-size: 13px; }
+.guardian-row .btn { grid-column: -2 / -1; grid-row: 1; align-self: end; }
+@media (max-width: 560px) {
+    .guardian-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .guardian-row .btn, .guardian-row .wa-toggle { grid-column: auto; grid-row: auto; }
+}
+.risk-notice { font-size: 12px; }

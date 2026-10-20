@@ -14,6 +14,7 @@ import {
     Users,
     CalendarX,
     TriangleAlert,
+    MessageCircle,
 } from 'lucide-react';
 import TrendPanel from '@/Components/TrendPanel';
 import AppLayout from '@/Layouts/AppLayout';
@@ -33,6 +34,7 @@ const MODULES = {
         { icon: BadgeCheck, title: 'Dispensasi', body: 'Pantau pengajuan dispensasi dan persetujuannya.', href: '/dispensasi' },
         { icon: ChartColumn, title: 'Rekap sekolah', body: 'Kehadiran seluruh kelas per bulan dan semester, export Excel.', href: '/rekap/sekolah' },
         { icon: TriangleAlert, title: 'Siswa berisiko', body: 'Peringatan dini siswa yang sering alpa atau kehadirannya menurun.', href: '/siswa-berisiko' },
+        { icon: MessageCircle, title: 'Notifikasi WhatsApp', body: 'Kabari orang tua siswa berisiko secara otomatis, lengkap dengan log pengiriman.', href: '/notifikasi-wa' },
     ],
     guru_bk: [
         { icon: TriangleAlert, title: 'Siswa berisiko', body: 'Peringatan dini: siswa yang sering alpa, alpa beruntun, atau kehadirannya menurun, lengkap dengan alasannya.', href: '/siswa-berisiko' },

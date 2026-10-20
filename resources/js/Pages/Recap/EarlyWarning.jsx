@@ -2,14 +2,38 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import StudentRecapModal from '@/Components/StudentRecapModal';
 import AppLayout from '@/Layouts/AppLayout';
-import { formatDate } from '@/lib/format';
+import { formatDate, formatDateTime } from '@/lib/format';
 
 const LEVELS = {
     tinggi: { label: 'Risiko tinggi', className: 'tag-danger' },
     perhatian: { label: 'Perlu perhatian', className: 'tag-warning' },
 };
 
-export default function EarlyWarning({ students, rules, period, classrooms, filters, homeroom, isHomeroomTeacher }) {
+/**
+ * Apakah orang tua sudah dikabari lewat WhatsApp untuk episode risiko ini.
+ */
+function ParentNotice({ notice }) {
+    if (!notice) {
+        return <span className="tag tag-outline risk-notice">Orang tua belum dikabari</span>;
+    }
+
+    const when = formatDateTime(notice.notifiedAt);
+    const [className, text] = notice.statuses.includes('terkirim')
+        ? ['tag-accent', `WA ke orang tua terkirim ${when}`]
+        : notice.statuses.includes('antre')
+          ? ['tag-outline', `WA dalam antrean (${when})`]
+          : notice.statuses.includes('gagal')
+            ? ['tag-danger', `WA gagal dikirim ${when}`]
+            : notice.statuses.includes('tanpa_kontak')
+              ? ['tag-warning', 'Tidak ada nomor WA orang tua']
+              : notice.statuses.includes('dibatasi')
+                ? ['tag-warning', 'Tertunda: batas pesan harian']
+                : ['tag-neutral', `Mode uji: tercatat ${when}`];
+
+    return <span className={`tag ${className} risk-notice`}>{text}</span>;
+}
+
+export default function EarlyWarning({ students, rules, period, classrooms, filters, homeroom, isHomeroomTeacher, whatsappEnabled }) {
     const { auth } = usePage().props;
     const [level, setLevel] = useState('semua');
     const [openStudent, setOpenStudent] = useState(null);
@@ -122,6 +146,7 @@ export default function EarlyWarning({ students, rules, period, classrooms, filt
                                                 <span className="risk-rate">
                                                     Kehadiran <b>{student.rate === null ? '—' : `${student.rate}%`}</b> · A {student.counts.A} · S {student.counts.S} · I {student.counts.I}
                                                 </span>
+                                                {(whatsappEnabled || student.notice) && <ParentNotice notice={student.notice} />}
                                                 <button type="button" className="btn btn-ghost" onClick={() => setOpenStudent(student.id)}>
                                                     Lihat rekap
                                                 </button>

@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StudentRequest;
 use App\Models\AcademicYear;
 use App\Models\Classroom;
+use App\Models\GuardianContact;
 use App\Models\Student;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -31,7 +32,7 @@ class StudentController extends Controller
         ];
 
         $students = Student::query()
-            ->with(['classrooms' => fn (BelongsToMany $query) => $query->wherePivot('academic_year_id', $academicYearId)])
+            ->with(['classrooms' => fn (BelongsToMany $query) => $query->wherePivot('academic_year_id', $academicYearId), 'guardianContacts'])
             ->search($filters['q'])
             ->when($filters['status'] !== 'semua', fn (Builder $query) => $query->where('status', $filters['status']))
             ->when($filters['classroom'] === 'tanpa-kelas', fn (Builder $query) => $query->whereDoesntHave(
@@ -54,6 +55,12 @@ class StudentController extends Controller
                 'status' => $student->status->value,
                 'statusLabel' => $student->status->label(),
                 'classroom' => $student->classrooms->first()?->only('id', 'name'),
+                'guardians' => $student->guardianContacts->map(fn (GuardianContact $contact): array => [
+                    'name' => $contact->name ?? '',
+                    'relation' => $contact->relation ?? '',
+                    'phone' => GuardianContact::displayPhone($contact->phone),
+                    'consented' => $contact->consented_at !== null,
+                ])->values(),
             ]);
 
         return Inertia::render('Admin/Students/Index', [
@@ -64,6 +71,7 @@ class StudentController extends Controller
                 ? $academicYear->classrooms()->orderBy('grade')->orderBy('name')->get(['id', 'name'])
                 : [],
             'genders' => collect(Gender::cases())->map(fn (Gender $gender): array => ['value' => $gender->value, 'label' => $gender->label()]),
+            'relations' => collect(GuardianContact::RELATIONS)->map(fn (string $label, string $value): array => ['value' => $value, 'label' => $label])->values(),
             'statuses' => collect(StudentStatus::cases())->map(fn (StudentStatus $status): array => ['value' => $status->value, 'label' => $status->label()]),
         ]);
     }
@@ -71,8 +79,9 @@ class StudentController extends Controller
     public function store(StudentRequest $request): RedirectResponse
     {
         $student = DB::transaction(function () use ($request): Student {
-            $student = Student::create($request->safe()->except('classroom_id'));
+            $student = Student::create($request->safe()->except('classroom_id', 'guardians'));
             $this->place($student, $request->validated('classroom_id'));
+            $this->syncGuardians($student, $request->validated('guardians', []));
 
             return $student;
         });
@@ -83,8 +92,9 @@ class StudentController extends Controller
     public function update(StudentRequest $request, Student $student): RedirectResponse
     {
         DB::transaction(function () use ($request, $student): void {
-            $student->update($request->safe()->except('classroom_id'));
+            $student->update($request->safe()->except('classroom_id', 'guardians'));
             $this->place($student, $request->validated('classroom_id'));
+            $this->syncGuardians($student, $request->validated('guardians', []));
         });
 
         return back()->with('success', "Data {$student->name} diperbarui.");
@@ -95,6 +105,28 @@ class StudentController extends Controller
         $student->delete();
 
         return back()->with('success', "{$student->name} dihapus.");
+    }
+
+    /**
+     * Replace the student's parent contacts with the ones in the form. A
+     * number that stays consented keeps its original consent date.
+     *
+     * @param  list<array{name?: ?string, relation?: ?string, phone: string, consented?: bool}>  $guardians
+     */
+    private function syncGuardians(Student $student, array $guardians): void
+    {
+        $existing = $student->guardianContacts()->get()->keyBy('phone');
+        $student->guardianContacts()->whereNotIn('phone', array_column($guardians, 'phone'))->delete();
+
+        foreach ($guardians as $guardian) {
+            $consented = (bool) ($guardian['consented'] ?? false);
+
+            $student->guardianContacts()->updateOrCreate(['phone' => $guardian['phone']], [
+                'name' => $guardian['name'] ?? null,
+                'relation' => ($guardian['relation'] ?? null) ?: null,
+                'consented_at' => $consented ? ($existing->get($guardian['phone'])?->consented_at ?? now()) : null,
+            ]);
+        }
     }
 
     /**

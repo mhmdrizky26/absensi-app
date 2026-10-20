@@ -1,4 +1,4 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Field from '@/Components/Field';
@@ -52,6 +52,11 @@ export default function Settings({ settings, isEnforced, holidays }) {
                 <div>
                     <h6 className="text-muted">Admin</h6>
                     <h1>Pengaturan absensi</h1>
+                </div>
+                <div className="page-actions">
+                    <Link href="/notifikasi-wa" className="btn btn-secondary">
+                        Notifikasi WhatsApp
+                    </Link>
                 </div>
             </div>
 

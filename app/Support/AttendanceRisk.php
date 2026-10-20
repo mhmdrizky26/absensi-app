@@ -73,7 +73,7 @@ class AttendanceRisk
      * Flagged active students of the classrooms, most serious first.
      *
      * @param  Collection<int, Classroom>  $classrooms
-     * @return list<array{id: int, name: string, nis: string, classroomId: int, classroom: string, level: string, reasons: list<array{level: string, text: string}>, counts: array<string, int>, rate: ?int, recent: list<array{date: string, status: ?string}>}>
+     * @return list<array{id: int, name: string, nis: string, classroomId: int, classroom: string, level: string, reasons: list<array{level: string, text: string}>, counts: array<string, int>, rate: ?int, recent: list<array{date: string, status: ?string}>, streakEndedOn: ?string}>
      */
     public function flagged(Collection $classrooms, CarbonInterface $from, CarbonInterface $to): array
     {
@@ -124,6 +124,7 @@ class AttendanceRisk
                 'counts' => $counts,
                 'rate' => $this->report->rate($counts),
                 'recent' => array_map(fn (string $day): array => ['date' => $day, 'status' => $studentMarks[$day] ?? null], array_slice($days, -self::RECENT_DAYS)),
+                'streakEndedOn' => $this->latestAbsentStreakEnd($studentMarks, $days),
             ];
         }
 
@@ -213,6 +214,33 @@ class AttendanceRisk
         }
 
         return [$longest, $longestEnd];
+    }
+
+    /**
+     * The last day of the most recent run of at least STREAK_DAYS Alpa, so a
+     * new run can be told apart from one parents already heard about.
+     *
+     * @param  array<string, string>  $marks
+     * @param  list<string>  $days
+     */
+    private function latestAbsentStreakEnd(array $marks, array $days): ?string
+    {
+        $current = 0;
+        $latestEnd = null;
+
+        foreach ($days as $day) {
+            if (! isset($marks[$day])) {
+                continue;
+            }
+
+            $current = $marks[$day] === 'A' ? $current + 1 : 0;
+
+            if ($current >= self::STREAK_DAYS) {
+                $latestEnd = $day;
+            }
+        }
+
+        return $latestEnd;
     }
 
     /**

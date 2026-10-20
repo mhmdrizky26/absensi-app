@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Enums\Gender;
 use App\Models\AcademicYear;
 use App\Models\Classroom;
+use App\Models\GuardianContact;
 use App\Models\Student;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -27,6 +28,10 @@ class ImportStudents
         'name' => ['nama', 'nama_siswa', 'nama_lengkap', 'nama_peserta_didik'],
         'gender' => ['jk', 'lp', 'l_p', 'jk_lp', 'jenis_kelamin'],
         'classroom' => ['kelas', 'rombel', 'rombel_saat_ini', 'nama_rombel'],
+        'guardian_name' => ['nama_orang_tua', 'nama_ortu', 'nama_wali', 'orang_tua'],
+        'guardian_relation' => ['hubungan', 'hubungan_orang_tua'],
+        'guardian_phone' => ['no_wa_orang_tua', 'no_wa', 'wa_orang_tua', 'no_hp_orang_tua', 'no_hp_ortu', 'hp_orang_tua', 'telepon_orang_tua'],
+        'guardian_consent' => ['bersedia_dihubungi', 'bersedia', 'persetujuan', 'setuju'],
     ];
 
     private const REQUIRED_COLUMNS = [
@@ -104,6 +109,12 @@ class ImportStudents
                 $errors[] = "JK \"{$values['gender']}\" harus L atau P";
             }
 
+            $guardianPhone = GuardianContact::normalizePhone($values['guardian_phone']);
+
+            if ($values['guardian_phone'] !== '' && ! $guardianPhone) {
+                $errors[] = "No. WA orang tua \"{$values['guardian_phone']}\" tidak valid";
+            }
+
             $classroomName = $this->normalizeClassroomName($values['classroom']);
 
             if (! isset($classroomIds[$classroomName])) {
@@ -131,6 +142,12 @@ class ImportStudents
                 'name' => $values['name'],
                 'gender' => $gender,
                 'classroom_id' => $classroomIds[$classroomName],
+                'guardian' => $guardianPhone ? [
+                    'phone' => $guardianPhone,
+                    'name' => $values['guardian_name'] ?: null,
+                    'relation' => $this->parseRelation($values['guardian_relation']),
+                    'consented' => $this->parseConsent($values['guardian_consent']),
+                ] : null,
             ];
         }
 
@@ -169,6 +186,15 @@ class ImportStudents
                 }
 
                 $placements[$student->id] = $row['classroom_id'];
+
+                if ($row['guardian']) {
+                    $contact = $student->guardianContacts()->firstOrNew(['phone' => $row['guardian']['phone']]);
+                    $contact->fill([
+                        'name' => $row['guardian']['name'] ?? $contact->name,
+                        'relation' => $row['guardian']['relation'] ?? $contact->relation,
+                        'consented_at' => $row['guardian']['consented'] ? ($contact->consented_at ?? now()) : null,
+                    ])->save();
+                }
             }
 
             DB::table('classroom_student')
@@ -215,6 +241,22 @@ class ImportStudents
         return $value;
     }
 
+    private function parseRelation(string $value): ?string
+    {
+        $value = Str::lower(trim($value));
+
+        return array_key_exists($value, GuardianContact::RELATIONS) ? $value : null;
+    }
+
+    /**
+     * An empty consent cell counts as agreed: schools usually only fill in
+     * numbers of parents who signed the consent form.
+     */
+    private function parseConsent(string $value): bool
+    {
+        return ! in_array(Str::lower(trim($value)), ['tidak', 't', 'no', 'n', '0', 'tidak bersedia'], true);
+    }
+
     private function parseGender(string $value): ?Gender
     {
         return match (Str::upper(preg_replace('/[\s-]+/', '', $value))) {
@@ -246,7 +288,7 @@ class ImportStudents
     /**
      * @param  array<string, mixed>  $row
      * @param  array<string, string>  $columns
-     * @return array{nis: string, nisn: string, name: string, gender: string, classroom: string}
+     * @return array{nis: string, nisn: string, name: string, gender: string, classroom: string, guardian_name: string, guardian_relation: string, guardian_phone: string, guardian_consent: string}
      */
     private function extract(array $row, array $columns): array
     {
@@ -265,6 +307,10 @@ class ImportStudents
             'name' => preg_replace('/\s+/', ' ', $cell('name')),
             'gender' => $cell('gender'),
             'classroom' => $cell('classroom'),
+            'guardian_name' => preg_replace('/\s+/', ' ', $cell('guardian_name')),
+            'guardian_relation' => $cell('guardian_relation'),
+            'guardian_phone' => $cell('guardian_phone'),
+            'guardian_consent' => $cell('guardian_consent'),
         ];
     }
 

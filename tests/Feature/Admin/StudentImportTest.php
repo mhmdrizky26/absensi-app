@@ -154,4 +154,27 @@ class StudentImportTest extends TestCase
             ->assertOk()
             ->assertDownload('template-import-siswa.xlsx');
     }
+
+    public function test_parent_contacts_are_imported_from_optional_columns(): void
+    {
+        $rows = [
+            ['nis' => '260001', 'nisn' => '', 'nama' => 'Ayu', 'jk' => 'P', 'kelas' => 'VII-A', 'nama_orang_tua' => 'Bu Sari', 'hubungan' => 'Ibu', 'no_wa_orang_tua' => 81234567890.0, 'bersedia_dihubungi' => 'Ya'],
+            ['nis' => '260002', 'nisn' => '', 'nama' => 'Bayu', 'jk' => 'L', 'kelas' => 'VII-A', 'nama_orang_tua' => 'Pak Dodi', 'hubungan' => 'ayah', 'no_wa_orang_tua' => '0813-1111-2222', 'bersedia_dihubungi' => 'Tidak'],
+            ['nis' => '260003', 'nisn' => '', 'nama' => 'Citra', 'jk' => 'P', 'kelas' => 'VII-A', 'nama_orang_tua' => '', 'hubungan' => '', 'no_wa_orang_tua' => '', 'bersedia_dihubungi' => ''],
+        ];
+
+        $result = app(ImportStudents::class)->handle($rows, $this->academicYear);
+
+        $this->assertSame([], $result['errors']);
+        $ayu = Student::firstWhere('nis', '260001')->guardianContacts()->sole();
+        $this->assertSame(['6281234567890', 'Bu Sari', 'ibu'], [$ayu->phone, $ayu->name, $ayu->relation]);
+        $this->assertNotNull($ayu->consented_at);
+        $this->assertNull(Student::firstWhere('nis', '260002')->guardianContacts()->sole()->consented_at);
+        $this->assertSame(0, Student::firstWhere('nis', '260003')->guardianContacts()->count());
+
+        $bad = $rows[0];
+        $bad['no_wa_orang_tua'] = '12345';
+        $result = app(ImportStudents::class)->handle([$bad], $this->academicYear);
+        $this->assertSame(['Baris 2: No. WA orang tua "12345" tidak valid.'], $result['errors']);
+    }
 }

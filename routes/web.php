@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\StudentCardRevocationController;
 use App\Http\Controllers\Admin\StudentController;
 use App\Http\Controllers\Admin\StudentImportController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\WhatsAppController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\ClassScan\ClassLoginController;
 use App\Http\Controllers\ClassScan\ClassSessionCloseController;
@@ -148,6 +149,11 @@ Route::middleware('auth')->group(function () {
 
         Route::get('pengaturan', [SettingController::class, 'edit'])->name('settings.edit');
         Route::put('pengaturan', [SettingController::class, 'update'])->name('settings.update');
+        Route::get('notifikasi-wa', [WhatsAppController::class, 'index'])->name('whatsapp.index');
+        Route::put('notifikasi-wa', [WhatsAppController::class, 'update'])->name('whatsapp.update');
+        Route::post('notifikasi-wa/uji', [WhatsAppController::class, 'test'])->name('whatsapp.test');
+        Route::post('notifikasi-wa/jalankan', [WhatsAppController::class, 'run'])->name('whatsapp.run');
+        Route::post('notifikasi-wa/pesan/{riskMessage}/kirim-ulang', [WhatsAppController::class, 'resend'])->name('whatsapp.resend');
         Route::post('libur', [HolidayController::class, 'store'])->name('holidays.store');
         Route::delete('libur/{holiday}', [HolidayController::class, 'destroy'])->name('holidays.destroy');
 

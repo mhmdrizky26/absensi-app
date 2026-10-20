@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('attendance:close-sessions')->everyMinute()->withoutOverlapping();
+Schedule::command('risiko:kirim-wa')->everyMinute()->withoutOverlapping();
