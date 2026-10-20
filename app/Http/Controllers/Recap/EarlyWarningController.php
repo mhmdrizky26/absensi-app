@@ -7,11 +7,14 @@ use App\Http\Controllers\Controller;
 use App\Models\AcademicYear;
 use App\Models\Attendance;
 use App\Models\Classroom;
+use App\Models\RiskEpisode;
+use App\Models\RiskMessage;
 use App\Models\Student;
 use App\Support\AttendanceReport;
 use App\Support\AttendanceRisk;
 use App\Support\AttendanceWindow;
 use App\Support\RecapScope;
+use App\Support\WhatsAppSettings;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
@@ -25,7 +28,7 @@ class EarlyWarningController extends Controller
      * Students whose attendance this semester matches one of the early
      * warning rules. A wali kelas sees their own class only.
      */
-    public function index(Request $request, RecapScope $scope, AttendanceRisk $risk): Response
+    public function index(Request $request, RecapScope $scope, AttendanceRisk $risk, WhatsAppSettings $whatsApp): Response
     {
         $user = $request->user();
         $academicYear = AcademicYear::active();
@@ -38,7 +41,7 @@ class EarlyWarningController extends Controller
 
         if ($academicYear && $target->isNotEmpty()) {
             [$from, $to, $semester] = $academicYear->semesterSoFar(today());
-            $students = $risk->flagged($target, $from, $to);
+            $students = $this->withParentNotice($risk->flagged($target, $from, $to));
             $period = ['label' => "Semester {$semester} {$academicYear->name}", 'from' => $from->toDateString(), 'to' => $to->toDateString()];
         }
 
@@ -50,7 +53,36 @@ class EarlyWarningController extends Controller
             'filters' => ['classroom' => $selectedId],
             'homeroom' => $user->hasRole(Role::WaliKelas) ? $classrooms->first()?->name : null,
             'isHomeroomTeacher' => $user->hasRole(Role::WaliKelas),
+            'whatsappEnabled' => $whatsApp->enabled(),
         ]);
+    }
+
+    /**
+     * Add whether, and when, the parents were told about the student's current
+     * risk episode, with the status of the last messages sent.
+     *
+     * @param  list<array<string, mixed>>  $students
+     * @return list<array<string, mixed>>
+     */
+    private function withParentNotice(array $students): array
+    {
+        $episodes = RiskEpisode::query()
+            ->open()
+            ->whereIn('student_id', array_column($students, 'id'))
+            ->whereNotNull('notified_at')
+            ->with(['messages' => fn ($query) => $query->latest('id')])
+            ->get()
+            ->keyBy('student_id');
+
+        return array_map(function (array $student) use ($episodes): array {
+            $episode = $episodes->get($student['id']);
+            $lastBatch = $episode?->messages->filter(fn (RiskMessage $message): bool => $message->created_at->greaterThanOrEqualTo($episode->notified_at->copy()->subMinute()));
+
+            return [...$student, 'notice' => $episode ? [
+                'notifiedAt' => $episode->notified_at->toIso8601String(),
+                'statuses' => $lastBatch->pluck('status')->unique()->values()->all(),
+            ] : null];
+        }, $students);
     }
 
     /**

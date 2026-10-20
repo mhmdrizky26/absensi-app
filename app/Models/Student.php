@@ -176,6 +176,22 @@ class Student extends Model
     }
 
     /**
+     * @return HasMany<GuardianContact, $this>
+     */
+    public function guardianContacts(): HasMany
+    {
+        return $this->hasMany(GuardianContact::class);
+    }
+
+    /**
+     * @return HasMany<RiskEpisode, $this>
+     */
+    public function riskEpisodes(): HasMany
+    {
+        return $this->hasMany(RiskEpisode::class);
+    }
+
+    /**
      * The classroom this student sits in during the given academic year.
      */
     public function classroomIn(AcademicYear $academicYear): ?Classroom

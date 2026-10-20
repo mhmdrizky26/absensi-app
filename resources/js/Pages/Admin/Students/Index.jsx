@@ -7,9 +7,10 @@ import Modal from '@/Components/Modal';
 import Pagination from '@/Components/Pagination';
 import AppLayout from '@/Layouts/AppLayout';
 
-const EMPTY_STUDENT = { nis: '', nisn: '', name: '', gender: 'L', status: 'aktif', classroom_id: '' };
+const EMPTY_STUDENT = { nis: '', nisn: '', name: '', gender: 'L', status: 'aktif', classroom_id: '', guardians: [] };
+const EMPTY_GUARDIAN = { name: '', relation: 'ibu', phone: '', consented: true };
 
-export default function StudentsIndex({ academicYear, students, filters, classrooms, genders, statuses }) {
+export default function StudentsIndex({ academicYear, students, filters, classrooms, genders, statuses, relations }) {
     const [query, setQuery] = useState(filters.q);
     const [editing, setEditing] = useState(null);
     const [deleting, setDeleting] = useState(null);
@@ -48,6 +49,7 @@ export default function StudentsIndex({ academicYear, students, filters, classro
             gender: student.gender,
             status: student.status,
             classroom_id: student.classroom?.id ?? '',
+            guardians: student.guardians.map((guardian) => ({ ...guardian })),
         });
         setEditing(student);
     }
@@ -61,6 +63,13 @@ export default function StudentsIndex({ academicYear, students, filters, classro
         } else {
             form.put(`/siswa/${editing.id}`, options);
         }
+    }
+
+    function setGuardian(index, field, value) {
+        form.setData(
+            'guardians',
+            form.data.guardians.map((guardian, position) => (position === index ? { ...guardian, [field]: value } : guardian)),
+        );
     }
 
     function destroy() {
@@ -141,6 +150,8 @@ export default function StudentsIndex({ academicYear, students, filters, classro
                                         <span className="cell-sub">
                                             NIS {student.nis}
                                             {student.nisn ? ` · NISN ${student.nisn}` : ''}
+                                            {' · '}
+                                            {student.guardians.length > 0 ? `WA ortu: ${student.guardians.map((guardian) => guardian.phone).join(', ')}` : 'belum ada nomor WA ortu'}
                                         </span>
                                     </td>
                                     <td>{student.gender}</td>
@@ -208,6 +219,43 @@ export default function StudentsIndex({ academicYear, students, filters, classro
                             </select>
                         </Field>
                     </div>
+                    <Field label="Kontak orang tua (WhatsApp)" error={form.errors.guardians} hint="Dipakai untuk mengabari orang tua bila anaknya masuk daftar siswa berisiko. Pesan hanya dikirim ke nomor yang sudah setuju.">
+                        <div className="guardian-list">
+                            {form.data.guardians.map((guardian, index) => (
+                                <div key={index} className="guardian-row">
+                                    <Field label="Nama" htmlFor={`guardian-name-${index}`} error={form.errors[`guardians.${index}.name`]}>
+                                        <input id={`guardian-name-${index}`} className="input" maxLength={100} value={guardian.name} onChange={(event) => setGuardian(index, 'name', event.target.value)} />
+                                    </Field>
+                                    <Field label="Hubungan" htmlFor={`guardian-relation-${index}`}>
+                                        <select id={`guardian-relation-${index}`} className="input" value={guardian.relation} onChange={(event) => setGuardian(index, 'relation', event.target.value)}>
+                                            {relations.map((relation) => (
+                                                <option key={relation.value} value={relation.value}>
+                                                    {relation.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </Field>
+                                    <Field label="No. WA" htmlFor={`guardian-phone-${index}`} error={form.errors[`guardians.${index}.phone`]}>
+                                        <input id={`guardian-phone-${index}`} className="input" inputMode="tel" placeholder="0812 3456 7890" value={guardian.phone} onChange={(event) => setGuardian(index, 'phone', event.target.value)} />
+                                    </Field>
+                                    <button type="button" className="btn btn-ghost" onClick={() => form.setData('guardians', form.data.guardians.filter((_, position) => position !== index))}>
+                                        Hapus
+                                    </button>
+                                    <label className="wa-toggle" htmlFor={`guardian-consent-${index}`}>
+                                        <input id={`guardian-consent-${index}`} type="checkbox" checked={guardian.consented} onChange={(event) => setGuardian(index, 'consented', event.target.checked)} />
+                                        Orang tua setuju menerima pesan WhatsApp dari sekolah
+                                    </label>
+                                </div>
+                            ))}
+                            {form.data.guardians.length < 3 && (
+                                <div>
+                                    <button type="button" className="btn btn-secondary" onClick={() => form.setData('guardians', [...form.data.guardians, { ...EMPTY_GUARDIAN }])}>
+                                        <Plus size={16} aria-hidden="true" /> Tambah nomor orang tua
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </Field>
                     <div className="dialog-actions">
                         <button type="button" className="btn btn-secondary" onClick={() => setEditing(null)}>
                             Batal

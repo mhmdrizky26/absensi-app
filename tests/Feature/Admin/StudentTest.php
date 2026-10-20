@@ -115,4 +115,36 @@ class StudentTest extends TestCase
                 ->where('students.data.0.name', 'Dimas Saputra')
             );
     }
+
+    public function test_parent_whatsapp_numbers_are_saved_normalized_with_consent(): void
+    {
+        $this->actingAs($this->admin)->post('/siswa', [
+            'nis' => '260001', 'name' => 'Ayu', 'gender' => 'P', 'status' => 'aktif',
+            'guardians' => [
+                ['name' => 'Bu Sari', 'relation' => 'ibu', 'phone' => '0812-3456-7890', 'consented' => true],
+                ['name' => 'Pak Budi', 'relation' => 'ayah', 'phone' => '+62 813 1111 2222', 'consented' => false],
+            ],
+        ])->assertSessionHasNoErrors();
+
+        $student = Student::firstWhere('nis', '260001');
+        $contacts = $student->guardianContacts()->orderBy('phone')->get();
+        $this->assertSame(['6281234567890', '6281311112222'], $contacts->pluck('phone')->all());
+        $this->assertNotNull($contacts[0]->consented_at);
+        $this->assertNull($contacts[1]->consented_at);
+
+        $consentedAt = $contacts[0]->consented_at;
+        $this->travel(1)->days();
+        $this->actingAs($this->admin)->put("/siswa/{$student->id}", [
+            'nis' => '260001', 'name' => 'Ayu', 'gender' => 'P', 'status' => 'aktif',
+            'guardians' => [['name' => 'Bu Sari', 'relation' => 'ibu', 'phone' => '6281234567890', 'consented' => true]],
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame(['6281234567890'], $student->guardianContacts()->pluck('phone')->all());
+        $this->assertTrue($student->guardianContacts()->first()->consented_at->equalTo($consentedAt));
+
+        $this->actingAs($this->admin)->put("/siswa/{$student->id}", [
+            'nis' => '260001', 'name' => 'Ayu', 'gender' => 'P', 'status' => 'aktif',
+            'guardians' => [['phone' => '12345', 'consented' => true]],
+        ])->assertSessionHasErrors(['guardians.0.phone' => 'Nomor WA tidak valid. Contoh: 0812 3456 7890.']);
+    }
 }

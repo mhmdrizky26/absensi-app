@@ -28,6 +28,14 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    /*
+     * Fonnte (fonnte.com) untuk mengabari orang tua siswa berisiko lewat WhatsApp.
+     * Token device dari menu Device setelah nomor WA tersambung lewat QR.
+     */
+    'fonnte' => [
+        'token' => env('FONNTE_TOKEN'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
