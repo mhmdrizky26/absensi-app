@@ -82,7 +82,7 @@ export default function Dashboard({ stats, trends }) {
                 <div className="stat-strip">
                     <div className="stat">
                         <div className="stat-label">Tahun ajaran aktif</div>
-                        <div className="stat-value">{stats.academicYear ?? '—'}</div>
+                        <div className="stat-value">{stats.academicYear ? stats.academicYear.replace('/', '/​') : '—'}</div>
                     </div>
                     <div className="stat">
                         <div className="stat-label">Kelas</div>

@@ -137,7 +137,8 @@ function ClassroomDetail({ classroom, onClose }) {
 }
 
 export default function Monitor({ date, window: scanWindow, classrooms, late }) {
-    usePoll(30000, { only: ['classrooms', 'late'] });
+    // Status "belum absen" ikut berubah karena waktu berjalan, jadi tetap diperbarui walau data tidak berubah.
+    usePoll(12000, { only: ['classrooms', 'late'] });
     const [openClassroom, setOpenClassroom] = useState(null);
 
     const totals = Object.fromEntries(STATUS_LABELS.map(([status]) => [status, 0]));

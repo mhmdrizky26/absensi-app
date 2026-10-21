@@ -42,10 +42,14 @@ class RiskMessage extends Model
 
     public const TRIGGER_NEW_STREAK = 'rentetan';
 
+    /** Sent with the button on the early-warning page by an admin or guru BK. */
+    public const TRIGGER_MANUAL = 'manual';
+
     public const TRIGGER_LABELS = [
         self::TRIGGER_NEW => 'Masuk daftar berisiko',
         self::TRIGGER_ESCALATED => 'Naik ke risiko tinggi',
         self::TRIGGER_NEW_STREAK => 'Alpa beruntun lagi',
+        self::TRIGGER_MANUAL => 'Dikirim manual',
     ];
 
     protected function casts(): array

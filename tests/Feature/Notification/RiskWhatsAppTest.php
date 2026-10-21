@@ -310,4 +310,102 @@ class RiskWhatsAppTest extends TestCase
             ->where('students.0.notice.statuses', [RiskMessage::STATUS_QUEUED])
         );
     }
+
+    public function test_admin_and_guru_bk_send_the_risk_message_right_away(): void
+    {
+        Http::fake(['api.fonnte.com/*' => Http::response(['status' => true, 'id' => ['555']])]);
+        $this->travelTo(CarbonImmutable::parse('2026-10-06 10:00'));
+        $ayu = $this->student('Ayu');
+        $this->mark($ayu, ['2026-10-01' => 'A', '2026-10-02' => 'A', '2026-10-05' => 'A']);
+        $bk = User::factory()->guruBk()->create();
+
+        $this->actingAs($bk)->get('/siswa-berisiko')->assertInertia(fn (Assert $page) => $page
+            ->where('canSendWhatsApp', true)
+            ->where('students.0.contacts', [GuardianContact::displayPhone($ayu->guardianContacts()->value('phone'))])
+            ->where('students.0.messagePreview', fn (string $text): bool => str_starts_with($text, 'Yth. Bapak/Ibu wali dari Ayu (kelas VII-A).') && str_contains($text, 'Bu Dirja'))
+        );
+
+        $this->actingAs($bk)->post("/siswa-berisiko/{$ayu->id}/kirim-wa")
+            ->assertSessionHas('success', 'Pesan risiko terkirim ke 1 nomor orang tua Ayu.');
+
+        $message = RiskMessage::sole();
+        $this->assertSame([RiskMessage::TRIGGER_MANUAL, RiskMessage::STATUS_SENT, '555'], [$message->trigger, $message->status, $message->provider_message_id]);
+        $this->assertNotNull(RiskEpisode::sole()->notified_at);
+        Queue::assertNothingPushed();
+
+        $this->actingAs(User::factory()->waliKelas()->create())->post("/siswa-berisiko/{$ayu->id}/kirim-wa")->assertForbidden();
+        $this->actingAs(User::factory()->waliKelas()->create())->get('/siswa-berisiko')->assertInertia(fn (Assert $page) => $page->where('canSendWhatsApp', false));
+    }
+
+    public function test_manual_send_needs_a_risky_student_with_a_consenting_number(): void
+    {
+        Http::fake();
+        $this->travelTo(CarbonImmutable::parse('2026-10-06 10:00'));
+        $admin = User::factory()->admin()->create();
+        $fine = $this->student('Budi');
+        $this->mark($fine, ['2026-10-01' => 'H']);
+        $noNumber = $this->student('Citra', withContact: false);
+        $this->mark($noNumber, ['2026-10-01' => 'A', '2026-10-02' => 'A', '2026-10-05' => 'A']);
+
+        $this->actingAs($admin)->post("/siswa-berisiko/{$fine->id}/kirim-wa")->assertSessionHas('error', 'Budi sedang tidak masuk daftar siswa berisiko.');
+        $this->actingAs($admin)->post("/siswa-berisiko/{$noNumber->id}/kirim-wa")->assertSessionHas('error', 'Belum ada nomor WA orang tua Citra yang bersedia dihubungi. Tambahkan di menu Siswa.');
+
+        Http::assertNothingSent();
+        $this->assertSame(0, RiskMessage::count());
+    }
+
+    public function test_only_guru_bk_adds_a_parent_number_from_the_risk_card(): void
+    {
+        $ayu = $this->student('Ayu', withContact: false);
+        $bk = User::factory()->guruBk()->create();
+
+        $this->actingAs($bk)->get('/siswa-berisiko')->assertInertia(fn (Assert $page) => $page->where('canAddContact', true));
+        $this->actingAs($bk)->post("/siswa-berisiko/{$ayu->id}/kontak", ['name' => 'Bu Sari', 'relation' => 'ibu', 'phone' => '0812-3456-7890', 'consented' => true])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success', 'Nomor 0812-3456-7890 ditambahkan untuk orang tua Ayu. Pesan risiko sekarang bisa dikirim ke nomor ini.');
+
+        $contact = $ayu->guardianContacts()->sole();
+        $this->assertSame(['6281234567890', 'Bu Sari', 'ibu'], [$contact->phone, $contact->name, $contact->relation]);
+        $this->assertNotNull($contact->consented_at);
+
+        $this->actingAs($bk)->post("/siswa-berisiko/{$ayu->id}/kontak", ['phone' => '+62 812 3456 7890', 'consented' => true])
+            ->assertSessionHasErrors(['phone' => 'Nomor ini sudah tersimpan untuk siswa ini.']);
+        $this->actingAs($bk)->post("/siswa-berisiko/{$ayu->id}/kontak", ['phone' => '12345'])->assertSessionHasErrors('phone');
+
+        GuardianContact::factory()->count(2)->for($ayu)->create();
+        $this->actingAs($bk)->post("/siswa-berisiko/{$ayu->id}/kontak", ['phone' => '0813-0000-1111', 'consented' => true])->assertSessionHasErrors('phone');
+
+        $this->actingAs(User::factory()->admin()->create())->post("/siswa-berisiko/{$ayu->id}/kontak", ['phone' => '0813-0000-2222'])->assertForbidden();
+        $this->actingAs($this->classroom->homeroomTeacher)->post("/siswa-berisiko/{$ayu->id}/kontak", ['phone' => '0813-0000-2222'])->assertForbidden();
+        $this->actingAs(User::factory()->admin()->create())->get('/siswa-berisiko')->assertInertia(fn (Assert $page) => $page->where('canAddContact', false));
+        $this->assertSame(3, $ayu->guardianContacts()->count());
+    }
+
+    public function test_admin_edits_the_message_texts_used_everywhere(): void
+    {
+        Http::fake(['api.fonnte.com/*' => Http::response(['status' => true, 'id' => ['9']])]);
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)->put('/notifikasi-wa/pesan', [
+            'high' => 'Halo wali {NAMA} kelas {kelas}: {alasan} Hubungi {wali_kelas}. {sekolah}',
+            'watch' => WhatsAppClient::DEFAULT_TEXT_WATCH,
+            'test' => 'Tes dari {sekolah}',
+        ])->assertSessionHasNoErrors();
+
+        $settings = app(WhatsAppSettings::class);
+        $this->assertNull(Setting::value(WhatsAppSettings::TEXT_WATCH));
+        $this->assertSame('Tes dari {sekolah}', $settings->textTest());
+
+        $this->actingAs($admin)->post('/notifikasi-wa/uji', ['phone' => '081234567890']);
+        Http::assertSent(fn (HttpRequest $request): bool => $request['message'] === 'Tes dari SMP Contoh');
+
+        $this->travelTo(CarbonImmutable::parse('2026-10-06 10:00'));
+        $ayu = $this->student('Ayu');
+        $this->mark($ayu, ['2026-10-01' => 'A', '2026-10-02' => 'A', '2026-10-05' => 'A']);
+        $this->actingAs($admin)->post("/siswa-berisiko/{$ayu->id}/kirim-wa");
+
+        Http::assertSent(fn (HttpRequest $request): bool => str_starts_with((string) $request['message'], 'Halo wali Ayu kelas VII-A: Alpa 3 hari') && str_ends_with((string) $request['message'], 'Hubungi Bu Dirja. SMP Contoh'));
+
+        $this->actingAs($admin)->put('/notifikasi-wa/pesan', ['high' => '', 'watch' => 'x', 'test' => 'y'])->assertSessionHasErrors('high');
+    }
 }

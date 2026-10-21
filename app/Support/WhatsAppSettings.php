@@ -25,6 +25,12 @@ class WhatsAppSettings
 
     public const LAST_RUN_ON = 'wa_last_run_on';
 
+    public const TEXT_HIGH = 'wa_text_high';
+
+    public const TEXT_WATCH = 'wa_text_watch';
+
+    public const TEXT_TEST = 'wa_text_test';
+
     public function __construct(private AttendanceWindow $window) {}
 
     public function enabled(): bool
@@ -55,6 +61,29 @@ class WhatsAppSettings
     public function notifyOnNewStreak(): bool
     {
         return Setting::value(self::ON_NEW_STREAK, '1') === '1';
+    }
+
+    public function textHigh(): string
+    {
+        return Setting::value(self::TEXT_HIGH) ?: WhatsAppClient::DEFAULT_TEXT_HIGH;
+    }
+
+    public function textWatch(): string
+    {
+        return Setting::value(self::TEXT_WATCH) ?: WhatsAppClient::DEFAULT_TEXT_WATCH;
+    }
+
+    public function textTest(): string
+    {
+        return Setting::value(self::TEXT_TEST) ?: WhatsAppClient::DEFAULT_TEXT_TEST;
+    }
+
+    /**
+     * @return array{high: string, watch: string, test: string}
+     */
+    public function texts(): array
+    {
+        return ['high' => $this->textHigh(), 'watch' => $this->textWatch(), 'test' => $this->textTest()];
     }
 
     public function lastRunOn(): ?string

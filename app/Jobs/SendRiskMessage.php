@@ -3,7 +3,9 @@
 namespace App\Jobs;
 
 use App\Models\AcademicYear;
+use App\Models\Classroom;
 use App\Models\RiskMessage;
+use App\Models\Student;
 use App\Support\WhatsAppClient;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -29,20 +31,43 @@ class SendRiskMessage implements ShouldQueue
             return;
         }
 
-        $academicYear = AcademicYear::active();
-        $classroom = $academicYear ? $message->student->classroomIn($academicYear)?->load('homeroomTeacher') : null;
-        try {
-            $providerId = $client->sendRiskAlert($message->phone, $message->level, [
-                $message->student->name,
-                $classroom?->name ?? '-',
-                $message->reason,
-                $classroom?->homeroomTeacher?->name ?? 'wali kelas',
-                config('app.school_name'),
-            ]);
+        self::deliver($message, $client);
+    }
 
+    /**
+     * Send the message now and record the result on it. Used by the queue and
+     * by the "Kirim WA ke orang tua" button.
+     */
+    public static function deliver(RiskMessage $message, WhatsAppClient $client): bool
+    {
+        try {
+            $providerId = $client->sendRiskAlert($message->phone, $message->level, self::parameters($message->student, $message->reason));
             $message->update(['status' => RiskMessage::STATUS_SENT, 'provider_message_id' => $providerId, 'sent_at' => now(), 'error' => null]);
+
+            return true;
         } catch (Throwable $exception) {
             $message->update(['status' => RiskMessage::STATUS_FAILED, 'error' => mb_substr($exception->getMessage(), 0, 500)]);
+
+            return false;
         }
+    }
+
+    /**
+     * The values for the message text: name, class, reason, homeroom teacher, school.
+     *
+     * @return array{0: string, 1: string, 2: string, 3: string, 4: string}
+     */
+    public static function parameters(Student $student, string $reason, ?Classroom $classroom = null): array
+    {
+        $academicYear = AcademicYear::active();
+        $classroom ??= $academicYear ? $student->classroomIn($academicYear) : null;
+
+        return [
+            $student->name,
+            $classroom?->name ?? '-',
+            $reason,
+            $classroom?->homeroomTeacher?->name ?? 'wali kelas',
+            (string) config('app.school_name'),
+        ];
     }
 }
