@@ -2,10 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Enums\DispensationStatus;
-use App\Enums\Role;
-use App\Models\Dispensation;
-use App\Models\User;
+use App\Support\LiveUpdates;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -54,23 +51,12 @@ class HandleInertiaRequests extends Middleware
                     'roleLabel' => $user->role->label(),
                 ] : null,
             ],
-            'navCounts' => fn () => $user ? ['pendingDispensations' => $this->pendingDispensations($user)] : [],
+            'navCounts' => fn () => $user ? ['pendingDispensations' => app(LiveUpdates::class)->pendingDispensations($user)] : [],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
                 'importErrors' => fn () => $request->session()->get('importErrors', []),
             ],
         ];
-    }
-
-    /**
-     * Dispensations waiting for this user's decision; for an admin, all
-     * pending ones.
-     */
-    private function pendingDispensations(User $user): int
-    {
-        return $user->hasRole(Role::Admin)
-            ? Dispensation::query()->where('status', DispensationStatus::Pending)->count()
-            : Dispensation::query()->awaitingDecisionFrom($user)->count();
     }
 }

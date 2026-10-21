@@ -12,10 +12,16 @@ use RuntimeException;
  */
 class WhatsAppClient
 {
-    /** {{1}} nama siswa, {{2}} kelas, {{3}} alasan, {{4}} wali kelas, {{5}} sekolah. */
-    public const TEXT_HIGH = 'Yth. Bapak/Ibu wali dari {{1}} (kelas {{2}}). Kehadiran Ananda memerlukan perhatian segera: {{3}} Mohon segera menghubungi wali kelas, {{4}}. Pesan otomatis dari {{5}}, nomor ini tidak menerima balasan.';
+    /** Penanda yang bisa dipakai di isi pesan, sesuai urutan nilai dari SendRiskMessage::parameters(). */
+    public const PLACEHOLDERS = ['nama', 'kelas', 'alasan', 'wali_kelas', 'sekolah'];
 
-    public const TEXT_WATCH = 'Yth. Bapak/Ibu wali dari {{1}} (kelas {{2}}). Kami informasikan kehadiran Ananda perlu diperhatikan: {{3}} Bila ada kendala, silakan menghubungi wali kelas, {{4}}. Pesan otomatis dari {{5}}, nomor ini tidak menerima balasan.';
+    public const DEFAULT_TEXT_HIGH = 'Yth. Bapak/Ibu wali dari {nama} (kelas {kelas}). Kehadiran Ananda memerlukan perhatian segera: {alasan} Mohon segera menghubungi wali kelas, {wali_kelas}. Pesan otomatis dari {sekolah}, nomor ini tidak menerima balasan.';
+
+    public const DEFAULT_TEXT_WATCH = 'Yth. Bapak/Ibu wali dari {nama} (kelas {kelas}). Kami informasikan kehadiran Ananda perlu diperhatikan: {alasan} Bila ada kendala, silakan menghubungi wali kelas, {wali_kelas}. Pesan otomatis dari {sekolah}, nomor ini tidak menerima balasan.';
+
+    public const DEFAULT_TEXT_TEST = 'Pesan uji dari aplikasi absensi {sekolah}: notifikasi WhatsApp untuk orang tua sudah tersambung.';
+
+    public function __construct(private WhatsAppSettings $settings) {}
 
     public function isConfigured(): bool
     {
@@ -29,7 +35,7 @@ class WhatsAppClient
      */
     public function sendRiskAlert(string $to, string $level, array $parameters): string
     {
-        return $this->send($to, self::riskText($level === AttendanceRisk::LEVEL_HIGH ? self::TEXT_HIGH : self::TEXT_WATCH, $parameters));
+        return $this->send($to, self::riskText($level === AttendanceRisk::LEVEL_HIGH ? $this->settings->textHigh() : $this->settings->textWatch(), $parameters));
     }
 
     /**
@@ -37,21 +43,23 @@ class WhatsAppClient
      */
     public function sendTest(string $to): string
     {
-        return $this->send($to, 'Pesan uji dari aplikasi absensi '.config('app.school_name').': notifikasi WhatsApp untuk orang tua sudah tersambung.');
+        return $this->send($to, self::riskText($this->settings->textTest(), ['', '', '', '', (string) config('app.school_name')]));
     }
 
     /**
-     * Fill the {{n}} placeholders of a risk text.
+     * Fill the {nama}, {kelas}, {alasan}, {wali_kelas} and {sekolah} placeholders.
      *
-     * @param  list<string>  $parameters
+     * @param  list<string>  $parameters  values in PLACEHOLDERS order
      */
     public static function riskText(string $text, array $parameters): string
     {
-        foreach (array_values($parameters) as $index => $value) {
-            $text = str_replace('{{'.($index + 1).'}}', trim(preg_replace('/\s+/', ' ', $value)) ?: '-', $text);
+        foreach (self::PLACEHOLDERS as $index => $placeholder) {
+            $value = trim(preg_replace('/\s+/', ' ', (string) ($parameters[$index] ?? ''))) ?: '-';
+            $text = str_ireplace('{'.$placeholder.'}', $value, $text);
         }
 
-        return $text;
+        // Gelar seperti "S.Pd." sudah diakhiri titik: jangan jadi "S.Pd..".
+        return preg_replace('/(?<!\.)\.\.(?!\.)/', '.', $text);
     }
 
     private function send(string $to, string $message): string

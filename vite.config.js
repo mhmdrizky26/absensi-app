@@ -17,6 +17,11 @@ export default defineConfig({
         }),
         react(),
     ],
+    build: {
+        // HP guru/orang tua bisa memakai iOS/Android lama: tulis media query sebagai
+        // (max-width: …), bukan (width <= …) yang baru didukung Safari 16.4.
+        cssTarget: ['safari14', 'ios14', 'chrome87', 'firefox78', 'edge88'],
+    },
     server: {
         watch: {
             ignored: ['**/storage/framework/views/**'],

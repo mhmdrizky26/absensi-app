@@ -1,4 +1,4 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, usePage, usePoll } from '@inertiajs/react';
 import { LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { isPresent } from '@/lib/attendance';
@@ -58,6 +58,8 @@ function GroupList({ groups, marks }) {
 export default function Summary({ classroom, session, roster, marks }) {
     const { flash } = usePage().props;
     const [filter, setFilter] = useState('all');
+    // Siswa yang kemudian di-scan terlambat oleh guru piket langsung pindah ke "Hadir dengan catatan".
+    usePoll(12000, { only: ['marks'] });
 
     const present = roster.filter((student) => isPresent(marks[student.id]?.status)).length;
     const groupsOf = (statuses) =>

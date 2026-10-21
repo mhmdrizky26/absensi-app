@@ -3,6 +3,7 @@ import { LogOut, Menu, UserRound, X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import ProfileModal from '@/Components/ProfileModal';
 import { labelStackedTables } from '@/lib/stackTables';
+import { useLiveUpdates } from '@/lib/useLiveUpdates';
 
 /**
  * Menu navigasi per peran.
@@ -78,6 +79,21 @@ export default function AppLayout({ children }) {
     const [compact, setCompact] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
+    const [toast, setToast] = useState(null);
+
+    useLiveUpdates({
+        onNewPendingDispensations: (count) => setToast(count === 1 ? 'Ada 1 pengajuan dispensasi baru yang menunggu persetujuan Anda.' : `Ada ${count} pengajuan dispensasi baru yang menunggu persetujuan Anda.`),
+    });
+
+    useEffect(() => {
+        if (!toast) {
+            return;
+        }
+
+        const timer = setTimeout(() => setToast(null), 10000);
+
+        return () => clearTimeout(timer);
+    }, [toast]);
     // Admin mengubah akunnya sendiri lewat halaman Pengguna, jadi tanpa modal profil.
     const hasProfile = user.role !== 'admin';
 
@@ -208,6 +224,17 @@ export default function AppLayout({ children }) {
                 )}
             </nav>
             {compact && menuOpen && <div className="nav-scrim" onClick={() => setMenuOpen(false)} />}
+            {toast && (
+                <div className="live-toast" role="status">
+                    <span>{toast}</span>
+                    <Link href="/dispensasi" className="btn btn-primary" onClick={() => setToast(null)}>
+                        Buka
+                    </Link>
+                    <button type="button" className="btn btn-ghost" aria-label="Tutup" onClick={() => setToast(null)}>
+                        <X size={16} aria-hidden="true" />
+                    </button>
+                </div>
+            )}
             {hasProfile && profileOpen && <ProfileModal user={user} onClose={() => setProfileOpen(false)} />}
 
             <main ref={mainRef} className="page">

@@ -196,6 +196,7 @@ span.nav-user { cursor: default; }
     padding-bottom: 16px;
 }
 .toolbar .field { flex: 1 1 180px; max-width: 280px; }
+.toolbar > * { min-width: 0; max-width: 100%; }
 .toolbar .field-grow { flex: 2 1 240px; max-width: 360px; }
 .table-wrap { overflow-x: auto; border-top: 2px solid var(--color-text); }
 .table-wrap .table th { border-top: 0; }
@@ -234,9 +235,10 @@ select.input { appearance: auto; }
     border-bottom: 2px solid var(--color-divider);
     margin-bottom: 32px;
 }
-.stat { padding: 16px 16px 20px; border-right: 1px solid var(--color-divider); }
+.stat { min-width: 0; padding: 16px 16px 20px; border-right: 1px solid var(--color-divider); }
 .stat-label { font-size: 12px; color: color-mix(in srgb, var(--color-text) 55%, transparent); }
-.stat-value { font-size: 40px; font-weight: 800; line-height: 1.1; }
+.stat-value { font-size: 40px; font-weight: 800; line-height: 1.1; overflow-wrap: break-word; }
+@media (max-width: 640px) { .stat-value { font-size: 32px; } }
 a.module { color: inherit; text-decoration: none; }
 a.module:hover { background: color-mix(in srgb, var(--color-text) 5%, transparent); }
 
@@ -576,24 +578,33 @@ button.mark:disabled { cursor: default; }
 
 /* — tabel menjadi kartu di layar sempit — */
 @media (max-width: 720px) {
+    /* Tabel jadi kartu: kolom utama sebagai judul, sisanya dua kolom (label di atas nilai), tombol di bawah. */
     .table.is-stackable { min-width: 0 !important; }
-    .table.is-stackable, .table.is-stackable tbody, .table.is-stackable tfoot, .table.is-stackable tr { display: block; }
+    .table.is-stackable, .table.is-stackable tbody, .table.is-stackable tfoot { display: block; }
     .table.is-stackable thead { display: none; }
-    .table.is-stackable tr { padding: 10px 0; border-bottom: 1px solid var(--color-divider); }
-    .table.is-stackable tbody tr:hover { background: transparent; }
-    .table.is-stackable td, .table.is-stackable tfoot th {
-        display: grid; grid-template-columns: minmax(96px, 38%) minmax(0, 1fr); gap: 12px; align-items: center;
-        padding: 4px 0; border: 0; text-align: left !important;
+    .table.is-stackable tr {
+        position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px;
+        padding: 14px 0; border-bottom: 1px solid var(--color-divider);
     }
-    .table.is-stackable td::before, .table.is-stackable tfoot th::before {
-        content: attr(data-label); font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+    .table.is-stackable tbody tr:hover { background: transparent; }
+    .table.is-stackable td, .table.is-stackable tbody th, .table.is-stackable tfoot th {
+        display: block; min-width: 0; padding: 0; border: 0; text-align: left !important; font-size: 14px; overflow-wrap: anywhere;
+    }
+    .table.is-stackable td::before, .table.is-stackable tbody th::before, .table.is-stackable tfoot th::before {
+        content: attr(data-label); display: block; margin-bottom: 2px; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
         color: color-mix(in srgb, var(--color-text) 55%, transparent);
     }
-    .table.is-stackable td[data-label=''], .table.is-stackable tfoot th[data-label=''] { display: block; }
-    .table.is-stackable td[data-label='']::before, .table.is-stackable tfoot th[data-label='']::before { content: none; }
-    .table.is-stackable td:first-child { font-size: 16px; }
-    .table.is-stackable .cell-actions { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 4px; padding-top: 8px; }
-    .table.is-stackable .cell-actions::before { content: none; }
+    .table.is-stackable [data-label='']::before { content: none; }
+    .table.is-stackable [data-primary] { order: -1; grid-column: 1 / -1; font-size: 16px; font-weight: 700; padding-right: 36px; }
+    .table.is-stackable [data-primary]::before { content: none; }
+    .table.is-stackable [data-primary] .cell-sub { font-weight: 400; margin-top: 2px; }
+    .table.is-stackable [data-wide] { grid-column: 1 / -1; }
+    .table.is-stackable [data-hide] { display: none; }
+    .table.is-stackable [data-select] { position: absolute; top: 14px; right: 0; }
+    .table.is-stackable [data-actions], .table.is-stackable .cell-actions {
+        grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px;
+    }
+    .table.is-stackable [data-actions]::before, .table.is-stackable .cell-actions::before { content: none; }
     .table.is-stackable .bar-cell { width: 100%; }
     .table-wrap { overflow-x: visible; }
 }
@@ -748,3 +759,32 @@ button.mark:disabled { cursor: default; }
     .guardian-row .btn, .guardian-row .wa-toggle { grid-column: auto; grid-row: auto; }
 }
 .risk-notice { font-size: 12px; }
+.wa-preview { display: block; padding: 10px 12px; background: #dcf8c6; color: #111b21; font-size: 14px; line-height: 1.45; border-radius: 8px; white-space: pre-wrap; }
+.wa-text-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 24px; }
+.wa-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.wa-text .field { margin: 0; }
+.wa-text textarea { min-height: 120px; }
+.wa-text-tools { display: flex; flex-wrap: wrap; gap: 4px; }
+.wa-chip { font-family: var(--font-mono, monospace); font-size: 12px; padding: 2px 6px; }
+
+/* — pemberitahuan data baru — */
+.live-toast {
+    position: fixed; right: 16px; bottom: 16px; z-index: 90; max-width: min(420px, calc(100vw - 32px));
+    display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 16px;
+    background: var(--color-text); color: var(--color-bg); box-shadow: var(--shadow-lg); font-size: 14px;
+}
+.live-toast span { flex: 1; }
+.live-toast .btn-ghost { color: var(--color-bg); }
+@media (max-width: 640px) {
+    /* Deretan pilihan yang panjang (mis. filter peran) digeser di tempat, bukan melebarkan halaman. */
+    .seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+    .seg::-webkit-scrollbar { display: none; }
+    .seg-opt { flex: none; }
+}
+@media (max-width: 420px) {
+    /* Pratinjau kartu (ukuran asli 85,6 mm) diperkecil di modal HP supaya nama tidak terpotong; hasil cetak tetap. */
+    .dialog .card-preview .id-card { zoom: .84; }
+}
+@media (max-width: 360px) {
+    .dialog .card-preview .id-card { zoom: .76; }
+}

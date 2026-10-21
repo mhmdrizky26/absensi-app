@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Actions\TrackRiskEpisodes;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\WhatsAppSettingRequest;
+use App\Http\Requests\Admin\WhatsAppTextRequest;
 use App\Jobs\SendRiskMessage;
 use App\Models\AcademicYear;
 use App\Models\GuardianContact;
@@ -53,11 +54,13 @@ class WhatsAppController extends Controller
 
         return Inertia::render('Admin/WhatsApp', [
             'settings' => $settings->toArray(),
+            'texts' => $settings->texts(),
+            'defaultTexts' => ['high' => WhatsAppClient::DEFAULT_TEXT_HIGH, 'watch' => WhatsAppClient::DEFAULT_TEXT_WATCH, 'test' => WhatsAppClient::DEFAULT_TEXT_TEST],
+            'placeholders' => WhatsAppClient::PLACEHOLDERS,
+            'schoolName' => config('app.school_name'),
             'lastRunOn' => $settings->lastRunOn(),
             'connection' => [
                 'configured' => $client->isConfigured(),
-                'textHigh' => WhatsAppClient::TEXT_HIGH,
-                'textWatch' => WhatsAppClient::TEXT_WATCH,
             ],
             'stats' => [
                 'contacts' => GuardianContact::query()->consented()->count(),
@@ -85,6 +88,24 @@ class WhatsAppController extends Controller
         ]);
 
         return back()->with('success', 'Pengaturan notifikasi WhatsApp disimpan.');
+    }
+
+    /**
+     * Save the message texts. A text equal to the default is stored empty so
+     * later changes to the default still apply.
+     */
+    public function updateTexts(WhatsAppTextRequest $request): RedirectResponse
+    {
+        $defaults = [WhatsAppSettings::TEXT_HIGH => WhatsAppClient::DEFAULT_TEXT_HIGH, WhatsAppSettings::TEXT_WATCH => WhatsAppClient::DEFAULT_TEXT_WATCH, WhatsAppSettings::TEXT_TEST => WhatsAppClient::DEFAULT_TEXT_TEST];
+        $values = [
+            WhatsAppSettings::TEXT_HIGH => trim($request->validated('high')),
+            WhatsAppSettings::TEXT_WATCH => trim($request->validated('watch')),
+            WhatsAppSettings::TEXT_TEST => trim($request->validated('test')),
+        ];
+
+        Setting::put(collect($values)->map(fn (string $value, string $key): ?string => $value === $defaults[$key] ? null : $value)->all());
+
+        return back()->with('success', 'Isi pesan WhatsApp disimpan.');
     }
 
     /**

@@ -1,18 +1,73 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Ban, Download, Printer, RefreshCw, RotateCcw } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
+import Modal from '@/Components/Modal';
 import StudentCard from '@/Components/StudentCard';
 import AppLayout from '@/Layouts/AppLayout';
 import { downloadCardPng } from '@/lib/cardImage';
 import { formatDate } from '@/lib/format';
+import { useMediaQuery } from '@/lib/useMediaQuery';
+
+/**
+ * Pratinjau dan tindakan untuk kartu satu siswa: di panel kanan pada layar
+ * lebar, di modal pada HP.
+ */
+function CardDetail({ student, classroom, schoolName, onConfirm }) {
+    return (
+        <>
+            <div className="text-muted" style={{ fontSize: 13, marginBottom: 16 }}>
+                NIS {student.nis}
+                {student.nisn ? ` · NISN ${student.nisn}` : ''} · Kelas {classroom.name}
+            </div>
+
+            <div className="card-preview">
+                <StudentCard card={student} schoolName={schoolName} />
+                {student.isRevoked && <div className="card-revoked">Dicabut — kartu ini tidak bisa dipakai absen</div>}
+            </div>
+
+            <div className="card-facts">
+                <div>
+                    <div className="text-muted">Versi kartu</div>v{student.version}
+                </div>
+                <div>
+                    <div className="text-muted">Diterbitkan</div>
+                    {formatDate(student.issuedAt)}
+                </div>
+            </div>
+
+            <div className="card-actions">
+                <a href={`/kartu/cetak?students=${student.id}`} target="_blank" rel="noreferrer" className={`btn btn-secondary btn-block ${student.isRevoked ? 'is-disabled' : ''}`} aria-disabled={student.isRevoked}>
+                    Cetak kartu <Printer size={16} aria-hidden="true" />
+                </a>
+                <button type="button" className="btn btn-secondary btn-block" disabled={student.isRevoked} onClick={() => downloadCardPng(student, schoolName)}>
+                    Unduh PNG <Download size={16} aria-hidden="true" />
+                </button>
+                <button type="button" className="btn btn-secondary btn-block" onClick={() => onConfirm('reissue')}>
+                    Buat kartu baru <RefreshCw size={16} aria-hidden="true" />
+                </button>
+                {student.isRevoked ? (
+                    <button type="button" className="btn btn-ghost btn-block" onClick={() => onConfirm('restore')}>
+                        Aktifkan kembali kartu <RotateCcw size={16} aria-hidden="true" />
+                    </button>
+                ) : (
+                    <button type="button" className="btn btn-ghost btn-block" onClick={() => onConfirm('revoke')}>
+                        Cabut kartu <Ban size={16} aria-hidden="true" />
+                    </button>
+                )}
+            </div>
+        </>
+    );
+}
 
 export default function CardsIndex({ academicYear, classrooms, classroom, students }) {
     const { schoolName } = usePage().props;
     const [selectedId, setSelectedId] = useState(students[0]?.id ?? null);
     const [checked, setChecked] = useState([]);
     const [confirming, setConfirming] = useState(null);
-    const panelRef = useRef(null);
+    const [modalOpen, setModalOpen] = useState(false);
+    // Di HP/tablet panel kartu tampil sebagai modal, bukan jatuh ke bawah daftar.
+    const isNarrow = useMediaQuery('(max-width: 960px)');
 
     if (!academicYear || !classroom) {
         return (
@@ -44,9 +99,8 @@ export default function CardsIndex({ academicYear, classrooms, classroom, studen
     function select(id) {
         setSelectedId(id);
 
-        // Di layar sempit panel kartu ada di bawah daftar, jadi gulir ke sana.
-        if (window.matchMedia('(max-width: 960px)').matches) {
-            requestAnimationFrame(() => panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        if (isNarrow) {
+            setModalOpen(true);
         }
     }
 
@@ -172,55 +226,27 @@ export default function CardsIndex({ academicYear, classrooms, classroom, studen
                     )}
                 </div>
 
-                {selected && (
-                    <aside ref={panelRef} className="card-panel">
+                {selected && !isNarrow && (
+                    <aside className="card-panel">
                         <h6 className="text-muted" style={{ margin: '0 0 4px' }}>
                             Siswa terpilih
                         </h6>
                         <h3 style={{ margin: 0 }}>{selected.name}</h3>
-                        <div className="text-muted" style={{ fontSize: 13, marginBottom: 16 }}>
-                            NIS {selected.nis}
-                            {selected.nisn ? ` · NISN ${selected.nisn}` : ''} · Kelas {classroom.name}
-                        </div>
-
-                        <div className="card-preview">
-                            <StudentCard card={selected} schoolName={schoolName} />
-                            {selected.isRevoked && <div className="card-revoked">Dicabut — kartu ini tidak bisa dipakai absen</div>}
-                        </div>
-
-                        <div className="card-facts">
-                            <div>
-                                <div className="text-muted">Versi kartu</div>v{selected.version}
-                            </div>
-                            <div>
-                                <div className="text-muted">Diterbitkan</div>
-                                {formatDate(selected.issuedAt)}
-                            </div>
-                        </div>
-
-                        <div className="card-actions">
-                            <a href={`/kartu/cetak?students=${selected.id}`} target="_blank" rel="noreferrer" className={`btn btn-secondary btn-block ${selected.isRevoked ? 'is-disabled' : ''}`} aria-disabled={selected.isRevoked}>
-                                Cetak kartu <Printer size={16} aria-hidden="true" />
-                            </a>
-                            <button type="button" className="btn btn-secondary btn-block" disabled={selected.isRevoked} onClick={() => downloadCardPng(selected, schoolName)}>
-                                Unduh PNG <Download size={16} aria-hidden="true" />
-                            </button>
-                            <button type="button" className="btn btn-secondary btn-block" onClick={() => setConfirming({ action: 'reissue', student: selected })}>
-                                Buat kartu baru <RefreshCw size={16} aria-hidden="true" />
-                            </button>
-                            {selected.isRevoked ? (
-                                <button type="button" className="btn btn-ghost btn-block" onClick={() => setConfirming({ action: 'restore', student: selected })}>
-                                    Aktifkan kembali kartu <RotateCcw size={16} aria-hidden="true" />
-                                </button>
-                            ) : (
-                                <button type="button" className="btn btn-ghost btn-block" onClick={() => setConfirming({ action: 'revoke', student: selected })}>
-                                    Cabut kartu <Ban size={16} aria-hidden="true" />
-                                </button>
-                            )}
-                        </div>
+                        <CardDetail student={selected} classroom={classroom} schoolName={schoolName} onConfirm={(action) => setConfirming({ action, student: selected })} />
                     </aside>
                 )}
             </div>
+
+            {isNarrow && selected && (
+                <Modal open={modalOpen} title={selected.name} onClose={() => setModalOpen(false)} width={420}>
+                    <CardDetail student={selected} classroom={classroom} schoolName={schoolName} onConfirm={(action) => setConfirming({ action, student: selected })} />
+                    <div className="dialog-actions">
+                        <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)}>
+                            Tutup
+                        </button>
+                    </div>
+                </Modal>
+            )}
 
             <ConfirmDialog open={confirming !== null} title={confirmText.title} confirmLabel={confirmText.label} onConfirm={runConfirmed} onClose={() => setConfirming(null)}>
                 {confirmText.body}

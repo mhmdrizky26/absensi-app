@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Recap;
 
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
+use App\Jobs\SendRiskMessage;
 use App\Models\AcademicYear;
 use App\Models\Attendance;
 use App\Models\Classroom;
+use App\Models\GuardianContact;
 use App\Models\RiskEpisode;
 use App\Models\RiskMessage;
 use App\Models\Student;
@@ -14,6 +16,7 @@ use App\Support\AttendanceReport;
 use App\Support\AttendanceRisk;
 use App\Support\AttendanceWindow;
 use App\Support\RecapScope;
+use App\Support\WhatsAppClient;
 use App\Support\WhatsAppSettings;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -24,6 +27,8 @@ use Inertia\Response;
 
 class EarlyWarningController extends Controller
 {
+    public function __construct(private WhatsAppSettings $whatsAppSettings) {}
+
     /**
      * Students whose attendance this semester matches one of the early
      * warning rules. A wali kelas sees their own class only.
@@ -42,6 +47,10 @@ class EarlyWarningController extends Controller
         if ($academicYear && $target->isNotEmpty()) {
             [$from, $to, $semester] = $academicYear->semesterSoFar(today());
             $students = $this->withParentNotice($risk->flagged($target, $from, $to));
+
+            if ($user->hasRole(Role::Admin, Role::GuruBk)) {
+                $students = $this->withMessagePreview($students, $target);
+            }
             $period = ['label' => "Semester {$semester} {$academicYear->name}", 'from' => $from->toDateString(), 'to' => $to->toDateString()];
         }
 
@@ -54,7 +63,37 @@ class EarlyWarningController extends Controller
             'homeroom' => $user->hasRole(Role::WaliKelas) ? $classrooms->first()?->name : null,
             'isHomeroomTeacher' => $user->hasRole(Role::WaliKelas),
             'whatsappEnabled' => $whatsApp->enabled(),
+            'canSendWhatsApp' => $user->hasRole(Role::Admin, Role::GuruBk),
+            'canAddContact' => $user->hasRole(Role::GuruBk),
+            'relations' => collect(GuardianContact::RELATIONS)->map(fn (string $label, string $value): array => ['value' => $value, 'label' => $label])->values(),
         ]);
+    }
+
+    /**
+     * For admins and guru BK: the parent numbers that agreed to messages and
+     * the exact text the "Kirim WA ke orang tua" button would send.
+     *
+     * @param  list<array<string, mixed>>  $students
+     * @param  EloquentCollection<int, Classroom>  $classrooms
+     * @return list<array<string, mixed>>
+     */
+    private function withMessagePreview(array $students, EloquentCollection $classrooms): array
+    {
+        $classrooms->load('homeroomTeacher:id,name');
+        $byId = $classrooms->keyBy('id');
+        $contacts = GuardianContact::query()->consented()->whereIn('student_id', array_column($students, 'id'))->get()->groupBy('student_id');
+        $models = Student::query()->whereKey(array_column($students, 'id'))->get()->keyBy('id');
+
+        return array_map(function (array $student) use ($byId, $contacts, $models): array {
+            $reason = implode(' ', array_slice(array_column($student['reasons'], 'text'), 0, 2));
+            $text = $student['level'] === AttendanceRisk::LEVEL_HIGH ? $this->whatsAppSettings->textHigh() : $this->whatsAppSettings->textWatch();
+
+            return [
+                ...$student,
+                'contacts' => $contacts->get($student['id'], collect())->map(fn (GuardianContact $contact): string => GuardianContact::displayPhone($contact->phone))->values()->all(),
+                'messagePreview' => WhatsAppClient::riskText($text, SendRiskMessage::parameters($models[$student['id']], $reason, $byId->get($student['classroomId']))),
+            ];
+        }, $students);
     }
 
     /**

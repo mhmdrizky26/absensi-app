@@ -27,7 +27,51 @@ function Toggle({ id, label, hint, checked, onChange }) {
     );
 }
 
-export default function WhatsApp({ settings, lastRunOn, connection, stats, messages, filters, statuses }) {
+const SAMPLE = {
+    nama: 'Ayu Lestari',
+    kelas: 'VII-A',
+    alasan: 'Alpa 3 hari berturut-turut (s.d. 19 Okt). Alpa 6 kali semester ini.',
+    wali_kelas: 'Dirja Uyainah, S.Pd.',
+};
+
+/** Isi penanda dengan contoh data, sama seperti yang dilakukan server. */
+function fillSample(text, schoolName) {
+    const values = { ...SAMPLE, sekolah: schoolName };
+
+    return text.replace(/\{(nama|kelas|alasan|wali_kelas|sekolah)\}/gi, (_, key) => values[key.toLowerCase()]).replace(/\.+/g, (dots) => (dots.length === 2 ? '.' : dots));
+}
+
+function TextEditor({ id, label, hint, value, defaultValue, error, placeholders, schoolName, onChange }) {
+    return (
+        <div className="wa-text">
+            <Field label={label} htmlFor={id} error={error} hint={hint}>
+                <textarea id={id} className="input" rows={4} maxLength={1000} value={value} onChange={(event) => onChange(event.target.value)} />
+            </Field>
+            <div className="wa-text-tools">
+                {placeholders.map((placeholder) => (
+                    <button key={placeholder} type="button" className="btn btn-ghost wa-chip" onClick={() => onChange(`${value}{${placeholder}}`)}>
+                        {`{${placeholder}}`}
+                    </button>
+                ))}
+                {value !== defaultValue && (
+                    <button type="button" className="btn btn-ghost" style={{ marginLeft: 'auto' }} onClick={() => onChange(defaultValue)}>
+                        Kembalikan ke bawaan
+                    </button>
+                )}
+            </div>
+            <span className="wa-preview">{fillSample(value, schoolName)}</span>
+        </div>
+    );
+}
+
+export default function WhatsApp({ settings, texts, defaultTexts, placeholders, schoolName, lastRunOn, connection, stats, messages, filters, statuses }) {
+    const textForm = useForm(texts);
+
+    function submitTexts(event) {
+        event.preventDefault();
+        textForm.put('/notifikasi-wa/pesan', { preserveScroll: true });
+    }
+
     const form = useForm(settings);
     const testForm = useForm({ phone: '' });
     const [confirmRun, setConfirmRun] = useState(false);
@@ -142,24 +186,36 @@ export default function WhatsApp({ settings, lastRunOn, connection, stats, messa
                         </button>
                     </div>
 
-                    <details className="chart-table">
-                        <summary>Isi pesan yang dikirim</summary>
-                        <p className="text-muted" style={{ fontSize: 13 }}>
-                            {'{{1}} nama siswa, {{2}} kelas, {{3}} alasan, {{4}} wali kelas, {{5}} nama sekolah — diisi otomatis.'}
-                        </p>
-                        <p style={{ fontSize: 13 }}>
-                            <b>Risiko tinggi</b>
-                            <br />
-                            {connection.textHigh}
-                        </p>
-                        <p style={{ fontSize: 13 }}>
-                            <b>Perlu perhatian</b>
-                            <br />
-                            {connection.textWatch}
-                        </p>
-                    </details>
                 </section>
             </div>
+
+            <form onSubmit={submitTexts} noValidate className="excuse-form" style={{ marginTop: 40 }}>
+                <h4 style={{ margin: 0 }}>Isi pesan</h4>
+                <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
+                    Penanda di dalam kurung kurawal diisi otomatis untuk tiap siswa: <code>{'{nama}'}</code> nama siswa, <code>{'{kelas}'}</code> kelas, <code>{'{alasan}'}</code> alasan masuk daftar berisiko, <code>{'{wali_kelas}'}</code> wali kelas,{' '}
+                    <code>{'{sekolah}'}</code> nama sekolah. Kotak hijau menunjukkan contoh hasilnya.
+                </p>
+                <div className="wa-text-grid">
+                    <TextEditor id="text_high" label="Pesan risiko tinggi" value={textForm.data.high} defaultValue={defaultTexts.high} error={textForm.errors.high} placeholders={placeholders} schoolName={schoolName} onChange={(value) => textForm.setData('high', value)} />
+                    <TextEditor id="text_watch" label="Pesan perlu perhatian" value={textForm.data.watch} defaultValue={defaultTexts.watch} error={textForm.errors.watch} placeholders={placeholders} schoolName={schoolName} onChange={(value) => textForm.setData('watch', value)} />
+                    <TextEditor
+                        id="text_test"
+                        label="Pesan uji"
+                        hint="Dikirim lewat tombol Kirim pesan uji."
+                        value={textForm.data.test}
+                        defaultValue={defaultTexts.test}
+                        error={textForm.errors.test}
+                        placeholders={['sekolah']}
+                        schoolName={schoolName}
+                        onChange={(value) => textForm.setData('test', value)}
+                    />
+                </div>
+                <div>
+                    <button type="submit" className="btn btn-primary" disabled={textForm.processing || !textForm.isDirty}>
+                        {textForm.processing ? 'Menyimpan…' : 'Simpan isi pesan'}
+                    </button>
+                </div>
+            </form>
 
             <section style={{ marginTop: 40 }}>
                 <div className="toolbar">
