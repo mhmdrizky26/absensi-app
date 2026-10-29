@@ -13,10 +13,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * One stretch of time a student stays on the early-warning list. Parents are
- * told when it starts, and again when it gets worse; once the student drops
- * off the list the episode ends and a later return starts a new one.
+ * told when it starts, and again when it gets worse. Admin or guru BK can mark
+ * it handled. Once the student drops off the list (or the semester changes)
+ * the episode is deleted, so only students at risk right now are stored.
  */
-#[Fillable(['student_id', 'academic_year_id', 'semester', 'started_on', 'ended_on', 'level', 'reasons', 'streak_ended_on', 'notified_at'])]
+#[Fillable(['student_id', 'academic_year_id', 'semester', 'started_on', 'ended_on', 'level', 'reasons', 'streak_ended_on', 'notified_at', 'handled_at', 'handled_by', 'handled_note'])]
 class RiskEpisode extends Model
 {
     /** @use HasFactory<RiskEpisodeFactory> */
@@ -29,6 +30,7 @@ class RiskEpisode extends Model
             'ended_on' => 'date',
             'streak_ended_on' => 'date',
             'notified_at' => 'datetime',
+            'handled_at' => 'datetime',
             'reasons' => 'array',
         ];
     }
@@ -37,6 +39,14 @@ class RiskEpisode extends Model
     protected function open(Builder $query): void
     {
         $query->whereNull('ended_on');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function handler(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'handled_by');
     }
 
     /**

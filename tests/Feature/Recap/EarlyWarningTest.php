@@ -7,6 +7,7 @@ use App\Enums\AttendanceStatus;
 use App\Models\AcademicYear;
 use App\Models\Attendance;
 use App\Models\Classroom;
+use App\Models\RiskEpisode;
 use App\Models\Student;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -79,7 +80,7 @@ class EarlyWarningTest extends TestCase
         );
     }
 
-    public function test_weekday_pattern_and_old_streak_only_need_attention(): void
+    public function test_rules_look_at_the_last_30_days_so_an_old_streak_no_longer_counts(): void
     {
         $marks = ['2026-08-03' => 'A', '2026-08-04' => 'A', '2026-08-05' => 'A'];
 
@@ -96,12 +97,91 @@ class EarlyWarningTest extends TestCase
         $this->actingAs(User::factory()->admin()->create())->get('/siswa-berisiko')->assertInertia(fn (Assert $page) => $page
             ->where('students.0.level', 'perhatian')
             ->where('students.0.reasons', [
-                ['level' => 'perhatian', 'text' => 'Alpa 3 hari berturut-turut (s.d. 5 Agt).'],
-                ['level' => 'perhatian', 'text' => 'Alpa 6 kali semester ini.'],
-                ['level' => 'perhatian', 'text' => 'Kehadiran 75%.'],
-                ['level' => 'perhatian', 'text' => 'Sering alpa hari Senin (4 dari 6 alpa).'],
+                ['level' => 'perhatian', 'text' => 'Kehadiran 30 hari terakhir 77%.'],
+                ['level' => 'perhatian', 'text' => 'Sering alpa hari Senin (3 dari 3 alpa terakhir).'],
             ])
+            ->where('students.0.counts.A', 6)
         );
+    }
+
+    public function test_low_semester_attendance_stays_high_risk_even_after_recovering(): void
+    {
+        $marks = [];
+
+        foreach (['2026-07-13', '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17', '2026-07-20', '2026-07-21', '2026-07-22', '2026-07-23', '2026-07-24'] as $day) {
+            $marks[$day] = 'S';
+        }
+
+        foreach (['2026-09-21', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-25', '2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-05', '2026-10-06', '2026-10-07'] as $day) {
+            $marks[$day] = 'H';
+        }
+
+        $this->studentWith('Eko', $marks);
+
+        $this->actingAs(User::factory()->admin()->create())->get('/siswa-berisiko')->assertInertia(fn (Assert $page) => $page
+            ->where('students.0.level', 'tinggi')
+            ->where('students.0.reasons', [['level' => 'tinggi', 'text' => 'Kehadiran semester 57% (berpengaruh ke rapor).']])
+        );
+    }
+
+    public function test_admin_tunes_the_thresholds(): void
+    {
+        $this->studentWith('Ayu', ['2026-10-01' => 'A', '2026-10-02' => 'A', '2026-10-05' => 'H', '2026-10-06' => 'H']);
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)->get('/siswa-berisiko')->assertInertia(fn (Assert $page) => $page->has('students', 0));
+
+        $this->actingAs($admin)->put('/pengaturan/risiko', [
+            'window_days' => 14, 'absent_watch' => 2, 'absent_high' => 5, 'rate_watch' => 85, 'rate_high' => 75,
+            'semester_rate_high' => 70, 'late_watch' => 5, 'excused_watch' => 4,
+        ])->assertSessionHasNoErrors();
+
+        $this->actingAs($admin)->get('/siswa-berisiko')->assertInertia(fn (Assert $page) => $page
+            ->where('students.0.reasons.0.text', 'Alpa 2 kali dalam 14 hari terakhir.')
+            ->where('rules.1.text', 'Alpa 5 kali atau lebih dalam 14 hari terakhir.')
+        );
+
+        $this->actingAs($admin)->put('/pengaturan/risiko', [
+            'window_days' => 14, 'absent_watch' => 6, 'absent_high' => 3, 'rate_watch' => 70, 'rate_high' => 80,
+            'semester_rate_high' => 70, 'late_watch' => 5, 'excused_watch' => 4,
+        ])->assertSessionHasErrors(['absent_high', 'rate_high']);
+
+        $this->actingAs(User::factory()->guruBk()->create())->put('/pengaturan/risiko', [])->assertForbidden();
+    }
+
+    public function test_admin_and_bk_mark_a_student_as_handled_and_can_undo_it(): void
+    {
+        $ayu = $this->studentWith('Ayu', ['2026-10-01' => 'A', '2026-10-02' => 'A', '2026-10-05' => 'A']);
+        $bk = User::factory()->guruBk()->create(['name' => 'Pak Bima']);
+
+        $this->actingAs($bk)->get('/siswa-berisiko')->assertInertia(fn (Assert $page) => $page
+            ->where('canFollowUp', true)
+            ->where('students.0.isNew', true)
+            ->where('students.0.followUp', null)
+        );
+
+        $this->actingAs($bk)->post("/siswa-berisiko/{$ayu->id}/tindak-lanjut", ['note' => ''])->assertSessionHasErrors('note');
+        $this->actingAs($bk)->post("/siswa-berisiko/{$ayu->id}/tindak-lanjut", ['note' => 'Orang tua ditelepon'])->assertSessionHas('success');
+
+        $this->actingAs($this->wali)->get('/siswa-berisiko')->assertInertia(fn (Assert $page) => $page
+            ->where('canFollowUp', false)
+            ->where('students.0.followUp.by', 'Pak Bima')
+            ->where('students.0.followUp.note', 'Orang tua ditelepon')
+        );
+
+        $this->actingAs($this->wali)->post("/siswa-berisiko/{$ayu->id}/tindak-lanjut", ['note' => 'x'])->assertForbidden();
+        $this->actingAs($this->wali)->delete("/siswa-berisiko/{$ayu->id}/tindak-lanjut")->assertForbidden();
+
+        $this->actingAs(User::factory()->admin()->create())->delete("/siswa-berisiko/{$ayu->id}/tindak-lanjut")->assertSessionHas('success');
+        $this->assertNull(RiskEpisode::sole()->handled_at);
+    }
+
+    public function test_a_student_who_is_not_at_risk_cannot_be_marked(): void
+    {
+        $budi = $this->studentWith('Budi', ['2026-10-05' => 'H']);
+
+        $this->actingAs(User::factory()->guruBk()->create())->post("/siswa-berisiko/{$budi->id}/tindak-lanjut", ['note' => 'Sudah'])->assertSessionHas('error');
+        $this->assertSame(0, RiskEpisode::count());
     }
 
     public function test_wali_kelas_sees_only_their_class_and_bk_can_filter(): void

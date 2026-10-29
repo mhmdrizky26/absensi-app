@@ -62,6 +62,10 @@ class ClassLoginController extends Controller
             throw ValidationException::withMessages(['code' => 'Kode kelas tidak dikenal. Periksa lagi atau tanyakan ke admin.']);
         }
 
+        if (! $classroom->has_room) {
+            throw ValidationException::withMessages(['code' => "Kelas {$classroom->name} tidak punya ruang sendiri. Siswanya diabsen di kelas tempat mereka dititipkan."]);
+        }
+
         if ($reason = $window->closedReason(now())) {
             throw ValidationException::withMessages(['code' => $reason]);
         }

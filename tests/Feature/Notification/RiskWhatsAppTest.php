@@ -117,7 +117,7 @@ class RiskWhatsAppTest extends TestCase
         $this->assertSame(0, RiskEpisode::count());
     }
 
-    public function test_leaving_the_list_closes_the_episode_and_coming_back_sends_again(): void
+    public function test_improving_deletes_the_episode_and_coming_back_sends_again(): void
     {
         $ayu = $this->student('Ayu');
         $this->mark($ayu, ['2026-10-01' => 'A', '2026-10-02' => 'A', '2026-10-05' => 'A']);
@@ -126,13 +126,13 @@ class RiskWhatsAppTest extends TestCase
         // Wali kelas memasukkan surat sakit: Ayu keluar dari daftar.
         $this->mark($ayu, ['2026-10-01' => 'S', '2026-10-02' => 'S', '2026-10-05' => 'S']);
         $this->assertSame(1, $this->runOn('2026-10-07')['closed']);
-        $this->assertSame('2026-10-07', RiskEpisode::sole()->ended_on->toDateString());
+        $this->assertSame([0, 0], [RiskEpisode::count(), RiskMessage::count()]);
 
         $this->mark($ayu, ['2026-10-12' => 'A', '2026-10-13' => 'A', '2026-10-14' => 'A']);
         $this->runOn('2026-10-15');
 
-        $this->assertSame(2, RiskEpisode::count());
-        $this->assertSame([RiskMessage::TRIGGER_NEW, RiskMessage::TRIGGER_NEW], RiskMessage::orderBy('id')->pluck('trigger')->all());
+        $this->assertSame(1, RiskEpisode::count());
+        $this->assertSame([RiskMessage::TRIGGER_NEW], RiskMessage::pluck('trigger')->all());
     }
 
     public function test_rising_to_high_risk_and_a_new_absent_streak_notify_again(): void
@@ -255,14 +255,44 @@ class RiskWhatsAppTest extends TestCase
         $this->assertSame(0, RiskEpisode::count());
     }
 
-    public function test_switching_semester_closes_old_episodes(): void
+    public function test_switching_semester_deletes_old_episodes(): void
     {
         $ayu = $this->student('Ayu');
         RiskEpisode::factory()->for($ayu)->create(['academic_year_id' => $this->academicYear->id, 'semester' => 'ganjil']);
 
         $this->runOn('2027-01-05');
 
-        $this->assertNotNull(RiskEpisode::sole()->ended_on);
+        $this->assertSame(0, RiskEpisode::count());
+    }
+
+    public function test_getting_worse_after_being_handled_returns_to_the_main_list(): void
+    {
+        $ayu = $this->student('Ayu');
+        $this->mark($ayu, ['2026-10-01' => 'A', '2026-10-02' => 'A', '2026-10-05' => 'A']);
+        $this->runOn('2026-10-06');
+        RiskEpisode::sole()->update(['handled_at' => now(), 'handled_note' => 'Orang tua ditelepon']);
+
+        // Masih berisiko tanpa memburuk: tetap "Sedang dipantau".
+        $this->mark($ayu, ['2026-10-06' => 'H']);
+        $this->runOn('2026-10-07');
+        $this->assertNotNull(RiskEpisode::sole()->handled_at);
+
+        // Rentetan alpa baru: kembali ke "Perlu ditindaklanjuti".
+        $this->mark($ayu, ['2026-10-07' => 'A', '2026-10-08' => 'A', '2026-10-09' => 'A']);
+        $this->runOn('2026-10-12');
+        $this->assertNull(RiskEpisode::sole()->handled_at);
+    }
+
+    public function test_the_daily_check_keeps_the_list_tidy_even_when_whatsapp_is_off(): void
+    {
+        $ayu = $this->student('Ayu');
+        $this->mark($ayu, ['2026-10-01' => 'A', '2026-10-02' => 'A', '2026-10-05' => 'A']);
+        Setting::put([WhatsAppSettings::ENABLED => '0', WhatsAppSettings::SEND_AT => '15:00']);
+
+        $this->travelTo(CarbonImmutable::parse('2026-10-06 15:00'));
+        $this->artisan('risiko:kirim-wa')->assertSuccessful();
+
+        $this->assertSame([1, 0], [RiskEpisode::count(), RiskMessage::count()]);
     }
 
     public function test_admin_manages_settings_sends_a_test_message_and_resends(): void
@@ -354,13 +384,16 @@ class RiskWhatsAppTest extends TestCase
         $this->assertSame(0, RiskMessage::count());
     }
 
-    public function test_only_guru_bk_adds_a_parent_number_from_the_risk_card(): void
+    public function test_wali_kelas_adds_parent_numbers_from_the_class_recap(): void
     {
         $ayu = $this->student('Ayu', withContact: false);
-        $bk = User::factory()->guruBk()->create();
+        $wali = $this->classroom->homeroomTeacher;
 
-        $this->actingAs($bk)->get('/siswa-berisiko')->assertInertia(fn (Assert $page) => $page->where('canAddContact', true));
-        $this->actingAs($bk)->post("/siswa-berisiko/{$ayu->id}/kontak", ['name' => 'Bu Sari', 'relation' => 'ibu', 'phone' => '0812-3456-7890', 'consented' => true])
+        $this->actingAs($wali)->get('/rekap')->assertInertia(fn (Assert $page) => $page
+            ->where('parentContacts.0.name', 'Ayu')
+            ->where('parentContacts.0.contacts', [])
+        );
+        $this->actingAs($wali)->post("/siswa-berisiko/{$ayu->id}/kontak", ['name' => 'Bu Sari', 'relation' => 'ibu', 'phone' => '0812-3456-7890', 'consented' => true])
             ->assertSessionHasNoErrors()
             ->assertSessionHas('success', 'Nomor 0812-3456-7890 ditambahkan untuk orang tua Ayu. Pesan risiko sekarang bisa dikirim ke nomor ini.');
 
@@ -368,16 +401,17 @@ class RiskWhatsAppTest extends TestCase
         $this->assertSame(['6281234567890', 'Bu Sari', 'ibu'], [$contact->phone, $contact->name, $contact->relation]);
         $this->assertNotNull($contact->consented_at);
 
-        $this->actingAs($bk)->post("/siswa-berisiko/{$ayu->id}/kontak", ['phone' => '+62 812 3456 7890', 'consented' => true])
+        $this->actingAs($wali)->post("/siswa-berisiko/{$ayu->id}/kontak", ['phone' => '+62 812 3456 7890', 'consented' => true])
             ->assertSessionHasErrors(['phone' => 'Nomor ini sudah tersimpan untuk siswa ini.']);
-        $this->actingAs($bk)->post("/siswa-berisiko/{$ayu->id}/kontak", ['phone' => '12345'])->assertSessionHasErrors('phone');
+        $this->actingAs($wali)->post("/siswa-berisiko/{$ayu->id}/kontak", ['phone' => '12345'])->assertSessionHasErrors('phone');
 
         GuardianContact::factory()->count(2)->for($ayu)->create();
-        $this->actingAs($bk)->post("/siswa-berisiko/{$ayu->id}/kontak", ['phone' => '0813-0000-1111', 'consented' => true])->assertSessionHasErrors('phone');
+        $this->actingAs($wali)->post("/siswa-berisiko/{$ayu->id}/kontak", ['phone' => '0813-0000-1111', 'consented' => true])->assertSessionHasErrors('phone');
 
+        $this->actingAs(User::factory()->waliKelas()->create())->post("/siswa-berisiko/{$ayu->id}/kontak", ['phone' => '0813-0000-2222'])->assertForbidden();
+        $this->actingAs(User::factory()->guruBk()->create())->post("/siswa-berisiko/{$ayu->id}/kontak", ['phone' => '0813-0000-2222'])->assertForbidden();
         $this->actingAs(User::factory()->admin()->create())->post("/siswa-berisiko/{$ayu->id}/kontak", ['phone' => '0813-0000-2222'])->assertForbidden();
-        $this->actingAs($this->classroom->homeroomTeacher)->post("/siswa-berisiko/{$ayu->id}/kontak", ['phone' => '0813-0000-2222'])->assertForbidden();
-        $this->actingAs(User::factory()->admin()->create())->get('/siswa-berisiko')->assertInertia(fn (Assert $page) => $page->where('canAddContact', false));
+        $this->actingAs(User::factory()->admin()->create())->get('/rekap')->assertInertia(fn (Assert $page) => $page->where('parentContacts', null));
         $this->assertSame(3, $ayu->guardianContacts()->count());
     }
 

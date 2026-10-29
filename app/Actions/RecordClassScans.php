@@ -7,6 +7,7 @@ use App\Enums\AttendanceStatus;
 use App\Enums\StudentStatus;
 use App\Models\Attendance;
 use App\Models\AttendanceSession;
+use App\Models\Classroom;
 use App\Models\Student;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -32,20 +33,23 @@ class RecordClassScans
             ], $items);
         }
 
-        $roster = $session->classroom->students()
+        // Siswa yang duduk di ruang ini, termasuk titipan dari kelas tanpa ruang.
+        $roster = $session->classroom->attendees()
             ->where('status', StudentStatus::Active)
             ->get()
             ->keyBy('id');
+        $homes = Classroom::homeClassroomIds($session->classroom->academic_year_id, $roster->keys());
 
-        return array_map(fn (array $item): array => ['ref' => $item['ref'], ...$this->record($session, $roster, $item)], $items);
+        return array_map(fn (array $item): array => ['ref' => $item['ref'], ...$this->record($session, $roster, $homes, $item)], $items);
     }
 
     /**
      * @param  Collection<int, Student>  $roster
+     * @param  array<int, int>  $homes  student id => the class the mark belongs to
      * @param  array{method: string, payload?: ?string, student_id?: ?int, scanned_at?: ?string}  $item
      * @return array{result: string, studentId?: int, recordedAt?: string, message?: string}
      */
-    private function record(AttendanceSession $session, Collection $roster, array $item): array
+    private function record(AttendanceSession $session, Collection $roster, array $homes, array $item): array
     {
         $isScan = $item['method'] === 'scan';
 
@@ -78,7 +82,7 @@ class RecordClassScans
         }
 
         $attributes = [
-            'classroom_id' => $session->classroom_id,
+            'classroom_id' => $homes[$student->id] ?? $session->classroom_id,
             'status' => AttendanceStatus::Present,
             'source' => $isScan ? AttendanceSource::ClassScan : AttendanceSource::ClassManual,
             'recorded_at' => $recordedAt,

@@ -50,7 +50,9 @@ class AttendanceReport
             ->get(['id', 'student_id', 'date', 'status'])
             ->groupBy('student_id');
 
-        $rows = $students->map(function (Student $student) use ($marks): array {
+        $rooms = Classroom::query()->whereKey($students->pluck('pivot.study_classroom_id')->filter()->unique())->pluck('name', 'id');
+
+        $rows = $students->map(function (Student $student) use ($marks, $rooms): array {
             $studentMarks = [];
             $counts = array_fill_keys(self::STATUSES, 0);
 
@@ -64,6 +66,7 @@ class AttendanceReport
                 'name' => $student->name,
                 'nis' => $student->nis,
                 'isActive' => $student->status->value === 'aktif',
+                'studyRoom' => $rooms[$student->pivot->study_classroom_id] ?? null,
                 'marks' => $studentMarks,
                 'counts' => $counts,
                 'rate' => $this->rate($counts),

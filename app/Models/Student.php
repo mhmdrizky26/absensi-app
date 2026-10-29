@@ -156,7 +156,7 @@ class Student extends Model
      */
     public function classrooms(): BelongsToMany
     {
-        return $this->belongsToMany(Classroom::class)->withPivot('academic_year_id')->withTimestamps();
+        return $this->belongsToMany(Classroom::class)->withPivot('academic_year_id', 'study_classroom_id')->withTimestamps();
     }
 
     /**

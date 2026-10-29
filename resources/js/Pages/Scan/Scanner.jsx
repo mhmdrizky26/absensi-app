@@ -338,6 +338,7 @@ export default function Scanner({ classroom, session, roster, marks: initialMark
                                                 {student.name}
                                                 <span className="cell-sub">
                                                     NIS {student.nis}
+                                                    {student.guestOf ? ` · numpang dari ${student.guestOf}` : ''}
                                                     {marks[student.id] ? ` · tercatat ${marks[student.id].statusLabel}` : ''}
                                                     {!student.hash ? ' · kartu dicabut' : ''}
                                                 </span>
@@ -363,7 +364,10 @@ export default function Scanner({ classroom, session, roster, marks: initialMark
                                         <div key={student.id} className="scan-roster-row">
                                             <span>
                                                 {student.name}
-                                                <span className="cell-sub">NIS {student.nis}</span>
+                                                <span className="cell-sub">
+                                                    NIS {student.nis}
+                                                    {student.guestOf ? ` · numpang dari ${student.guestOf}` : ''}
+                                                </span>
                                             </span>
                                             <span className="text-muted" style={{ fontSize: 13 }}>
                                                 {formatTime(marks[student.id].recordedAt)}

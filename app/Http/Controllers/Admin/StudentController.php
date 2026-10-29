@@ -55,6 +55,7 @@ class StudentController extends Controller
                 'status' => $student->status->value,
                 'statusLabel' => $student->status->label(),
                 'classroom' => $student->classrooms->first()?->only('id', 'name'),
+                'studyClassroomId' => $student->classrooms->first()?->pivot->study_classroom_id,
                 'guardians' => $student->guardianContacts->map(fn (GuardianContact $contact): array => [
                     'name' => $contact->name ?? '',
                     'relation' => $contact->relation ?? '',
@@ -68,7 +69,7 @@ class StudentController extends Controller
             'students' => $students,
             'filters' => $filters,
             'classrooms' => $academicYear
-                ? $academicYear->classrooms()->orderBy('grade')->orderBy('name')->get(['id', 'name'])
+                ? $academicYear->classrooms()->orderBy('grade')->orderBy('name')->get(['id', 'name', 'has_room'])
                 : [],
             'genders' => collect(Gender::cases())->map(fn (Gender $gender): array => ['value' => $gender->value, 'label' => $gender->label()]),
             'relations' => collect(GuardianContact::RELATIONS)->map(fn (string $label, string $value): array => ['value' => $value, 'label' => $label])->values(),
@@ -79,8 +80,8 @@ class StudentController extends Controller
     public function store(StudentRequest $request): RedirectResponse
     {
         $student = DB::transaction(function () use ($request): Student {
-            $student = Student::create($request->safe()->except('classroom_id', 'guardians'));
-            $this->place($student, $request->validated('classroom_id'));
+            $student = Student::create($request->safe()->except('classroom_id', 'study_classroom_id', 'guardians'));
+            $this->place($student, $request->validated('classroom_id'), $request->validated('study_classroom_id'));
             $this->syncGuardians($student, $request->validated('guardians', []));
 
             return $student;
@@ -92,8 +93,8 @@ class StudentController extends Controller
     public function update(StudentRequest $request, Student $student): RedirectResponse
     {
         DB::transaction(function () use ($request, $student): void {
-            $student->update($request->safe()->except('classroom_id', 'guardians'));
-            $this->place($student, $request->validated('classroom_id'));
+            $student->update($request->safe()->except('classroom_id', 'study_classroom_id', 'guardians'));
+            $this->place($student, $request->validated('classroom_id'), $request->validated('study_classroom_id'));
             $this->syncGuardians($student, $request->validated('guardians', []));
         });
 
@@ -130,14 +131,22 @@ class StudentController extends Controller
     }
 
     /**
-     * Put the student in the given classroom of the active academic year.
+     * Put the student in the given classroom of the active academic year. A
+     * student of a class without a room also gets the room they sit in.
      */
-    private function place(Student $student, ?int $classroomId): void
+    private function place(Student $student, ?int $classroomId, ?int $studyClassroomId = null): void
     {
         $academicYear = AcademicYear::active();
 
-        if ($academicYear) {
-            $student->placeIn($classroomId ? Classroom::find($classroomId) : null, $academicYear);
+        if (! $academicYear) {
+            return;
+        }
+
+        $classroom = $classroomId ? Classroom::find($classroomId) : null;
+        $student->placeIn($classroom, $academicYear);
+
+        if ($classroom && ! $classroom->has_room && $studyClassroomId && $studyClassroomId !== $classroom->id) {
+            $student->classrooms()->updateExistingPivot($classroom->id, ['study_classroom_id' => $studyClassroomId]);
         }
     }
 }

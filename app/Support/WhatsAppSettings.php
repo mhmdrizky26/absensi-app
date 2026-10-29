@@ -97,12 +97,12 @@ class WhatsAppSettings
     }
 
     /**
-     * The daily check runs once per school day, at or after the send time.
+     * The daily check runs once per school day, at or after the send time,
+     * even with WhatsApp off: it also keeps the risk list and its data tidy.
      */
     public function isDue(CarbonInterface $now): bool
     {
-        return $this->enabled()
-            && $now->format('H:i') >= $this->sendAt()
+        return $now->format('H:i') >= $this->sendAt()
             && $this->lastRunOn() !== $now->toDateString()
             && $this->window->isSchoolDay($now);
     }

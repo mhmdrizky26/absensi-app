@@ -23,15 +23,9 @@ class AttendanceRisk
 
     public const STREAK_DAYS = 3;
 
-    public const ABSENT_WATCH = 5;
+    public const RATE_MIN_MARKS = 8;
 
-    public const ABSENT_HIGH = 10;
-
-    public const RATE_WATCH = 85;
-
-    public const RATE_HIGH = 75;
-
-    public const RATE_MIN_MARKS = 10;
+    public const SEMESTER_RATE_MIN_MARKS = 10;
 
     public const WEEKDAY_MIN_ABSENT = 3;
 
@@ -39,33 +33,31 @@ class AttendanceRisk
 
     public const DECLINE_POINTS = 15;
 
-    public const LATE_WATCH = 5;
-
-    public const LATE_WINDOW_DAYS = 30;
-
-    public const EXCUSED_WATCH = 6;
-
     private const WEEKDAYS = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
 
-    public function __construct(private AttendanceWindow $window, private AttendanceReport $report) {}
+    public function __construct(private AttendanceWindow $window, private AttendanceReport $report, private RiskSettings $settings) {}
 
     /**
      * The rules in plain language, shown on the page so the listing is never a black box.
      *
      * @return list<array{level: string, text: string}>
      */
-    public static function rules(): array
+    public function rules(): array
     {
+        $days = $this->settings->windowDays();
+        $set = fn (string $key): int => $this->settings->get($key);
+
         return [
-            ['level' => self::LEVEL_HIGH, 'text' => 'Alpa '.self::STREAK_DAYS.' hari sekolah berturut-turut atau lebih dalam '.self::LATE_WINDOW_DAYS.' hari terakhir (lebih lama dari itu: perlu perhatian).'],
-            ['level' => self::LEVEL_HIGH, 'text' => 'Alpa '.self::ABSENT_HIGH.' kali atau lebih dalam semester ini.'],
-            ['level' => self::LEVEL_HIGH, 'text' => 'Kehadiran di bawah '.self::RATE_HIGH.'% (minimal '.self::RATE_MIN_MARKS.' hari tercatat).'],
-            ['level' => self::LEVEL_WATCH, 'text' => 'Alpa '.self::ABSENT_WATCH.' kali atau lebih dalam semester ini.'],
-            ['level' => self::LEVEL_WATCH, 'text' => 'Kehadiran di bawah '.self::RATE_WATCH.'%.'],
-            ['level' => self::LEVEL_WATCH, 'text' => 'Alpa sering jatuh di hari yang sama (minimal '.self::WEEKDAY_MIN_ABSENT.' kali dan separuh dari seluruh alpanya).'],
+            ['level' => self::LEVEL_HIGH, 'text' => 'Alpa '.self::STREAK_DAYS." hari sekolah berturut-turut atau lebih dalam {$days} hari terakhir."],
+            ['level' => self::LEVEL_HIGH, 'text' => 'Alpa '.$set('risk_absent_high')." kali atau lebih dalam {$days} hari terakhir."],
+            ['level' => self::LEVEL_HIGH, 'text' => 'Kehadiran '.$days.' hari terakhir di bawah '.$set('risk_rate_high').'%.'],
+            ['level' => self::LEVEL_HIGH, 'text' => 'Kehadiran semester di bawah '.$set('risk_semester_rate_high').'% (berpengaruh ke rapor).'],
+            ['level' => self::LEVEL_WATCH, 'text' => 'Alpa '.$set('risk_absent_watch')." kali atau lebih dalam {$days} hari terakhir."],
+            ['level' => self::LEVEL_WATCH, 'text' => 'Kehadiran '.$days.' hari terakhir di bawah '.$set('risk_rate_watch').'%.'],
+            ['level' => self::LEVEL_WATCH, 'text' => 'Alpa sering jatuh di hari yang sama (minimal '.self::WEEKDAY_MIN_ABSENT." kali dalam {$days} hari terakhir)."],
             ['level' => self::LEVEL_WATCH, 'text' => 'Kehadiran '.self::RECENT_DAYS.' hari sekolah terakhir turun '.self::DECLINE_POINTS.' poin atau lebih dibanding sebelumnya.'],
-            ['level' => self::LEVEL_WATCH, 'text' => 'Terlambat '.self::LATE_WATCH.' kali atau lebih dalam '.self::LATE_WINDOW_DAYS.' hari terakhir.'],
-            ['level' => self::LEVEL_WATCH, 'text' => 'Sakit dan izin '.self::EXCUSED_WATCH.' kali atau lebih dalam semester ini.'],
+            ['level' => self::LEVEL_WATCH, 'text' => 'Terlambat '.$set('risk_late_watch')." kali atau lebih dalam {$days} hari terakhir."],
+            ['level' => self::LEVEL_WATCH, 'text' => 'Sakit dan izin '.$set('risk_excused_watch')." kali atau lebih dalam {$days} hari terakhir."],
         ];
     }
 
@@ -135,37 +127,47 @@ class AttendanceRisk
     }
 
     /**
-     * @param  array<string, string>  $marks  date => status letter
+     * Most rules look only at the recent window (30 days by default), so a
+     * student leaves the list once attendance recovers. Only the semester
+     * attendance rate, which ends up on the rapor, uses the whole semester.
+     *
+     * @param  array<string, string>  $marks  date => status letter, whole semester so far
      * @param  list<string>  $days  school days in order
      * @return list<array{level: string, text: string}>
      */
     private function reasonsFor(array $marks, array $days, CarbonInterface $to): array
     {
         $reasons = [];
-        $counts = array_count_values($marks) + array_fill_keys(AttendanceReport::STATUSES, 0);
+        $windowDays = $this->settings->windowDays();
+        $since = CarbonImmutable::parse($to->toDateString())->subDays($windowDays)->toDateString();
+        $recent = array_filter($marks, fn (string $date): bool => $date > $since, ARRAY_FILTER_USE_KEY);
+        $recentDays = array_values(array_filter($days, fn (string $day): bool => $day > $since));
+        $counts = array_count_values($recent) + array_fill_keys(AttendanceReport::STATUSES, 0);
+        $set = fn (string $key): int => $this->settings->get($key);
 
-        [$streak, $streakEnd] = $this->longestAbsentStreak($marks, $days);
-
-        $recentSince = CarbonImmutable::parse($to->toDateString())->subDays(self::LATE_WINDOW_DAYS)->toDateString();
+        [$streak, $streakEnd] = $this->longestAbsentStreak($recent, $recentDays);
 
         if ($streak >= self::STREAK_DAYS) {
-            $reasons[] = [
-                'level' => $streakEnd > $recentSince ? self::LEVEL_HIGH : self::LEVEL_WATCH,
-                'text' => "Alpa {$streak} hari berturut-turut (s.d. ".CarbonImmutable::parse($streakEnd)->translatedFormat('j M').').',
-            ];
+            $reasons[] = ['level' => self::LEVEL_HIGH, 'text' => "Alpa {$streak} hari berturut-turut (s.d. ".CarbonImmutable::parse($streakEnd)->translatedFormat('j M').').'];
         }
 
-        if ($counts['A'] >= self::ABSENT_WATCH) {
-            $reasons[] = ['level' => $counts['A'] >= self::ABSENT_HIGH ? self::LEVEL_HIGH : self::LEVEL_WATCH, 'text' => "Alpa {$counts['A']} kali semester ini."];
+        if ($counts['A'] >= $set('risk_absent_watch')) {
+            $reasons[] = ['level' => $counts['A'] >= $set('risk_absent_high') ? self::LEVEL_HIGH : self::LEVEL_WATCH, 'text' => "Alpa {$counts['A']} kali dalam {$windowDays} hari terakhir."];
         }
 
         $rate = $this->report->rate($counts);
 
-        if ($rate !== null && count($marks) >= self::RATE_MIN_MARKS && $rate < self::RATE_WATCH) {
-            $reasons[] = ['level' => $rate < self::RATE_HIGH ? self::LEVEL_HIGH : self::LEVEL_WATCH, 'text' => "Kehadiran {$rate}%."];
+        if ($rate !== null && count($recent) >= self::RATE_MIN_MARKS && $rate < $set('risk_rate_watch')) {
+            $reasons[] = ['level' => $rate < $set('risk_rate_high') ? self::LEVEL_HIGH : self::LEVEL_WATCH, 'text' => "Kehadiran {$windowDays} hari terakhir {$rate}%."];
         }
 
-        if ($weekday = $this->absentWeekdayPattern($marks, $counts['A'])) {
+        $semesterRate = $this->report->rate(array_count_values($marks) + array_fill_keys(AttendanceReport::STATUSES, 0));
+
+        if ($semesterRate !== null && count($marks) >= self::SEMESTER_RATE_MIN_MARKS && $semesterRate < $set('risk_semester_rate_high')) {
+            $reasons[] = ['level' => self::LEVEL_HIGH, 'text' => "Kehadiran semester {$semesterRate}% (berpengaruh ke rapor)."];
+        }
+
+        if ($weekday = $this->absentWeekdayPattern($recent, $counts['A'])) {
             $reasons[] = ['level' => self::LEVEL_WATCH, 'text' => $weekday];
         }
 
@@ -173,14 +175,12 @@ class AttendanceRisk
             $reasons[] = ['level' => self::LEVEL_WATCH, 'text' => $decline];
         }
 
-        $recentLate = count(array_filter($marks, fn (string $status, string $date): bool => $status === 'T' && $date > $recentSince, ARRAY_FILTER_USE_BOTH));
-
-        if ($recentLate >= self::LATE_WATCH) {
-            $reasons[] = ['level' => self::LEVEL_WATCH, 'text' => "Terlambat {$recentLate} kali dalam ".self::LATE_WINDOW_DAYS.' hari terakhir.'];
+        if ($counts['T'] >= $set('risk_late_watch')) {
+            $reasons[] = ['level' => self::LEVEL_WATCH, 'text' => "Terlambat {$counts['T']} kali dalam {$windowDays} hari terakhir."];
         }
 
-        if ($counts['S'] + $counts['I'] >= self::EXCUSED_WATCH) {
-            $reasons[] = ['level' => self::LEVEL_WATCH, 'text' => 'Sakit '.$counts['S'].' kali dan izin '.$counts['I'].' kali semester ini.'];
+        if ($set('risk_excused_watch') <= $counts['S'] + $counts['I']) {
+            $reasons[] = ['level' => self::LEVEL_WATCH, 'text' => "Sakit {$counts['S']} kali dan izin {$counts['I']} kali dalam {$windowDays} hari terakhir."];
         }
 
         return $reasons;
@@ -269,7 +269,7 @@ class AttendanceRisk
             return null;
         }
 
-        return 'Sering alpa hari '.self::WEEKDAYS[$weekday]." ({$count} dari {$absentTotal} alpa).";
+        return 'Sering alpa hari '.self::WEEKDAYS[$weekday]." ({$count} dari {$absentTotal} alpa terakhir).";
     }
 
     /**

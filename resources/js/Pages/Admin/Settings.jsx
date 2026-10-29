@@ -15,7 +15,19 @@ const WEEKDAYS = [
     [7, 'Minggu'],
 ];
 
-export default function Settings({ settings, isEnforced, holidays }) {
+const RISK_FIELDS = [
+    ['window_days', 'Periode yang dihitung (hari)', 'Aturan di bawah melihat absensi selama periode ini. Siswa yang membaik otomatis keluar dari daftar.'],
+    ['absent_watch', 'Alpa — perlu perhatian (kali)'],
+    ['absent_high', 'Alpa — risiko tinggi (kali)'],
+    ['rate_watch', 'Kehadiran di bawah — perlu perhatian (%)'],
+    ['rate_high', 'Kehadiran di bawah — risiko tinggi (%)'],
+    ['semester_rate_high', 'Kehadiran semester di bawah — risiko tinggi (%)', 'Satu-satunya aturan yang melihat seluruh semester, karena berpengaruh ke rapor.'],
+    ['late_watch', 'Terlambat — perlu perhatian (kali)'],
+    ['excused_watch', 'Sakit + izin — perlu perhatian (kali)'],
+];
+
+export default function Settings({ settings, isEnforced, holidays, riskSettings }) {
+    const riskForm = useForm(riskSettings);
     const form = useForm(settings);
     const holidayForm = useForm({ from: '', to: '', description: '' });
     const [deleting, setDeleting] = useState(null);
@@ -132,6 +144,25 @@ export default function Settings({ settings, isEnforced, holidays }) {
                     </div>
                 </section>
             </div>
+
+            <form onSubmit={(event) => { event.preventDefault(); riskForm.put('/pengaturan/risiko', { preserveScroll: true }); }} noValidate className="excuse-form" style={{ marginTop: 40 }}>
+                <h4 style={{ margin: 0 }}>Aturan siswa berisiko</h4>
+                <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
+                    Siswa masuk daftar Siswa berisiko bila memenuhi salah satu aturan. Daftar diperbarui setiap hari; siswa yang sudah membaik keluar dari daftar dan datanya dihapus.
+                </p>
+                <div className="risk-settings-grid">
+                    {RISK_FIELDS.map(([key, label, hint]) => (
+                        <Field key={key} label={label} htmlFor={`risk_${key}`} error={riskForm.errors[key]} hint={hint}>
+                            <input id={`risk_${key}`} type="number" min={1} className="input" value={riskForm.data[key]} onChange={(event) => riskForm.setData(key, event.target.value)} />
+                        </Field>
+                    ))}
+                </div>
+                <div>
+                    <button type="submit" className="btn btn-primary" disabled={riskForm.processing || !riskForm.isDirty}>
+                        Simpan aturan
+                    </button>
+                </div>
+            </form>
 
             <ConfirmDialog open={deleting !== null} title={`Hapus libur ${deleting ? formatDate(deleting.date) : ''}?`} confirmLabel="Hapus" onConfirm={destroyHoliday} onClose={() => setDeleting(null)}>
                 Tanggal ini kembali menjadi hari sekolah biasa.

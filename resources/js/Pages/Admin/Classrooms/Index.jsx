@@ -22,7 +22,8 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
     const [showCodes, setShowCodes] = useState(false);
     const [standardizing, setStandardizing] = useState(false);
 
-    const form = useForm({ grade: 7, section: '', homeroom_teacher_id: '', access_code: '' });
+    const form = useForm({ grade: 7, section: '', homeroom_teacher_id: '', access_code: '', has_room: true });
+    const [lodging, setLodging] = useState(null);
     const batchForm = useForm({ grades: [7, 8, 9], count: 11 });
 
     if (!academicYear) {
@@ -45,13 +46,13 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
 
     function openCreate() {
         form.clearErrors();
-        form.setData({ grade: 7, section: '', homeroom_teacher_id: '', access_code: '' });
+        form.setData({ grade: 7, section: '', homeroom_teacher_id: '', access_code: '', has_room: true });
         setEditing('new');
     }
 
     function openEdit(classroom) {
         form.clearErrors();
-        form.setData({ grade: classroom.grade, section: classroom.section, homeroom_teacher_id: classroom.homeroomTeacher?.id ?? '', access_code: classroom.accessCode });
+        form.setData({ grade: classroom.grade, section: classroom.section, homeroom_teacher_id: classroom.homeroomTeacher?.id ?? '', access_code: classroom.accessCode, has_room: classroom.hasRoom });
         setEditing(classroom);
     }
 
@@ -154,12 +155,27 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
                                                 <td>{classroom.homeroomTeacher?.name ?? <span className="text-muted">Belum ditentukan</span>}</td>
                                                 <td className="num">
                                                     <Link href={`/siswa?classroom=${classroom.id}`}>{classroom.studentsCount}</Link>
+                                                    {classroom.guests > 0 && <span className="cell-sub">+{classroom.guests} titipan</span>}
                                                 </td>
                                                 <td>
-                                                    <span className="mono">{showCodes ? classroom.accessCode : '••••••'}</span>
-                                                    <button type="button" className="btn btn-ghost" title="Buat kode acak" aria-label={`Buat kode acak untuk kelas ${classroom.name}`} onClick={() => setRegenerating(classroom)}>
-                                                        <RefreshCw size={14} aria-hidden="true" />
-                                                    </button>
+                                                    {classroom.hasRoom ? (
+                                                        <>
+                                                            <span className="mono">{showCodes ? classroom.accessCode : '••••••'}</span>
+                                                            <button type="button" className="btn btn-ghost" title="Buat kode acak" aria-label={`Buat kode acak untuk kelas ${classroom.name}`} onClick={() => setRegenerating(classroom)}>
+                                                                <RefreshCw size={14} aria-hidden="true" />
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <span className="tag tag-warning">Tanpa ruang</span>{' '}
+                                                            <button type="button" className="btn btn-ghost" onClick={() => setLodging(classroom)}>
+                                                                Titipkan siswa
+                                                            </button>
+                                                            <span className="cell-sub">
+                                                                {classroom.lodged}/{classroom.studentsCount} siswa sudah dititipkan
+                                                            </span>
+                                                        </>
+                                                    )}
                                                 </td>
                                                 <td className="cell-actions">
                                                     <button type="button" className="btn btn-ghost" onClick={() => openEdit(classroom)}>
@@ -210,6 +226,13 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
                             })}
                         </select>
                     </Field>
+                    <label className="wa-toggle" htmlFor="has_room" style={{ marginBottom: 16 }}>
+                        <input id="has_room" type="checkbox" checked={form.data.has_room} onChange={(event) => form.setData('has_room', event.target.checked)} />
+                        <span>
+                            <b>Kelas ini punya ruang sendiri</b>
+                            <span className="cell-sub">Matikan bila kelas tidak kebagian ruangan: siswanya dititipkan ke kelas lain saat absen pagi, tetapi rekap dan rapor tetap di kelas ini.</span>
+                        </span>
+                    </label>
                     <Field
                         label="Kode kelas"
                         htmlFor="access_code"
@@ -276,6 +299,16 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
                     </div>
                 </form>
             </Modal>
+
+            <ConfirmDialog
+                open={lodging !== null}
+                title={`Titipkan siswa ${lodging?.name} ke kelas lain?`}
+                confirmLabel="Bagi rata"
+                onConfirm={() => router.post(`/kelas/${lodging.id}/titipkan`, {}, { preserveScroll: true, onFinish: () => setLodging(null) })}
+                onClose={() => setLodging(null)}
+            >
+                Siswa aktif {lodging?.name} dibagi rata ke kelas setingkat yang punya ruang, mulai dari kelas yang paling sedikit siswanya. Mereka di-scan bersama kelas titipan setiap pagi, tetapi absensi, rekap, dan rapornya tetap milik {lodging?.name} dan dipantau wali kelasnya. Pembagian bisa diubah per siswa di menu Siswa.
+            </ConfirmDialog>
 
             <ConfirmDialog open={regenerating !== null} title={`Buat kode acak untuk ${regenerating?.name}?`} confirmLabel="Buat kode acak" onConfirm={regenerate} onClose={() => setRegenerating(null)}>
                 Kode lama langsung tidak berlaku. Berikan kode baru ke guru yang mengajar jam pertama di kelas ini.

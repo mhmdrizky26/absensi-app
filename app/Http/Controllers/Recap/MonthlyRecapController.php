@@ -2,7 +2,12 @@
 
 namespace App\Http\Controllers\Recap;
 
+use App\Enums\Role;
+use App\Enums\StudentStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Classroom;
+use App\Models\GuardianContact;
+use App\Models\Student;
 use App\Support\AttendanceReport;
 use App\Support\RecapScope;
 use Carbon\CarbonImmutable;
@@ -31,7 +36,31 @@ class MonthlyRecapController extends Controller
             'month' => $month->format('Y-m'),
             'today' => today()->toDateString(),
             'grid' => $classroom ? $report->monthGrid($classroom, $month) : null,
+            'parentContacts' => $classroom && $user->hasRole(Role::WaliKelas) ? $this->parentContacts($classroom) : null,
+            'relations' => collect(GuardianContact::RELATIONS)->map(fn (string $label, string $value): array => ['value' => $value, 'label' => $label])->values(),
         ]);
+    }
+
+    /**
+     * Active students of the class with their parents' WhatsApp numbers, for the
+     * wali kelas's "Nomor orang tua" dialog.
+     *
+     * @return list<array{id: int, name: string, nis: string, contacts: list<string>}>
+     */
+    private function parentContacts(Classroom $classroom): array
+    {
+        return $classroom->students()
+            ->where('status', StudentStatus::Active)
+            ->with('guardianContacts')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Student $student): array => [
+                'id' => $student->id,
+                'name' => $student->name,
+                'nis' => $student->nis,
+                'contacts' => $student->guardianContacts->map(fn (GuardianContact $contact): string => GuardianContact::displayPhone($contact->phone))->values()->all(),
+            ])
+            ->all();
     }
 
     /**

@@ -1,7 +1,8 @@
 import { Head, router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, Download, Paperclip, Printer } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Paperclip, Phone, Printer } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Modal from '@/Components/Modal';
+import ParentContactDialog from '@/Components/ParentContactDialog';
 import RecapTabs from '@/Components/RecapTabs';
 import AppLayout from '@/Layouts/AppLayout';
 import { presentCount } from '@/lib/attendance';
@@ -83,8 +84,9 @@ function HistoryDialog({ cell, onClose }) {
     );
 }
 
-export default function MonthlyRecap({ classrooms, classroom, month, today, grid }) {
+export default function MonthlyRecap({ classrooms, classroom, month, today, grid, parentContacts, relations }) {
     const [cell, setCell] = useState(null);
+    const [contactsOpen, setContactsOpen] = useState(false);
 
     function visit(changes) {
         router.get('/rekap', { classroom: classroom?.id, bulan: month, ...changes }, { preserveScroll: true });
@@ -118,6 +120,12 @@ export default function MonthlyRecap({ classrooms, classroom, month, today, grid
                     <h1>Kelas {classroom.name}</h1>
                 </div>
                 <div className="page-actions no-print">
+                    {parentContacts && (
+                        <button type="button" className="btn btn-secondary" onClick={() => setContactsOpen(true)}>
+                            <Phone size={16} aria-hidden="true" /> Nomor orang tua
+                            {parentContacts.some((student) => student.contacts.length === 0) && <span className="nav-badge">{parentContacts.filter((student) => student.contacts.length === 0).length}</span>}
+                        </button>
+                    )}
                     <button type="button" className="btn btn-secondary" onClick={() => window.print()}>
                         <Printer size={16} aria-hidden="true" /> Cetak
                     </button>
@@ -194,6 +202,7 @@ export default function MonthlyRecap({ classrooms, classroom, month, today, grid
                                     <th className="sticky-col" scope="row">
                                         {student.name}
                                         {!student.isActive && <span className="cell-sub">tidak aktif</span>}
+                                        {student.isActive && student.studyRoom && <span className="cell-sub">belajar di {student.studyRoom}</span>}
                                     </th>
                                     {grid.days.map((day) => {
                                         const mark = student.marks[day];
@@ -238,6 +247,7 @@ export default function MonthlyRecap({ classrooms, classroom, month, today, grid
             )}
 
             {cell && <HistoryDialog cell={cell} onClose={() => setCell(null)} />}
+            {contactsOpen && parentContacts && <ParentContactDialog students={parentContacts} relations={relations} onClose={() => setContactsOpen(false)} />}
         </>
     );
 }

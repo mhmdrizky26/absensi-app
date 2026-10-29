@@ -49,6 +49,7 @@ class ClassroomRequest extends FormRequest
 
         return [
             'grade' => ['required', 'integer', Rule::in(array_keys(Classroom::GRADES))],
+            'has_room' => ['boolean'],
             'section' => ['required', 'string', 'regex:/^[A-Za-z]{1,2}$/'],
             'name' => [
                 'required',

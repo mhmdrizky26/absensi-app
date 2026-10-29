@@ -6,13 +6,15 @@ use App\Support\RandomCode;
 use Database\Factories\ClassroomFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-#[Fillable(['academic_year_id', 'grade', 'name', 'homeroom_teacher_id'])]
+#[Fillable(['academic_year_id', 'grade', 'name', 'has_room', 'homeroom_teacher_id'])]
 #[Hidden(['access_code'])]
 class Classroom extends Model
 {
@@ -33,6 +35,13 @@ class Classroom extends Model
     public const ACCESS_CODE_MIN = 4;
 
     public const ACCESS_CODE_MAX = 12;
+
+    protected function casts(): array
+    {
+        return [
+            'has_room' => 'boolean',
+        ];
+    }
 
     protected static function booted(): void
     {
@@ -117,6 +126,41 @@ class Classroom extends Model
      */
     public function students(): BelongsToMany
     {
-        return $this->belongsToMany(Student::class)->withPivot('academic_year_id')->withTimestamps();
+        return $this->belongsToMany(Student::class)->withPivot('academic_year_id', 'study_classroom_id')->withTimestamps();
+    }
+
+    /**
+     * Students who sit in this room at first period: its own students who are
+     * not lodged in another room, plus students of a room-less class lodged
+     * here. Their marks still belong to their own class (see homeClassroomIds).
+     *
+     * @return Builder<Student>
+     */
+    public function attendees(): Builder
+    {
+        return Student::query()->whereIn('students.id', fn ($query) => $query
+            ->select('student_id')
+            ->from('classroom_student')
+            ->where('academic_year_id', $this->academic_year_id)
+            ->where(fn ($query) => $query
+                ->where(fn ($query) => $query->where('classroom_id', $this->id)->whereNull('study_classroom_id'))
+                ->orWhere('study_classroom_id', $this->id)));
+    }
+
+    /**
+     * The class each student belongs to in the year: where their marks are
+     * recorded, even when they sit in another room.
+     *
+     * @param  iterable<int>  $studentIds
+     * @return array<int, int> student id => classroom id
+     */
+    public static function homeClassroomIds(int $academicYearId, iterable $studentIds): array
+    {
+        return DB::table('classroom_student')
+            ->where('academic_year_id', $academicYearId)
+            ->whereIn('student_id', collect($studentIds)->all())
+            ->pluck('classroom_id', 'student_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
     }
 }

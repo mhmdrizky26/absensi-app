@@ -56,7 +56,7 @@ class EarlyWarningController extends Controller
 
         return Inertia::render('Recap/EarlyWarning', [
             'students' => $students,
-            'rules' => AttendanceRisk::rules(),
+            'rules' => $risk->rules(),
             'period' => $period,
             'classrooms' => $user->hasRole(Role::WaliKelas) ? [] : $classrooms->map(fn (Classroom $classroom): array => $classroom->only('id', 'name'))->values(),
             'filters' => ['classroom' => $selectedId],
@@ -64,8 +64,7 @@ class EarlyWarningController extends Controller
             'isHomeroomTeacher' => $user->hasRole(Role::WaliKelas),
             'whatsappEnabled' => $whatsApp->enabled(),
             'canSendWhatsApp' => $user->hasRole(Role::Admin, Role::GuruBk),
-            'canAddContact' => $user->hasRole(Role::GuruBk),
-            'relations' => collect(GuardianContact::RELATIONS)->map(fn (string $label, string $value): array => ['value' => $value, 'label' => $label])->values(),
+            'canFollowUp' => $user->hasRole(Role::Admin, Role::GuruBk),
         ]);
     }
 
@@ -98,7 +97,7 @@ class EarlyWarningController extends Controller
 
     /**
      * Add whether, and when, the parents were told about the student's current
-     * risk episode, with the status of the last messages sent.
+     * risk episode, whether it was handled, and whether the student is new on the list.
      *
      * @param  list<array<string, mixed>>  $students
      * @return list<array<string, mixed>>
@@ -108,19 +107,30 @@ class EarlyWarningController extends Controller
         $episodes = RiskEpisode::query()
             ->open()
             ->whereIn('student_id', array_column($students, 'id'))
-            ->whereNotNull('notified_at')
-            ->with(['messages' => fn ($query) => $query->latest('id')])
+            ->with(['messages' => fn ($query) => $query->latest('id'), 'handler:id,name'])
             ->get()
             ->keyBy('student_id');
 
         return array_map(function (array $student) use ($episodes): array {
             $episode = $episodes->get($student['id']);
-            $lastBatch = $episode?->messages->filter(fn (RiskMessage $message): bool => $message->created_at->greaterThanOrEqualTo($episode->notified_at->copy()->subMinute()));
+            $lastBatch = $episode?->notified_at
+                ? $episode->messages->filter(fn (RiskMessage $message): bool => $message->created_at->greaterThanOrEqualTo($episode->notified_at->copy()->subMinute()))
+                : collect();
 
-            return [...$student, 'notice' => $episode ? [
-                'notifiedAt' => $episode->notified_at->toIso8601String(),
-                'statuses' => $lastBatch->pluck('status')->unique()->values()->all(),
-            ] : null];
+            return [
+                ...$student,
+                // Baru: belum tercatat pemeriksaan harian, atau masuk daftar dalam 7 hari terakhir.
+                'isNew' => ! $episode || $episode->started_on->greaterThanOrEqualTo(today()->subDays(7)),
+                'notice' => $episode?->notified_at ? [
+                    'notifiedAt' => $episode->notified_at->toIso8601String(),
+                    'statuses' => $lastBatch->pluck('status')->unique()->values()->all(),
+                ] : null,
+                'followUp' => $episode?->handled_at ? [
+                    'at' => $episode->handled_at->toIso8601String(),
+                    'by' => $episode->handler?->name,
+                    'note' => $episode->handled_note,
+                ] : null,
+            ];
         }, $students);
     }
 

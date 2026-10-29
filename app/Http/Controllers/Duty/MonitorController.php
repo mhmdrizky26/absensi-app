@@ -11,6 +11,8 @@ use App\Models\AttendanceSession;
 use App\Models\Classroom;
 use App\Support\AttendanceWindow;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -48,7 +50,15 @@ class MonitorController extends Controller
             ->get()
             ->keyBy('classroom_id');
 
-        $rows = $classrooms->map(function (Classroom $classroom) use ($countsByClassroom, $sessions): array {
+        // Kelas tanpa ruang: siswanya tersebar ke ruang kelas lain.
+        $lodgings = DB::table('classroom_student')
+            ->join('students', 'students.id', '=', 'classroom_student.student_id')
+            ->where('students.status', StudentStatus::Active)
+            ->whereIn('classroom_student.classroom_id', $classrooms->where('has_room', false)->pluck('id'))
+            ->get(['classroom_student.classroom_id', 'classroom_student.study_classroom_id'])
+            ->groupBy('classroom_id');
+
+        $rows = $classrooms->map(function (Classroom $classroom) use ($countsByClassroom, $sessions, $lodgings): array {
             $counts = array_fill_keys(array_column(AttendanceStatus::cases(), 'value'), 0);
 
             foreach ($countsByClassroom->get($classroom->id, collect()) as $count) {
@@ -63,7 +73,8 @@ class MonitorController extends Controller
                 'homeroomTeacher' => $classroom->homeroomTeacher?->name,
                 'total' => $classroom->active_students_count,
                 'counts' => $counts,
-                'session' => match (true) {
+                'hasRoom' => $classroom->has_room,
+                'session' => ! $classroom->has_room ? $this->lodgedState($lodgings->get($classroom->id, collect()), $sessions) : match (true) {
                     $session === null => ['state' => 'not_opened'],
                     $session->isClosed() => ['state' => 'closed', 'closedAt' => $session->closed_at->toIso8601String()],
                     default => ['state' => 'open', 'openedAt' => $session->opened_at->toIso8601String()],
@@ -105,5 +116,25 @@ class MonitorController extends Controller
             'classrooms' => $rows,
             'late' => $late,
         ]);
+    }
+
+    /**
+     * Scan status of a class without a room: in how many rooms its students
+     * sit, and how many of those rooms finished today's scan.
+     *
+     * @param  Collection<int, object>  $lodgings
+     * @param  Collection<int, AttendanceSession>  $sessions
+     * @return array{state: string, hosts: int, closedHosts: int, unplaced: int}
+     */
+    private function lodgedState(Collection $lodgings, Collection $sessions): array
+    {
+        $hosts = $lodgings->pluck('study_classroom_id')->filter()->unique();
+
+        return [
+            'state' => 'no_room',
+            'hosts' => $hosts->count(),
+            'closedHosts' => $hosts->filter(fn (int $id): bool => (bool) $sessions->get($id)?->isClosed())->count(),
+            'unplaced' => $lodgings->whereNull('study_classroom_id')->count(),
+        ];
     }
 }

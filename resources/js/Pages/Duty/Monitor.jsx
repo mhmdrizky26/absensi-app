@@ -20,6 +20,16 @@ const STATUS_LABELS = [
 ];
 
 function SessionTag({ session, windowOpened }) {
+    if (session.state === 'no_room') {
+        return session.hosts === 0 ? (
+            <span className="tag tag-warning">Tanpa ruang · belum dititipkan</span>
+        ) : (
+            <span className="tag tag-outline">
+                Numpang di {session.hosts} kelas · {session.closedHosts}/{session.hosts} selesai
+            </span>
+        );
+    }
+
     if (session.state === 'closed') {
         return <span className="tag tag-neutral">Selesai {formatTime(session.closedAt)}</span>;
     }
@@ -104,6 +114,7 @@ function ClassroomDetail({ classroom, onClose }) {
                                     {student.name}
                                     <span className="cell-sub">
                                         NIS {student.nis}
+                                        {student.studyRoom ? ` · belajar di ${student.studyRoom}` : ''}
                                         {student.note ? ` · ${student.note}` : ''}
                                         {student.attachmentId && (
                                             <>
