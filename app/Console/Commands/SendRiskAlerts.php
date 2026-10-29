@@ -9,7 +9,7 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 #[Signature('risiko:kirim-wa {--paksa : Jalankan sekarang walau belum jamnya, sudah jalan hari ini, atau notifikasi dimatikan}')]
-#[Description('Perbarui episode siswa berisiko dan kabari orang tua lewat WhatsApp')]
+#[Description('Perbarui daftar siswa berisiko (hapus yang sudah membaik) dan kabari orang tua lewat WhatsApp bila dinyalakan')]
 class SendRiskAlerts extends Command
 {
     /**
@@ -22,16 +22,16 @@ class SendRiskAlerts extends Command
             return self::SUCCESS;
         }
 
-        $summary = $trackRiskEpisodes->handle(today());
+        $summary = $trackRiskEpisodes->handle(today(), notify: $settings->enabled());
         $settings->markRun(today());
 
         $this->info(sprintf(
-            '%d episode baru, %d selesai, %d siswa dikabari (%d pesan%s).',
+            '%d siswa baru berisiko, %d membaik (dihapus), %d siswa dikabari (%d pesan%s).',
             $summary['opened'],
             $summary['closed'],
             $summary['notified'],
             $summary['messages'],
-            $settings->testMode() ? ', mode uji: tidak dikirim' : '',
+            ! $settings->enabled() ? ', notifikasi WA mati' : ($settings->testMode() ? ', mode uji: tidak dikirim' : ''),
         ));
 
         return self::SUCCESS;

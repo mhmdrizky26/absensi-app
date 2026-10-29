@@ -11,7 +11,8 @@ use Illuminate\Http\RedirectResponse;
 class GuardianContactController extends Controller
 {
     /**
-     * Guru BK adds a parent's WhatsApp number straight from a student's risk card.
+     * Guru BK, or the student's own wali kelas, adds a parent's WhatsApp number
+     * straight from the student's risk card (access checked in the request).
      */
     public function store(GuardianContactRequest $request, Student $student): RedirectResponse
     {

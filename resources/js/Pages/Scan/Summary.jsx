@@ -38,6 +38,7 @@ function GroupList({ groups, marks }) {
                                     {student.name}
                                     <span className="cell-sub">
                                         NIS {student.nis}
+                                        {student.guestOf ? ` · numpang dari ${student.guestOf}` : ''}
                                         {marks[student.id].note ? ` · ${marks[student.id].note}` : ''}
                                     </span>
                                 </span>

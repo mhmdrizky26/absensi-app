@@ -1,5 +1,4 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { MessageCircle, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Field from '@/Components/Field';
@@ -38,46 +37,31 @@ function ParentNotice({ notice }) {
 }
 
 /**
- * Guru BK menambahkan nomor WA orang tua langsung dari kartu siswa berisiko.
+ * Admin/guru BK menandai siswa sudah ditangani, dengan catatan singkat.
  */
-function AddContactDialog({ student, relations, onClose }) {
-    const form = useForm({ name: '', relation: 'ibu', phone: '', consented: true });
+function FollowUpDialog({ student, onClose }) {
+    const form = useForm({ note: '' });
 
     function submit(event) {
         event.preventDefault();
-        form.post(`/siswa-berisiko/${student.id}/kontak`, { preserveScroll: true, onSuccess: onClose });
+        form.post(`/siswa-berisiko/${student.id}/tindak-lanjut`, { preserveScroll: true, onSuccess: onClose });
     }
 
     return (
-        <Modal open title={`Nomor WA orang tua ${student.name}`} onClose={onClose}>
+        <Modal open title={`Tandai ${student.name} sudah ditangani`} onClose={onClose}>
             <form onSubmit={submit} noValidate>
-                <Field label="Nama orang tua" htmlFor="contact_name" error={form.errors.name}>
-                    <input id="contact_name" className="input" maxLength={100} value={form.data.name} onChange={(event) => form.setData('name', event.target.value)} />
+                <p className="text-muted" style={{ marginTop: 0, fontSize: 13 }}>
+                    Siswa pindah ke "Sedang dipantau" dan kembali ke daftar utama hanya bila keadaannya memburuk. Saat kehadirannya membaik, datanya terhapus otomatis.
+                </p>
+                <Field label="Catatan tindak lanjut" htmlFor="follow_up_note" error={form.errors.note} hint='Contoh: "Orang tua ditelepon, siswa sakit tifus" atau "Dipanggil BK 3 Nov".'>
+                    <textarea id="follow_up_note" className="input" rows={3} maxLength={300} value={form.data.note} onChange={(event) => form.setData('note', event.target.value)} />
                 </Field>
-                <div className="form-grid">
-                    <Field label="Hubungan" htmlFor="contact_relation" error={form.errors.relation}>
-                        <select id="contact_relation" className="input" value={form.data.relation} onChange={(event) => form.setData('relation', event.target.value)}>
-                            {relations.map((relation) => (
-                                <option key={relation.value} value={relation.value}>
-                                    {relation.label}
-                                </option>
-                            ))}
-                        </select>
-                    </Field>
-                    <Field label="No. WA" htmlFor="contact_phone" error={form.errors.phone}>
-                        <input id="contact_phone" className="input" inputMode="tel" placeholder="0812 3456 7890" value={form.data.phone} onChange={(event) => form.setData('phone', event.target.value)} />
-                    </Field>
-                </div>
-                <label className="wa-toggle" htmlFor="contact_consented" style={{ marginBottom: 8 }}>
-                    <input id="contact_consented" type="checkbox" checked={form.data.consented} onChange={(event) => form.setData('consented', event.target.checked)} />
-                    Orang tua setuju menerima pesan WhatsApp dari sekolah
-                </label>
                 <div className="dialog-actions">
                     <button type="button" className="btn btn-secondary" onClick={onClose}>
                         Batal
                     </button>
-                    <button type="submit" className="btn btn-primary" disabled={form.processing || !form.data.phone}>
-                        {form.processing ? 'Menyimpan…' : 'Simpan nomor'}
+                    <button type="submit" className="btn btn-primary" disabled={form.processing || !form.data.note.trim()}>
+                        {form.processing ? 'Menyimpan…' : 'Simpan'}
                     </button>
                 </div>
             </form>
@@ -85,12 +69,13 @@ function AddContactDialog({ student, relations, onClose }) {
     );
 }
 
-export default function EarlyWarning({ students, rules, period, classrooms, filters, homeroom, isHomeroomTeacher, whatsappEnabled, canSendWhatsApp, canAddContact, relations }) {
+export default function EarlyWarning({ students, rules, period, classrooms, filters, homeroom, isHomeroomTeacher, whatsappEnabled, canSendWhatsApp, canFollowUp }) {
     const { auth } = usePage().props;
     const [level, setLevel] = useState('semua');
+    const [tab, setTab] = useState('perlu');
+    const [handling, setHandling] = useState(null);
     const [openStudent, setOpenStudent] = useState(null);
     const [sending, setSending] = useState(null);
-    const [addingContact, setAddingContact] = useState(null);
     const [processing, setProcessing] = useState(false);
 
     function sendWhatsApp() {
@@ -103,8 +88,12 @@ export default function EarlyWarning({ students, rules, period, classrooms, filt
             },
         });
     }
+    const pending = students.filter((student) => !student.followUp);
+    const monitored = students.filter((student) => student.followUp);
+    const inTab = tab === 'perlu' ? pending : monitored;
     const high = students.filter((student) => student.level === 'tinggi').length;
-    const shown = level === 'semua' ? students : students.filter((student) => student.level === level);
+    const tabHigh = inTab.filter((student) => student.level === 'tinggi').length;
+    const shown = level === 'semua' ? inTab : inTab.filter((student) => student.level === level);
 
     return (
         <>
@@ -143,7 +132,7 @@ export default function EarlyWarning({ students, rules, period, classrooms, filt
             ) : (
                 <>
                     <p className="text-muted" style={{ fontSize: 14, maxWidth: 760 }}>
-                        Sistem memeriksa absensi {period ? `${formatDate(period.from)} s.d. ${formatDate(period.to)}` : 'semester ini'} dengan aturan tetap di bawah, lalu menampilkan siswa yang perlu didekati wali kelas atau guru BK. Daftar ini bahan tindak lanjut, bukan hukuman.
+                        Sistem memeriksa absensi {period ? `${formatDate(period.from)} s.d. ${formatDate(period.to)}` : 'semester ini'} dengan aturan di bawah, yang sebagian besar hanya melihat beberapa minggu terakhir. Siswa yang sudah membaik keluar dari daftar dengan sendirinya. Daftar ini bahan tindak lanjut, bukan hukuman.
                     </p>
 
                     <div className="stat-strip is-compact" style={{ maxWidth: 520 }}>
@@ -160,11 +149,22 @@ export default function EarlyWarning({ students, rules, period, classrooms, filt
                     <div className="early-layout">
                         <section style={{ minWidth: 0 }}>
                             <div className="toolbar" style={{ marginBottom: 12 }}>
+                                <div className="seg" role="radiogroup" aria-label="Status tindak lanjut">
+                                    {[
+                                        ['perlu', `Perlu ditindaklanjuti (${pending.length})`],
+                                        ['dipantau', `Sedang dipantau (${monitored.length})`],
+                                    ].map(([value, text]) => (
+                                        <label key={value} className="seg-opt">
+                                            <input type="radio" name="tab" checked={tab === value} onChange={() => setTab(value)} />
+                                            {text}
+                                        </label>
+                                    ))}
+                                </div>
                                 <div className="seg" role="radiogroup" aria-label="Tingkat risiko">
                                     {[
-                                        ['semua', `Semua (${students.length})`],
-                                        ['tinggi', `Tinggi (${high})`],
-                                        ['perhatian', `Perhatian (${students.length - high})`],
+                                        ['semua', `Semua (${inTab.length})`],
+                                        ['tinggi', `Tinggi (${tabHigh})`],
+                                        ['perhatian', `Perhatian (${inTab.length - tabHigh})`],
                                     ].map(([value, text]) => (
                                         <label key={value} className="seg-opt">
                                             <input type="radio" name="level" checked={level === value} onChange={() => setLevel(value)} />
@@ -177,7 +177,7 @@ export default function EarlyWarning({ students, rules, period, classrooms, filt
                             {shown.length === 0 ? (
                                 <div className="empty">
                                     <h4>Tidak ada siswa di daftar ini</h4>
-                                    <p className="text-muted">Belum ada siswa yang memenuhi aturan peringatan dini.</p>
+                                    <p className="text-muted">{tab === 'perlu' ? 'Semua siswa berisiko sudah ditangani, atau belum ada yang memenuhi aturan peringatan dini.' : 'Belum ada siswa yang ditandai sudah ditangani.'}</p>
                                 </div>
                             ) : (
                                 <div className="risk-list">
@@ -186,6 +186,12 @@ export default function EarlyWarning({ students, rules, period, classrooms, filt
                                             <header className="risk-head">
                                                 <div>
                                                     <b>{student.name}</b>
+                                                    {student.isNew && !student.followUp && (
+                                                        <>
+                                                            {' '}
+                                                            <span className="tag tag-accent">Baru</span>
+                                                        </>
+                                                    )}
                                                     <span className="cell-sub">
                                                         Kelas {student.classroom} · NIS {student.nis}
                                                     </span>
@@ -201,6 +207,15 @@ export default function EarlyWarning({ students, rules, period, classrooms, filt
                                                 ))}
                                             </ul>
 
+                                            {student.followUp && (
+                                                <div className="risk-follow-up">
+                                                    <b>
+                                                        Sudah ditangani{student.followUp.by ? ` · ${student.followUp.by}` : ''} · {formatDateTime(student.followUp.at)}
+                                                    </b>
+                                                    {student.followUp.note}
+                                                </div>
+                                            )}
+
                                             <footer className="risk-foot">
                                                 <span className="risk-recent" aria-label="Status 10 hari sekolah terakhir">
                                                     {student.recent.map((day) => (
@@ -210,25 +225,30 @@ export default function EarlyWarning({ students, rules, period, classrooms, filt
                                                     ))}
                                                 </span>
                                                 <span className="risk-rate">
-                                                    Kehadiran <b>{student.rate === null ? '—' : `${student.rate}%`}</b> · A {student.counts.A} · S {student.counts.S} · I {student.counts.I}
+                                                    Semester: kehadiran <b>{student.rate === null ? '—' : `${student.rate}%`}</b> · A {student.counts.A} · S {student.counts.S} · I {student.counts.I}
                                                 </span>
                                                 {(whatsappEnabled || student.notice) && <ParentNotice notice={student.notice} />}
-                                                {canSendWhatsApp &&
-                                                    (student.contacts?.length > 0 ? (
-                                                        <button type="button" className="btn btn-secondary" onClick={() => setSending(student)}>
-                                                            <MessageCircle size={16} aria-hidden="true" /> Kirim WA ke orang tua
+                                                {canSendWhatsApp && !student.contacts?.length && <span className="text-muted risk-notice">Belum ada nomor WA orang tua</span>}
+                                                <span className="risk-actions">
+                                                    {canFollowUp &&
+                                                        (student.followUp ? (
+                                                            <button type="button" className="btn btn-ghost" onClick={() => router.delete(`/siswa-berisiko/${student.id}/tindak-lanjut`, { preserveScroll: true })}>
+                                                                Batalkan tanda
+                                                            </button>
+                                                        ) : (
+                                                            <button type="button" className="btn btn-ghost" onClick={() => setHandling(student)}>
+                                                                Tandai sudah ditangani
+                                                            </button>
+                                                        ))}
+                                                    {canSendWhatsApp && student.contacts?.length > 0 && (
+                                                        <button type="button" className="btn btn-ghost" onClick={() => setSending(student)}>
+                                                            Kirim WA ke orang tua
                                                         </button>
-                                                    ) : (
-                                                        !canAddContact && <span className="text-muted risk-notice">Belum ada nomor WA orang tua</span>
-                                                    ))}
-                                                {canAddContact && !student.contacts?.length && (
-                                                    <button type="button" className="btn btn-secondary" onClick={() => setAddingContact(student)}>
-                                                        <UserPlus size={16} aria-hidden="true" /> Tambah nomor orang tua
+                                                    )}
+                                                    <button type="button" className="btn btn-ghost" onClick={() => setOpenStudent(student.id)}>
+                                                        Lihat rekap
                                                     </button>
-                                                )}
-                                                <button type="button" className="btn btn-ghost" onClick={() => setOpenStudent(student.id)}>
-                                                    Lihat rekap
-                                                </button>
+                                                </span>
                                             </footer>
                                         </article>
                                     ))}
@@ -271,7 +291,7 @@ export default function EarlyWarning({ students, rules, period, classrooms, filt
                 <span className="wa-preview">{sending?.messagePreview}</span>
             </ConfirmDialog>
 
-            {addingContact && <AddContactDialog student={addingContact} relations={relations} onClose={() => setAddingContact(null)} />}
+            {handling && <FollowUpDialog student={handling} onClose={() => setHandling(null)} />}
 
             {openStudent && <StudentRecapModal studentId={openStudent} recapLink={auth.user.role !== 'guru_bk'} onClose={() => setOpenStudent(null)} />}
         </>

@@ -7,11 +7,13 @@ use App\Enums\AttendanceStatus;
 use App\Enums\StudentStatus;
 use App\Models\Attendance;
 use App\Models\AttendanceSession;
+use App\Models\Classroom;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Ends a class's first-period scan: every active student without a mark for
- * the day becomes Alpa, which the wali kelas can later correct.
+ * Ends a class's first-period scan: every active student in the room without a
+ * mark for the day becomes Alpa, which the wali kelas can later correct.
+ * Students lodged from a room-less class get the Alpa under their own class.
  */
 class CloseClassSession
 {
@@ -25,21 +27,24 @@ class CloseClassSession
         }
 
         return DB::transaction(function () use ($session): int {
+            $classroom = $session->classroom;
+
             $markedIds = Attendance::query()
                 ->whereDate('date', $session->date)
-                ->whereIn('student_id', $session->classroom->students()->select('students.id'))
+                ->whereIn('student_id', $classroom->attendees()->select('students.id'))
                 ->pluck('student_id');
 
-            $missingIds = $session->classroom->students()
+            $missingIds = $classroom->attendees()
                 ->where('status', StudentStatus::Active)
                 ->whereNotIn('students.id', $markedIds)
                 ->pluck('students.id');
+            $homes = Classroom::homeClassroomIds($classroom->academic_year_id, $missingIds);
 
             $now = now();
 
             Attendance::query()->insertOrIgnore($missingIds->map(fn (int $studentId): array => [
                 'student_id' => $studentId,
-                'classroom_id' => $session->classroom_id,
+                'classroom_id' => $homes[$studentId] ?? $session->classroom_id,
                 'date' => $session->date->toDateString(),
                 'status' => AttendanceStatus::Absent->value,
                 'source' => AttendanceSource::Automatic->value,

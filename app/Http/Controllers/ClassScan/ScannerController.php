@@ -6,6 +6,7 @@ use App\Enums\StudentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\AttendanceSession;
+use App\Models\Classroom;
 use App\Models\Student;
 use App\Support\AttendanceWindow;
 use Illuminate\Http\Request;
@@ -23,10 +24,12 @@ class ScannerController extends Controller
         $attendanceSession = $request->attributes->get('attendanceSession');
         $classroom = $attendanceSession->classroom;
 
-        $students = $classroom->students()
+        $students = $classroom->attendees()
             ->where('status', StudentStatus::Active)
             ->orderBy('name')
             ->get();
+        $homes = Classroom::homeClassroomIds($classroom->academic_year_id, $students->modelKeys());
+        $homeNames = Classroom::query()->whereKey(array_unique(array_values($homes)))->pluck('name', 'id');
 
         $marks = Attendance::query()
             ->whereDate('date', $attendanceSession->date)
@@ -55,6 +58,7 @@ class ScannerController extends Controller
                 'name' => $student->name,
                 'nis' => $student->nis,
                 'hash' => $student->hasActiveCard() ? $student->qrHash() : null,
+                'guestOf' => ($homes[$student->id] ?? $classroom->id) !== $classroom->id ? $homeNames[$homes[$student->id]] ?? null : null,
             ]),
             'marks' => (object) $marks->all(),
         ]);

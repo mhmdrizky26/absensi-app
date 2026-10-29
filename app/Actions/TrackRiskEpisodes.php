@@ -34,9 +34,10 @@ class TrackRiskEpisodes
     public function __construct(private AttendanceRisk $risk, private WhatsAppSettings $settings) {}
 
     /**
+     * @param  bool  $notify  false: only keep the list up to date (WhatsApp turned off)
      * @return array{opened: int, closed: int, notified: int, messages: int}
      */
-    public function handle(CarbonInterface $today): array
+    public function handle(CarbonInterface $today, bool $notify = true): array
     {
         $summary = ['opened' => 0, 'closed' => 0, 'notified' => 0, 'messages' => 0];
         $today = CarbonImmutable::parse($today->toDateString());
@@ -48,11 +49,13 @@ class TrackRiskEpisodes
 
         [$from, $semesterTo, $semester] = $academicYear->semesterSoFar($today);
 
-        // Episode dari semester atau tahun ajaran sebelumnya selesai dengan sendirinya.
+        // Ganti semester atau tahun ajaran: episode lama (beserta riwayat pesannya) dihapus.
         $summary['closed'] += RiskEpisode::query()
-            ->open()
-            ->where(fn (Builder $query) => $query->where('academic_year_id', '!=', $academicYear->id)->orWhere('semester', '!=', $semester))
-            ->update(['ended_on' => $today]);
+            ->where(fn (Builder $query) => $query
+                ->where('academic_year_id', '!=', $academicYear->id)
+                ->orWhere('semester', '!=', $semester)
+                ->orWhereNotNull('ended_on'))
+            ->delete();
 
         $to = $semesterTo->min($today->subDay());
 
@@ -63,9 +66,10 @@ class TrackRiskEpisodes
         $flagged = collect($this->risk->flagged($academicYear->classrooms()->get(), $from, $to))->keyBy('id');
         $open = RiskEpisode::query()->open()->where('academic_year_id', $academicYear->id)->where('semester', $semester)->get()->keyBy('student_id');
 
+        // Siswa yang sudah membaik keluar dari daftar: datanya langsung dihapus.
         foreach ($open as $studentId => $episode) {
             if (! $flagged->has($studentId)) {
-                $episode->update(['ended_on' => $today]);
+                $episode->delete();
                 $summary['closed']++;
             }
         }
@@ -104,10 +108,12 @@ class TrackRiskEpisodes
                     'level' => $episode->level === AttendanceRisk::LEVEL_HIGH ? AttendanceRisk::LEVEL_HIGH : $row['level'],
                     'reasons' => $row['reasons'],
                     'streak_ended_on' => $row['streakEndedOn'] ?? $previousStreakEnd,
+                    // Memburuk lagi setelah ditangani: kembali ke "Perlu ditindaklanjuti".
+                    ...($trigger ? ['handled_at' => null, 'handled_by' => null, 'handled_note' => null] : []),
                 ]);
             }
 
-            if ($trigger) {
+            if ($trigger && $notify) {
                 $summary['messages'] += $this->notify($episode, $row, $trigger);
                 $summary['notified']++;
             }

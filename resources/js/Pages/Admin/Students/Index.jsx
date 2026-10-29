@@ -7,7 +7,7 @@ import Modal from '@/Components/Modal';
 import Pagination from '@/Components/Pagination';
 import AppLayout from '@/Layouts/AppLayout';
 
-const EMPTY_STUDENT = { nis: '', nisn: '', name: '', gender: 'L', status: 'aktif', classroom_id: '', guardians: [] };
+const EMPTY_STUDENT = { nis: '', nisn: '', name: '', gender: 'L', status: 'aktif', classroom_id: '', study_classroom_id: '', guardians: [] };
 const EMPTY_GUARDIAN = { name: '', relation: 'ibu', phone: '', consented: true };
 
 export default function StudentsIndex({ academicYear, students, filters, classrooms, genders, statuses, relations }) {
@@ -49,6 +49,7 @@ export default function StudentsIndex({ academicYear, students, filters, classro
             gender: student.gender,
             status: student.status,
             classroom_id: student.classroom?.id ?? '',
+            study_classroom_id: student.studyClassroomId ?? '',
             guardians: student.guardians.map((guardian) => ({ ...guardian })),
         });
         setEditing(student);
@@ -150,6 +151,7 @@ export default function StudentsIndex({ academicYear, students, filters, classro
                                         <span className="cell-sub">
                                             NIS {student.nis}
                                             {student.nisn ? ` · NISN ${student.nisn}` : ''}
+                                            {student.studyClassroomId ? ` · belajar di ${classrooms.find((classroom) => classroom.id === student.studyClassroomId)?.name ?? '-'}` : ''}
                                             {' · '}
                                             {student.guardians.length > 0 ? `WA ortu: ${student.guardians.map((guardian) => guardian.phone).join(', ')}` : 'belum ada nomor WA ortu'}
                                         </span>
@@ -219,6 +221,20 @@ export default function StudentsIndex({ academicYear, students, filters, classro
                             </select>
                         </Field>
                     </div>
+                    {classrooms.find((classroom) => String(classroom.id) === String(form.data.classroom_id))?.has_room === false && (
+                        <Field label="Ruang belajar (absen pagi)" htmlFor="study_classroom" error={form.errors.study_classroom_id} hint="Kelas ini tidak punya ruang: siswa di-scan di kelas titipan ini, tetapi rekap dan rapor tetap di kelasnya.">
+                            <select id="study_classroom" className="input" value={form.data.study_classroom_id} onChange={(event) => form.setData('study_classroom_id', event.target.value)}>
+                                <option value="">— Belum dititipkan —</option>
+                                {classrooms
+                                    .filter((classroom) => classroom.has_room)
+                                    .map((classroom) => (
+                                        <option key={classroom.id} value={classroom.id}>
+                                            {classroom.name}
+                                        </option>
+                                    ))}
+                            </select>
+                        </Field>
+                    )}
                     <Field label="Kontak orang tua (WhatsApp)" error={form.errors.guardians} hint="Dipakai untuk mengabari orang tua bila anaknya masuk daftar siswa berisiko. Pesan hanya dikirim ke nomor yang sudah setuju.">
                         <div className="guardian-list">
                             {form.data.guardians.map((guardian, index) => (

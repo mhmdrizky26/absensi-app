@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Recap;
 
+use App\Models\AcademicYear;
 use App\Models\GuardianContact;
 use App\Models\Student;
+use App\Support\RecapScope;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -13,9 +15,16 @@ class GuardianContactRequest extends FormRequest
 {
     public const MAX_CONTACTS = 3;
 
-    public function authorize(): bool
+    /**
+     * Guru BK may add numbers for any student; a wali kelas only for students
+     * of the class they lead. Checked before validation.
+     */
+    public function authorize(RecapScope $scope): bool
     {
-        return true;
+        $academicYear = AcademicYear::active();
+        $classroom = $academicYear ? $this->route('student')->classroomIn($academicYear) : null;
+
+        return $classroom !== null && $scope->canCorrect($this->user(), $classroom);
     }
 
     protected function prepareForValidation(): void

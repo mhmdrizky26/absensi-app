@@ -3,17 +3,19 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\RiskSettingRequest;
 use App\Http\Requests\Admin\SettingRequest;
 use App\Models\Holiday;
 use App\Models\Setting;
 use App\Support\AttendanceWindow;
+use App\Support\RiskSettings;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class SettingController extends Controller
 {
-    public function edit(AttendanceWindow $window): Response
+    public function edit(AttendanceWindow $window, RiskSettings $riskSettings): Response
     {
         return Inertia::render('Admin/Settings', [
             'settings' => [
@@ -22,6 +24,7 @@ class SettingController extends Controller
                 'school_days' => $window->schoolDays(),
             ],
             'isEnforced' => $window->isEnforced(),
+            'riskSettings' => $riskSettings->toArray(),
             'holidays' => Holiday::query()
                 ->whereDate('date', '>=', today()->subMonths(2))
                 ->orderBy('date')
@@ -45,5 +48,15 @@ class SettingController extends Controller
         ]);
 
         return back()->with('success', 'Pengaturan jam absensi disimpan.');
+    }
+
+    /**
+     * Thresholds of the early-warning rules (siswa berisiko).
+     */
+    public function updateRisk(RiskSettingRequest $request): RedirectResponse
+    {
+        Setting::put(collect($request->validated())->mapWithKeys(fn (int|string $value, string $key): array => ["risk_{$key}" => (string) (int) $value])->all());
+
+        return back()->with('success', 'Aturan siswa berisiko disimpan.');
     }
 }

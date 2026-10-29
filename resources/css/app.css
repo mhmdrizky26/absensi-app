@@ -720,7 +720,7 @@ button.mark:disabled { cursor: default; }
 .risk-recent { display: inline-flex; gap: 2px; }
 .risk-recent .mark { width: 20px; height: 20px; font-size: 10px; cursor: default; }
 .risk-rate { color: color-mix(in srgb, var(--color-text) 70%, transparent); }
-.risk-foot .btn { margin-left: auto; }
+.risk-actions { margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
 .risk-rules { border-top: 2px solid var(--color-text); padding-top: 14px; }
 .risk-rules h4 { margin-top: 0; }
 .risk-rules ul { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
@@ -788,3 +788,6 @@ button.mark:disabled { cursor: default; }
 @media (max-width: 360px) {
     .dialog .card-preview .id-card { zoom: .76; }
 }
+.risk-settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 16px 24px; align-items: start; }
+.risk-follow-up { margin: 4px 0 8px; padding: 8px 10px; background: color-mix(in srgb, var(--color-accent) 8%, transparent); border-left: 3px solid var(--color-accent); font-size: 13px; }
+.risk-follow-up b { display: block; font-size: 12px; }

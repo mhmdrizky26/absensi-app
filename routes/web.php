@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\CardPrintController;
 use App\Http\Controllers\Admin\ClassroomAccessCodeController;
 use App\Http\Controllers\Admin\ClassroomBatchController;
 use App\Http\Controllers\Admin\ClassroomController;
+use App\Http\Controllers\Admin\ClassroomLodgingController;
 use App\Http\Controllers\Admin\ClassroomStandardCodeController;
 use App\Http\Controllers\Admin\HolidayController;
 use App\Http\Controllers\Admin\PromotionController;
@@ -34,6 +35,7 @@ use App\Http\Controllers\Recap\GuardianContactController;
 use App\Http\Controllers\Recap\MarkHistoryController;
 use App\Http\Controllers\Recap\MonthlyRecapController;
 use App\Http\Controllers\Recap\RecapExportController;
+use App\Http\Controllers\Recap\RiskFollowUpController;
 use App\Http\Controllers\Recap\RiskNoticeController;
 use App\Http\Controllers\Recap\SchoolRecapController;
 use App\Http\Controllers\Recap\SemesterRecapController;
@@ -105,10 +107,14 @@ Route::middleware('auth')->group(function () {
     });
 
     // Kirim pesan risiko ke orang tua sekarang juga: admin dan guru BK.
-    Route::middleware('role:admin,guru_bk')->post('siswa-berisiko/{student}/kirim-wa', [RiskNoticeController::class, 'store'])->name('early-warning.notify');
+    Route::middleware('role:admin,guru_bk')->group(function () {
+        Route::post('siswa-berisiko/{student}/kirim-wa', [RiskNoticeController::class, 'store'])->name('early-warning.notify');
+        Route::post('siswa-berisiko/{student}/tindak-lanjut', [RiskFollowUpController::class, 'store'])->name('early-warning.follow-up');
+        Route::delete('siswa-berisiko/{student}/tindak-lanjut', [RiskFollowUpController::class, 'destroy'])->name('early-warning.follow-up.destroy');
+    });
 
-    // Tambah nomor orang tua dari kartu siswa berisiko: khusus guru BK (admin lewat menu Siswa).
-    Route::middleware('role:guru_bk')->post('siswa-berisiko/{student}/kontak', [GuardianContactController::class, 'store'])->name('early-warning.contact');
+    // Wali kelas menambahkan nomor orang tua siswa kelasnya dari halaman Rekap kelas (admin lewat menu Siswa).
+    Route::middleware('role:wali_kelas')->post('siswa-berisiko/{student}/kontak', [GuardianContactController::class, 'store'])->name('early-warning.contact');
 
     Route::middleware('role:admin,wali_kelas')->prefix('rekap')->group(function () {
         Route::get('/', [MonthlyRecapController::class, 'index'])->name('recap.monthly');
@@ -138,6 +144,7 @@ Route::middleware('auth')->group(function () {
         Route::post('kelas/massal', [ClassroomBatchController::class, 'store'])->name('classrooms.batch');
         Route::put('kelas/{classroom}/kode', [ClassroomAccessCodeController::class, 'update'])->name('classrooms.access-code');
         Route::post('kelas/kode-standar', [ClassroomStandardCodeController::class, 'store'])->name('classrooms.standard-codes');
+        Route::post('kelas/{classroom}/titipkan', [ClassroomLodgingController::class, 'store'])->name('classrooms.lodge');
         Route::resource('kelas', ClassroomController::class)
             ->only(['index', 'store', 'update', 'destroy'])
             ->parameters(['kelas' => 'classroom'])
@@ -159,6 +166,7 @@ Route::middleware('auth')->group(function () {
 
         Route::get('pengaturan', [SettingController::class, 'edit'])->name('settings.edit');
         Route::put('pengaturan', [SettingController::class, 'update'])->name('settings.update');
+        Route::put('pengaturan/risiko', [SettingController::class, 'updateRisk'])->name('settings.risk');
         Route::get('notifikasi-wa', [WhatsAppController::class, 'index'])->name('whatsapp.index');
         Route::put('notifikasi-wa', [WhatsAppController::class, 'update'])->name('whatsapp.update');
         Route::put('notifikasi-wa/pesan', [WhatsAppController::class, 'updateTexts'])->name('whatsapp.texts');

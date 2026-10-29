@@ -49,6 +49,11 @@ class StudentRequest extends FormRequest
                 'integer',
                 Rule::exists('classrooms', 'id')->where('academic_year_id', AcademicYear::active()?->id),
             ],
+            'study_classroom_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('classrooms', 'id')->where('academic_year_id', AcademicYear::active()?->id)->where('has_room', true),
+            ],
             'guardians' => ['array', 'max:3'],
             'guardians.*.name' => ['nullable', 'string', 'max:100'],
             'guardians.*.relation' => ['nullable', Rule::in(array_keys(GuardianContact::RELATIONS))],
@@ -65,6 +70,7 @@ class StudentRequest extends FormRequest
         return [
             'nis.regex' => 'NIS hanya boleh berisi angka, huruf, titik, garis miring, atau strip.',
             'classroom_id.exists' => 'Pilih kelas dari tahun ajaran yang sedang aktif.',
+            'study_classroom_id.exists' => 'Pilih ruang belajar dari kelas yang punya ruang.',
             'guardians.*.phone.required' => 'Nomor WA orang tua wajib diisi.',
             'guardians.*.phone.regex' => 'Nomor WA tidak valid. Contoh: 0812 3456 7890.',
             'guardians.*.phone.distinct' => 'Nomor WA yang sama diisi dua kali.',
