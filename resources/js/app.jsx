@@ -3,7 +3,8 @@ import '../css/app.css';
 import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Absensi SMP';
+// Nama aplikasi dari Pengaturan (dikirim server di <meta name="application-name">).
+const appName = document.querySelector('meta[name="application-name"]')?.content || import.meta.env.VITE_APP_NAME || 'Absensi';
 
 createInertiaApp({
     title: (title) => (title ? `${title} · ${appName}` : appName),

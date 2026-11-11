@@ -1,5 +1,5 @@
-import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { Download, FileSpreadsheet, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Field from '@/Components/Field';
@@ -10,7 +10,7 @@ import { formatDateTime } from '@/lib/format';
 
 const EMPTY_USER = { name: '', username: '', role: 'wali_kelas', is_active: true, password: '' };
 
-export default function UsersIndex({ users, filters, roles }) {
+export default function UsersIndex({ users, filters, roles, importedAccounts }) {
     const { auth } = usePage().props;
     const [query, setQuery] = useState(filters.q);
     const [editing, setEditing] = useState(null);
@@ -73,10 +73,31 @@ export default function UsersIndex({ users, filters, roles }) {
                     <h6 className="text-muted">Master data</h6>
                     <h1>Pengguna</h1>
                 </div>
-                <button type="button" className="btn btn-primary" onClick={openCreate}>
-                    <Plus size={16} aria-hidden="true" /> Tambah pengguna
-                </button>
+                <div className="page-actions">
+                    <Link href="/pengguna/import" className="btn btn-secondary">
+                        <FileSpreadsheet size={16} aria-hidden="true" /> Import guru
+                    </Link>
+                    <button type="button" className="btn btn-primary" onClick={openCreate}>
+                        <Plus size={16} aria-hidden="true" /> Tambah pengguna
+                    </button>
+                </div>
             </div>
+
+            {importedAccounts > 0 && (
+                <div className="alert imported-accounts" role="status">
+                    <span>
+                        <b>{importedAccounts} akun dari import terakhir</b> beserta password awalnya bisa diunduh untuk dibagikan ke guru. Password hanya tersedia sampai Anda keluar atau import lagi.
+                    </span>
+                    <span className="imported-accounts-actions">
+                        <a href="/pengguna/import/akun" className="btn btn-primary">
+                            <Download size={16} aria-hidden="true" /> Unduh daftar akun
+                        </a>
+                        <button type="button" className="btn btn-ghost" onClick={() => router.delete('/pengguna/import/akun', { preserveScroll: true })}>
+                            Sudah dibagikan
+                        </button>
+                    </span>
+                </div>
+            )}
 
             <div className="toolbar">
                 <div className="field field-grow">

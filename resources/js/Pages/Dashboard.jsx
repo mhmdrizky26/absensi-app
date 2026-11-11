@@ -10,6 +10,7 @@ import {
     QrCode,
     ScanLine,
     School,
+    Tablet,
     UserCog,
     Users,
     CalendarX,
@@ -24,13 +25,14 @@ import AppLayout from '@/Layouts/AppLayout';
  */
 const MODULES = {
     admin: [
-        { icon: School, title: 'Kelas & kode kelas', body: 'Kelas VII–IX, wali kelas, dan kode kelas untuk scan.', href: '/kelas' },
+        { icon: School, title: 'Kelas', body: 'Kelas VII–IX, wali kelas, dan kelas tanpa ruang.', href: '/kelas' },
+        { icon: Tablet, title: 'Tab gerbang', body: 'Tab untuk scan di gerbang: kode login, status online, dan cabut tab yang hilang.', href: '/tab-gerbang' },
         { icon: Users, title: 'Siswa', body: 'Data siswa per kelas dan import dari Excel.', href: '/siswa' },
         { icon: UserCog, title: 'Pengguna', body: 'Akun admin, guru piket, wali kelas, dan guru BK.', href: '/pengguna' },
         { icon: CalendarRange, title: 'Tahun ajaran', body: 'Tahun ajaran aktif dan tanggal semester.', href: '/tahun-ajaran' },
         { icon: QrCode, title: 'Kartu QR', body: 'Cetak kartu QR massal per kelas, ganti kartu yang hilang.', href: '/kartu' },
-        { icon: ListChecks, title: 'Pantauan hari ini', body: 'Kelas yang sudah dan belum absen, siswa alpa dan terlambat.', href: '/pantauan' },
-        { icon: CalendarX, title: 'Jam absensi & libur', body: 'Jam buka-tutup scan dan kalender hari libur.', href: '/pengaturan' },
+        { icon: ListChecks, title: 'Pantauan hari ini', body: 'Siapa yang sudah dan belum absen, siswa terlambat, dan tombol selesaikan absen.', href: '/pantauan' },
+        { icon: CalendarX, title: 'Jadwal & libur', body: 'Jam buka gerbang dan jam masuk per hari, serta kalender hari libur.', href: '/pengaturan' },
         { icon: BadgeCheck, title: 'Dispensasi', body: 'Pantau pengajuan dispensasi dan persetujuannya.', href: '/dispensasi' },
         { icon: ChartColumn, title: 'Rekap sekolah', body: 'Kehadiran seluruh kelas per bulan dan semester, export Excel.', href: '/rekap/sekolah' },
         { icon: TriangleAlert, title: 'Siswa berisiko', body: 'Peringatan dini siswa yang sering alpa atau kehadirannya menurun.', href: '/siswa-berisiko' },
@@ -40,8 +42,8 @@ const MODULES = {
         { icon: TriangleAlert, title: 'Siswa berisiko', body: 'Peringatan dini: siswa yang sering alpa, alpa beruntun, atau kehadirannya menurun, lengkap dengan alasannya.', href: '/siswa-berisiko' },
     ],
     guru_piket: [
-        { icon: ListChecks, title: 'Pantauan hari ini', body: 'Kelas yang sudah dan belum absen. Klik kelas untuk melihat siapa hadir, izin, sakit, dispensasi, atau alpa.', href: '/pantauan' },
-        { icon: ScanLine, title: 'Scan terlambat', body: 'Scan kartu siswa yang datang setelah sesi kelas ditutup.', href: '/terlambat' },
+        { icon: ListChecks, title: 'Pantauan hari ini', body: 'Siapa yang sudah dan belum absen per kelas. Setelah jam masuk, tekan "Selesaikan absen" agar yang belum absen dicatat alpa.', href: '/pantauan' },
+        { icon: ScanLine, title: 'Absen piket', body: 'Catat siswa yang lupa membawa kartu atau datang setelah gerbang ditutup.', href: '/terlambat' },
         { icon: BadgeCheck, title: 'Dispensasi', body: 'Setujui dispensasi kegiatan sekolah bersama wali kelas.', href: '/dispensasi' },
     ],
     wali_kelas: [

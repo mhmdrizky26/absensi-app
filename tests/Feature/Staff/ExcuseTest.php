@@ -89,6 +89,11 @@ class ExcuseTest extends TestCase
         Storage::fake('local');
         $piket = User::factory()->guruPiket()->create();
 
+        $this->actingAs(User::factory()->admin()->create())
+            ->post('/izin', $this->payload(['from' => '2026-10-03', 'to' => '2026-10-04', 'attachment' => UploadedFile::fake()->image('weekend.jpg')]))
+            ->assertSessionHas('error');
+        $this->assertSame([], Storage::disk('local')->allFiles('surat'), 'Surat tidak disimpan kalau tidak ada hari yang dicatat.');
+
         $this->actingAs(User::factory()->admin()->create())->post('/izin', $this->payload(['attachment' => UploadedFile::fake()->image('surat.jpg')]));
 
         $attendance = Attendance::firstOrFail();

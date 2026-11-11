@@ -1,6 +1,7 @@
-import { Head, Link, usePoll } from '@inertiajs/react';
-import { ChevronRight, Paperclip, ScanLine } from 'lucide-react';
+import { Head, Link, router, usePoll } from '@inertiajs/react';
+import { CheckCircle2, ChevronRight, Paperclip, RotateCcw, ScanLine } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import ConfirmDialog from '@/Components/ConfirmDialog';
 import Modal from '@/Components/Modal';
 import AppLayout from '@/Layouts/AppLayout';
 import { presentCount } from '@/lib/attendance';
@@ -19,26 +20,18 @@ const STATUS_LABELS = [
     ['A', 'Alpa'],
 ];
 
-function SessionTag({ session, windowOpened }) {
-    if (session.state === 'no_room') {
-        return session.hosts === 0 ? (
-            <span className="tag tag-warning">Tanpa ruang · belum dititipkan</span>
-        ) : (
-            <span className="tag tag-outline">
-                Numpang di {session.hosts} kelas · {session.closedHosts}/{session.hosts} selesai
-            </span>
-        );
+function ClassStateTag({ classroom, phase }) {
+    const missing = Math.max(classroom.total - Object.values(classroom.counts).reduce((sum, count) => sum + count, 0), 0);
+
+    if (phase === 'before') {
+        return <span className="tag tag-outline">Gerbang belum dibuka</span>;
     }
 
-    if (session.state === 'closed') {
-        return <span className="tag tag-neutral">Selesai {formatTime(session.closedAt)}</span>;
+    if (missing === 0) {
+        return <span className="tag tag-neutral">Semua tercatat</span>;
     }
 
-    if (session.state === 'open') {
-        return <span className="tag tag-accent">Sedang scan sejak {formatTime(session.openedAt)}</span>;
-    }
-
-    return windowOpened ? <span className="tag tag-danger">Belum absen</span> : <span className="tag tag-outline">Belum dibuka</span>;
+    return <span className={`tag ${phase === 'open' ? 'tag-outline' : 'tag-danger'}`}>{missing} belum absen</span>;
 }
 
 /**
@@ -147,10 +140,29 @@ function ClassroomDetail({ classroom, onClose }) {
     );
 }
 
-export default function Monitor({ date, window: scanWindow, classrooms, late }) {
-    // Status "belum absen" ikut berubah karena waktu berjalan, jadi tetap diperbarui walau data tidak berubah.
-    usePoll(12000, { only: ['classrooms', 'late'] });
+/**
+ * Keadaan gerbang hari ini: belum dibuka, sedang dibuka, atau sudah ditutup.
+ */
+function gatePhase(scanWindow) {
+    if (!scanWindow.isEnforced) {
+        return 'open';
+    }
+
+    const now = new Date();
+
+    if (now < new Date(scanWindow.opensAt)) {
+        return 'before';
+    }
+
+    return now < new Date(scanWindow.closesAt) ? 'open' : 'closed';
+}
+
+export default function Monitor({ date, window: scanWindow, finalized, missingCount, stations, classrooms, late }) {
+    // Status gerbang ikut berubah karena waktu berjalan, jadi tetap diperbarui walau data tidak berubah.
+    usePoll(12000, { only: ['classrooms', 'late', 'stations', 'missingCount', 'finalized'] });
     const [openClassroom, setOpenClassroom] = useState(null);
+    const [confirmingFinish, setConfirmingFinish] = useState(false);
+    const [confirmingReopen, setConfirmingReopen] = useState(false);
 
     const totals = Object.fromEntries(STATUS_LABELS.map(([status]) => [status, 0]));
     let students = 0;
@@ -161,8 +173,20 @@ export default function Monitor({ date, window: scanWindow, classrooms, late }) 
     }
 
     const recorded = Object.values(totals).reduce((sum, count) => sum + count, 0);
-    const windowOpened = new Date() >= new Date(scanWindow.opensAt);
-    const notOpened = classrooms.filter((classroom) => classroom.session.state === 'not_opened');
+    const phase = gatePhase(scanWindow);
+    const pendingScans = stations.reduce((sum, station) => sum + station.pendingScans, 0);
+    const offlineStations = stations.filter((station) => !station.isOnline);
+    // Mode demo: absen boleh diselesaikan kapan saja, juga di luar hari sekolah.
+    const showFinish = !finalized && (scanWindow.isSchoolDay || !scanWindow.isEnforced);
+    const canFinish = showFinish && (!scanWindow.isEnforced || phase === 'closed');
+
+    function reopen() {
+        router.delete('/pantauan/selesaikan', { preserveScroll: true, onFinish: () => setConfirmingReopen(false) });
+    }
+
+    function finish() {
+        router.post('/pantauan/selesaikan', {}, { preserveScroll: true, onFinish: () => setConfirmingFinish(false) });
+    }
 
     return (
         <>
@@ -174,19 +198,49 @@ export default function Monitor({ date, window: scanWindow, classrooms, late }) 
                     <h1>{dayFormatter.format(new Date(`${date}T00:00:00`))}</h1>
                 </div>
                 <div className="page-actions">
-                    <Link href="/terlambat" className="btn btn-primary">
-                        <ScanLine size={16} aria-hidden="true" /> Scan terlambat
+                    <Link href="/terlambat" className="btn btn-secondary">
+                        <ScanLine size={16} aria-hidden="true" /> Absen piket
                     </Link>
+                    {finalized && !scanWindow.isEnforced && (
+                        <button type="button" className="btn btn-secondary" onClick={() => setConfirmingReopen(true)}>
+                            <RotateCcw size={16} aria-hidden="true" /> Buka lagi absen hari ini
+                        </button>
+                    )}
+                    {showFinish && (
+                        <button type="button" className="btn btn-primary" disabled={!canFinish} title={canFinish ? undefined : 'Bisa ditekan setelah jam masuk'} onClick={() => setConfirmingFinish(true)}>
+                            <CheckCircle2 size={16} aria-hidden="true" /> Selesaikan absen
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {!scanWindow.isSchoolDay && (
-                <p className="alert">{scanWindow.holiday ? `Hari ini libur: ${scanWindow.holiday}.` : 'Hari ini bukan hari sekolah.'} Absensi kelas tidak dibuka.</p>
+            {!scanWindow.isSchoolDay && <p className="alert">{scanWindow.holiday ? `Hari ini libur: ${scanWindow.holiday}.` : 'Hari ini bukan hari sekolah.'} Gerbang tidak dibuka.</p>}
+
+            {finalized ? (
+                <p className="alert">
+                    Absen hari ini sudah diselesaikan pukul {formatTime(finalized.at)}
+                    {finalized.by ? ` oleh ${finalized.by}` : ' otomatis'}. {finalized.absentCount} siswa dicatat Alpa.{' '}
+                    {scanWindow.isEnforced ? 'Perubahan berikutnya lewat koreksi wali kelas.' : 'Mode demo: tekan "Buka lagi absen hari ini" untuk mengulang latihan.'}
+                </p>
+            ) : (
+                scanWindow.isSchoolDay && (
+                    <p className="text-muted" style={{ fontSize: 14 }}>
+                        Gerbang dibuka {formatTime(scanWindow.opensAt)}, jam masuk {formatTime(scanWindow.closesAt)}. Setelah jam masuk, catat siswa terlambat dan yang lupa kartu lewat &quot;Absen piket&quot;, lalu tekan
+                        &quot;Selesaikan absen&quot;: siswa yang belum absen dicatat Alpa. Kalau lupa ditekan, absen diselesaikan otomatis malam hari. Klik kelas untuk melihat daftar siswanya.
+                    </p>
+                )
             )}
 
-            <p className="text-muted" style={{ fontSize: 14 }}>
-                Scan kelas {formatTime(scanWindow.opensAt)}–{formatTime(scanWindow.closesAt)}. Kelas yang lupa menekan "Selesai" ditutup otomatis pukul {formatTime(scanWindow.closesAt)}. Halaman ini diperbarui setiap 30 detik. Klik kelas untuk melihat daftar siswanya hari ini.
-            </p>
+            {stations.length > 0 && scanWindow.isSchoolDay && !finalized && (
+                <div className="station-strip" aria-label="Tab gerbang">
+                    {stations.map((station) => (
+                        <span key={station.id} className={`tag ${station.isOnline ? 'tag-neutral' : 'tag-outline'}`}>
+                            {station.name} · {station.isOnline ? 'online' : 'offline'}
+                            {station.pendingScans > 0 ? ` · ${station.pendingScans} belum terkirim` : ''}
+                        </span>
+                    ))}
+                </div>
+            )}
 
             <div className="stat-strip">
                 <div className="stat status-H">
@@ -212,12 +266,6 @@ export default function Monitor({ date, window: scanWindow, classrooms, late }) 
                 </div>
             </div>
 
-            {windowOpened && scanWindow.isSchoolDay && notOpened.length > 0 && (
-                <p className="alert alert-error" role="alert">
-                    {notOpened.length} kelas belum absen: {notOpened.map((classroom) => classroom.name).join(', ')}. Datangi kelasnya atau hubungi guru jam pertama.
-                </p>
-            )}
-
             <div className="monitor-layout">
                 <section style={{ minWidth: 0 }}>
                     <h4>Kelas</h4>
@@ -226,7 +274,7 @@ export default function Monitor({ date, window: scanWindow, classrooms, late }) 
                             <thead>
                                 <tr>
                                     <th style={{ width: 80 }}>Kelas</th>
-                                    <th>Status scan</th>
+                                    <th>Status</th>
                                     <th style={{ width: '34%' }}>Hadir</th>
                                     <th className="num" style={{ width: 50 }}>T</th>
                                     <th className="num" style={{ width: 50 }}>D</th>
@@ -247,7 +295,7 @@ export default function Monitor({ date, window: scanWindow, classrooms, late }) 
                                                 </button>
                                             </td>
                                             <td>
-                                                <SessionTag session={classroom.session} windowOpened={windowOpened && scanWindow.isSchoolDay} />
+                                                {scanWindow.isSchoolDay ? <ClassStateTag classroom={classroom} phase={finalized ? 'closed' : phase} /> : '—'}
                                             </td>
                                             <td>
                                                 <div className="bar-cell">
@@ -276,7 +324,7 @@ export default function Monitor({ date, window: scanWindow, classrooms, late }) 
                 <aside style={{ minWidth: 0 }}>
                     <h4>Terlambat ({late.length})</h4>
                     <p className="text-muted" style={{ fontSize: 13 }}>
-                        Siswa yang datang setelah sesi kelas ditutup di-scan lewat "Scan terlambat".
+                        Siswa yang datang setelah jam masuk dicatat lewat &quot;Absen piket&quot;.
                     </p>
                     <div className="scan-roster" style={{ borderTop: '2px solid var(--color-divider)' }}>
                         {late.length === 0 && <p className="text-muted">Belum ada siswa terlambat.</p>}
@@ -294,6 +342,17 @@ export default function Monitor({ date, window: scanWindow, classrooms, late }) 
             </div>
 
             {openClassroom && <ClassroomDetail classroom={openClassroom} onClose={() => setOpenClassroom(null)} />}
+
+            <ConfirmDialog open={confirmingReopen} title="Buka lagi absen hari ini?" confirmLabel="Buka lagi" onConfirm={reopen} onClose={() => setConfirmingReopen(false)}>
+                Khusus mode demo. Tanda Alpa yang dibuat saat absen diselesaikan dihapus, lalu tab gerbang dan Absen piket menerima absen lagi. Hadir, terlambat, sakit, dan izin yang sudah tercatat tidak berubah.
+            </ConfirmDialog>
+
+            <ConfirmDialog open={confirmingFinish} title="Selesaikan absen hari ini?" confirmLabel="Ya, selesaikan" onConfirm={finish} onClose={() => setConfirmingFinish(false)}>
+                {missingCount > 0 ? `${missingCount} siswa yang belum absen akan dicatat Alpa.` : 'Semua siswa sudah tercatat.'} Setelah diselesaikan, tab gerbang dan Absen piket tidak menerima absen hari ini lagi; perubahan
+                dilakukan wali kelas.
+                {pendingScans > 0 && ` Perhatian: masih ada ${pendingScans} scan di tab gerbang yang belum terkirim. Tunggu sampai terkirim dulu.`}
+                {offlineStations.length > 0 && pendingScans === 0 && ` ${offlineStations.map((station) => station.name).join(', ')} sedang offline; pastikan tidak ada scan yang tertahan di tab itu.`}
+            </ConfirmDialog>
         </>
     );
 }

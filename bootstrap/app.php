@@ -1,8 +1,11 @@
 <?php
 
-use App\Http\Middleware\EnsureClassSession;
+use App\Http\Middleware\AddSecurityHeaders;
+use App\Http\Middleware\EnsureGateStation;
 use App\Http\Middleware\EnsureUserHasRole;
+use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\UseCloudflareClientIp;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -16,16 +19,20 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Di belakang ngrok / Cloudflare Tunnel: percayai X-Forwarded-Proto supaya URL dibuat dengan https.
-        $middleware->trustProxies(at: '*');
+        // Cloudflare Tunnel (cloudflared) berjalan di server yang sama: hanya proxy lokal yang dipercaya
+        // untuk X-Forwarded-*, supaya URL dibuat dengan https tanpa membiarkan pengunjung memalsukan IP.
+        $middleware->trustProxies(at: UseCloudflareClientIp::TRUSTED_PROXIES);
+        $middleware->prepend(UseCloudflareClientIp::class);
+        $middleware->append(AddSecurityHeaders::class);
 
         $middleware->web(append: [
+            EnsureUserIsActive::class,
             HandleInertiaRequests::class,
         ]);
 
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
-            'class.session' => EnsureClassSession::class,
+            'gate.station' => EnsureGateStation::class,
         ]);
 
         $middleware->redirectGuestsTo(fn () => route('login'));

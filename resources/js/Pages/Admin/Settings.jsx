@@ -5,16 +5,6 @@ import Field from '@/Components/Field';
 import AppLayout from '@/Layouts/AppLayout';
 import { formatDate } from '@/lib/format';
 
-const WEEKDAYS = [
-    [1, 'Senin'],
-    [2, 'Selasa'],
-    [3, 'Rabu'],
-    [4, 'Kamis'],
-    [5, 'Jumat'],
-    [6, 'Sabtu'],
-    [7, 'Minggu'],
-];
-
 const RISK_FIELDS = [
     ['window_days', 'Periode yang dihitung (hari)', 'Aturan di bawah melihat absensi selama periode ini. Siswa yang membaik otomatis keluar dari daftar.'],
     ['absent_watch', 'Alpa — perlu perhatian (kali)'],
@@ -26,20 +16,25 @@ const RISK_FIELDS = [
     ['excused_watch', 'Sakit + izin — perlu perhatian (kali)'],
 ];
 
-export default function Settings({ settings, isEnforced, holidays, riskSettings }) {
+export default function Settings({ settings, general, timezones, holidays, riskSettings }) {
     const riskForm = useForm(riskSettings);
     const form = useForm(settings);
+    const generalForm = useForm(general);
     const holidayForm = useForm({ from: '', to: '', description: '' });
     const [deleting, setDeleting] = useState(null);
 
-    function toggleDay(day) {
-        const days = form.data.school_days;
-        form.setData('school_days', days.includes(day) ? days.filter((value) => value !== day) : [...days, day].sort());
+    function updateDay(index, changes) {
+        form.setData('days', form.data.days.map((day, position) => (position === index ? { ...day, ...changes } : day)));
     }
 
     function submitSettings(event) {
         event.preventDefault();
         form.put('/pengaturan', { preserveScroll: true });
+    }
+
+    function submitGeneral(event) {
+        event.preventDefault();
+        generalForm.put('/pengaturan/umum', { preserveScroll: true });
     }
 
     function submitHoliday(event) {
@@ -72,40 +67,103 @@ export default function Settings({ settings, isEnforced, holidays, riskSettings 
                 </div>
             </div>
 
-            {!isEnforced && (
-                <p className="alert">
-                    Mode demo aktif (<code>ATTENDANCE_ENFORCE_WINDOW=false</code>): kode kelas bisa dipakai di luar jam dan hari sekolah. Di server sekolah, ubah menjadi <code>true</code> di file .env.
-                </p>
-            )}
+            <form onSubmit={submitGeneral} noValidate className="excuse-form" style={{ marginBottom: 40, maxWidth: 720 }}>
+                <h4 style={{ margin: 0 }}>Umum</h4>
+                <div className="form-grid">
+                    <Field label="Nama aplikasi" htmlFor="app_name" error={generalForm.errors.app_name} hint="Tampil di halaman login dan halaman kode, misalnya Absensi atau SiHadir.">
+                        <input id="app_name" className="input" value={generalForm.data.app_name} onChange={(event) => generalForm.setData('app_name', event.target.value)} />
+                    </Field>
+                    <Field label="Zona waktu" htmlFor="timezone" error={generalForm.errors.timezone} hint="Jam buka gerbang, jam masuk, dan status Terlambat mengikuti zona waktu ini.">
+                        <select id="timezone" className="input" value={generalForm.data.timezone} onChange={(event) => generalForm.setData('timezone', event.target.value)}>
+                            {timezones.map((timezone) => (
+                                <option key={timezone.value} value={timezone.value}>
+                                    {timezone.label}
+                                </option>
+                            ))}
+                        </select>
+                    </Field>
+                </div>
+                <div className="form-grid">
+                    <Field label="Nama sekolah" htmlFor="school_name" error={generalForm.errors.school_name} hint="Tampil di kartu QR, halaman login, rekap Excel, dan pesan WhatsApp.">
+                        <input id="school_name" className="input" value={generalForm.data.school_name} onChange={(event) => generalForm.setData('school_name', event.target.value)} />
+                    </Field>
+                    <Field label="Selesaikan absen otomatis pukul" htmlFor="finalize_at" error={generalForm.errors.finalize_at} hint='Kalau guru piket lupa menekan "Selesaikan absen", siswa yang belum absen dicatat Alpa pada jam ini.'>
+                        <input id="finalize_at" type="time" className="input" value={generalForm.data.finalize_at} onChange={(event) => generalForm.setData('finalize_at', event.target.value)} />
+                    </Field>
+                </div>
+                <label className="wa-toggle" htmlFor="demo_mode">
+                    <input id="demo_mode" type="checkbox" checked={generalForm.data.demo_mode} onChange={(event) => generalForm.setData('demo_mode', event.target.checked)} />
+                    <span>
+                        <b>Mode demo</b>
+                        <span className="cell-sub">
+                            Untuk latihan dan presentasi saja. Selama aktif, jadwal tidak dipakai: tab gerbang selalu terbuka (juga di hari libur), guru piket selalu mencatat Hadir (tidak pernah Terlambat), dan absen bisa diselesaikan kapan saja. Matikan saat
+                            dipakai sungguhan di sekolah.
+                        </span>
+                    </span>
+                </label>
+                <div>
+                    <button type="submit" className="btn btn-primary" disabled={generalForm.processing}>
+                        Simpan
+                    </button>
+                </div>
+            </form>
 
             <div className="settings-layout">
                 <form onSubmit={submitSettings} noValidate className="excuse-form">
-                    <h4 style={{ margin: 0 }}>Jam scan kelas</h4>
+                    <h4 style={{ margin: 0 }}>Jadwal absensi</h4>
                     <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
-                        Kode kelas hanya bisa dipakai di antara jam ini. Pada jam tutup, kelas yang belum menekan "Selesai" ditutup otomatis dan siswa yang belum absen dicatat Alpa.
+                        Tab di gerbang hanya menerima scan di antara jam buka dan jam masuk. Siswa yang datang setelah jam masuk atau lupa membawa kartu diabsenkan oleh guru piket.
                     </p>
-                    <div className="form-grid">
-                        <Field label="Jam buka" htmlFor="opens_at" error={form.errors.opens_at}>
-                            <input id="opens_at" type="time" className="input" value={form.data.opens_at} onChange={(event) => form.setData('opens_at', event.target.value)} />
-                        </Field>
-                        <Field label="Jam tutup" htmlFor="closes_at" error={form.errors.closes_at}>
-                            <input id="closes_at" type="time" className="input" value={form.data.closes_at} onChange={(event) => form.setData('closes_at', event.target.value)} />
-                        </Field>
+                    {form.errors.days && <p className="field-error">{form.errors.days}</p>}
+                    <div className="table-wrap">
+                        <table className="table schedule-table">
+                            <thead>
+                                <tr>
+                                    <th>Hari sekolah</th>
+                                    <th>Jam buka</th>
+                                    <th>Jam masuk</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {form.data.days.map((day, index) => (
+                                    <tr key={day.day} className={day.active ? undefined : 'is-muted'}>
+                                        <td>
+                                            <label className="radio checkbox">
+                                                <input type="checkbox" checked={day.active} onChange={(event) => updateDay(index, { active: event.target.checked })} />
+                                                <span className="dot" />
+                                                {day.label}
+                                            </label>
+                                        </td>
+                                        <td>
+                                            <input
+                                                type="time"
+                                                className="input"
+                                                aria-label={`Jam buka ${day.label}`}
+                                                value={day.opens_at}
+                                                disabled={!day.active}
+                                                onChange={(event) => updateDay(index, { opens_at: event.target.value })}
+                                            />
+                                            {form.errors[`days.${index}.opens_at`] && <p className="field-error">{form.errors[`days.${index}.opens_at`]}</p>}
+                                        </td>
+                                        <td>
+                                            <input
+                                                type="time"
+                                                className="input"
+                                                aria-label={`Jam masuk ${day.label}`}
+                                                value={day.closes_at}
+                                                disabled={!day.active}
+                                                onChange={(event) => updateDay(index, { closes_at: event.target.value })}
+                                            />
+                                            {form.errors[`days.${index}.closes_at`] && <p className="field-error">{form.errors[`days.${index}.closes_at`]}</p>}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
-                    <Field label="Hari sekolah" error={form.errors.school_days}>
-                        <div className="day-picker">
-                            {WEEKDAYS.map(([day, label]) => (
-                                <label key={day} className="radio checkbox">
-                                    <input type="checkbox" checked={form.data.school_days.includes(day)} onChange={() => toggleDay(day)} />
-                                    <span className="dot" />
-                                    {label}
-                                </label>
-                            ))}
-                        </div>
-                    </Field>
                     <div>
                         <button type="submit" className="btn btn-primary" disabled={form.processing}>
-                            Simpan pengaturan
+                            Simpan jadwal
                         </button>
                     </div>
                 </form>
@@ -113,7 +171,7 @@ export default function Settings({ settings, isEnforced, holidays, riskSettings 
                 <section style={{ minWidth: 0 }}>
                     <h4>Hari libur</h4>
                     <p className="text-muted" style={{ fontSize: 13 }}>
-                        Pada hari libur absensi kelas tidak dibuka, dan izin/sakit tidak dihitung.
+                        Pada hari libur gerbang tidak dibuka, dan izin/sakit tidak dihitung.
                     </p>
                     <form onSubmit={submitHoliday} noValidate className="holiday-form">
                         <Field label="Tanggal" htmlFor="holiday-from" error={holidayForm.errors.from}>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\GeneralSettingRequest;
 use App\Http\Requests\Admin\RiskSettingRequest;
 use App\Http\Requests\Admin\SettingRequest;
 use App\Models\Holiday;
@@ -18,12 +19,15 @@ class SettingController extends Controller
     public function edit(AttendanceWindow $window, RiskSettings $riskSettings): Response
     {
         return Inertia::render('Admin/Settings', [
-            'settings' => [
-                'opens_at' => $window->opensAtTime(),
-                'closes_at' => $window->closesAtTime(),
-                'school_days' => $window->schoolDays(),
+            'settings' => ['days' => $window->weekForm()],
+            'general' => [
+                'app_name' => (string) config('app.name'),
+                'school_name' => (string) config('app.school_name'),
+                'timezone' => array_key_exists((string) config('app.timezone'), Setting::TIMEZONES) ? (string) config('app.timezone') : 'Asia/Jakarta',
+                'demo_mode' => ! $window->isEnforced(),
+                'finalize_at' => (string) config('attendance.finalize_at'),
             ],
-            'isEnforced' => $window->isEnforced(),
+            'timezones' => collect(Setting::TIMEZONES)->map(fn (string $label, string $value): array => ['value' => $value, 'label' => $label])->values(),
             'riskSettings' => $riskSettings->toArray(),
             'holidays' => Holiday::query()
                 ->whereDate('date', '>=', today()->subMonths(2))
@@ -37,17 +41,32 @@ class SettingController extends Controller
         ]);
     }
 
-    public function update(SettingRequest $request): RedirectResponse
+    /**
+     * The weekly schedule: school days and the gate hours of each.
+     */
+    public function update(SettingRequest $request, AttendanceWindow $window): RedirectResponse
     {
-        $schoolDays = collect($request->validated('school_days'))->map(fn ($day): int => (int) $day)->unique()->sort()->implode(',');
+        $window->saveSchedule($request->schedule());
 
+        return back()->with('success', 'Jadwal absensi disimpan.');
+    }
+
+    /**
+     * School name, demo mode and the time a forgotten day is finished.
+     */
+    public function updateGeneral(GeneralSettingRequest $request): RedirectResponse
+    {
         Setting::put([
-            AttendanceWindow::OPENS_AT => $request->validated('opens_at'),
-            AttendanceWindow::CLOSES_AT => $request->validated('closes_at'),
-            AttendanceWindow::SCHOOL_DAYS => $schoolDays,
+            Setting::APP_NAME => $request->validated('app_name'),
+            Setting::SCHOOL_NAME => $request->validated('school_name'),
+            Setting::TIMEZONE => $request->validated('timezone'),
+            Setting::DEMO_MODE => $request->boolean('demo_mode') ? '1' : '0',
+            Setting::FINALIZE_AT => $request->validated('finalize_at'),
         ]);
 
-        return back()->with('success', 'Pengaturan jam absensi disimpan.');
+        return back()->with('success', $request->boolean('demo_mode')
+            ? 'Pengaturan disimpan. Mode demo aktif: jadwal gerbang tidak dipakai.'
+            : 'Pengaturan disimpan.');
     }
 
     /**

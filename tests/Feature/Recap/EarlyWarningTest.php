@@ -205,6 +205,40 @@ class EarlyWarningTest extends TestCase
         );
     }
 
+    public function test_bk_filters_by_grade_and_then_by_a_class_of_that_grade(): void
+    {
+        $streak = ['2026-10-05' => 'A', '2026-10-06' => 'A', '2026-10-07' => 'A'];
+        $eighthGrade = Classroom::factory()->for($this->academicYear)->create(['grade' => 8, 'name' => 'VIII-A']);
+        $this->classroom->update(['grade' => 7]);
+        $this->otherClassroom->update(['grade' => 7]);
+        $this->studentWith('Ayu', $streak);
+        $this->studentWith('Dodi', $streak, $this->otherClassroom);
+        $this->studentWith('Eka', $streak, $eighthGrade);
+        $bk = User::factory()->guruBk()->create();
+
+        $this->actingAs($bk)->get('/siswa-berisiko?grade=7')->assertInertia(fn (Assert $page) => $page
+            ->has('students', 2)
+            ->where('grades', [7, 8])
+            ->where('filters', ['grade' => 7, 'classroom' => null])
+        );
+
+        $this->actingAs($bk)->get('/siswa-berisiko?grade=8')->assertInertia(fn (Assert $page) => $page
+            ->has('students', 1)
+            ->where('students.0.name', 'Eka')
+        );
+
+        $this->actingAs($bk)->get('/siswa-berisiko?grade=7&classroom='.$this->otherClassroom->id)->assertInertia(fn (Assert $page) => $page
+            ->has('students', 1)
+            ->where('students.0.name', 'Dodi')
+        );
+
+        $this->actingAs($this->wali)->get('/siswa-berisiko?grade=8')->assertInertia(fn (Assert $page) => $page
+            ->has('students', 1)
+            ->where('students.0.name', 'Ayu')
+            ->where('grades', [])
+        );
+    }
+
     public function test_guru_piket_cannot_open_early_warning(): void
     {
         $this->actingAs(User::factory()->guruPiket()->create())->get('/siswa-berisiko')->assertForbidden();

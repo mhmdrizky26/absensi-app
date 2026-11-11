@@ -38,8 +38,14 @@ class EarlyWarningController extends Controller
         $user = $request->user();
         $academicYear = AcademicYear::active();
         $classrooms = $scope->classroomsFor($user);
-        $selectedId = $user->hasRole(Role::WaliKelas) ? null : ($request->integer('classroom') ?: null);
-        $target = $selectedId ? new EloquentCollection([$scope->classroomFor($user, $selectedId)]) : $classrooms;
+        $isHomeroomTeacher = $user->hasRole(Role::WaliKelas);
+        $selectedGrade = $isHomeroomTeacher ? null : ($request->integer('grade') ?: null);
+        $selectedId = $isHomeroomTeacher ? null : ($request->integer('classroom') ?: null);
+        $target = match (true) {
+            $selectedId !== null => new EloquentCollection([$scope->classroomFor($user, $selectedId)]),
+            $selectedGrade !== null => $classrooms->where('grade', $selectedGrade)->values(),
+            default => $classrooms,
+        };
 
         $students = [];
         $period = null;
@@ -58,10 +64,11 @@ class EarlyWarningController extends Controller
             'students' => $students,
             'rules' => $risk->rules(),
             'period' => $period,
-            'classrooms' => $user->hasRole(Role::WaliKelas) ? [] : $classrooms->map(fn (Classroom $classroom): array => $classroom->only('id', 'name'))->values(),
-            'filters' => ['classroom' => $selectedId],
-            'homeroom' => $user->hasRole(Role::WaliKelas) ? $classrooms->first()?->name : null,
-            'isHomeroomTeacher' => $user->hasRole(Role::WaliKelas),
+            'classrooms' => $isHomeroomTeacher ? [] : $classrooms->map(fn (Classroom $classroom): array => $classroom->only('id', 'name', 'grade'))->values(),
+            'grades' => $isHomeroomTeacher ? [] : $classrooms->pluck('grade')->unique()->sort()->values(),
+            'filters' => ['grade' => $selectedGrade, 'classroom' => $selectedId],
+            'homeroom' => $isHomeroomTeacher ? $classrooms->first()?->name : null,
+            'isHomeroomTeacher' => $isHomeroomTeacher,
             'whatsappEnabled' => $whatsApp->enabled(),
             'canSendWhatsApp' => $user->hasRole(Role::Admin, Role::GuruBk),
             'canFollowUp' => $user->hasRole(Role::Admin, Role::GuruBk),

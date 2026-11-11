@@ -59,15 +59,15 @@ class ExcuseController extends Controller
 
     /**
      * Mark a student Sakit or Izin for every school day in the range. Days the
-     * student was already at school are left alone.
+     * student was already at school are left alone. The letter is only
+     * stored when at least one day is marked.
      */
     public function store(ExcuseRequest $request, AttendanceWindow $window, SetAttendanceStatus $setAttendanceStatus): RedirectResponse
     {
         $student = Student::findOrFail($request->integer('student_id'));
         $status = AttendanceStatus::from($request->string('status')->value());
-        $attachmentPath = $request->file('attachment')?->store('surat', 'local');
 
-        $marked = [];
+        $days = [];
         $skippedPresent = 0;
 
         foreach (CarbonPeriod::create($request->date('from'), $request->date('to')) as $date) {
@@ -83,15 +83,22 @@ class ExcuseController extends Controller
                 continue;
             }
 
+            $days[] = $date->copy();
+        }
+
+        if ($days === []) {
+            return back()->with('error', "Tidak ada hari yang dicatat untuk {$student->name}: rentang tanggal itu libur atau siswa sudah hadir.");
+        }
+
+        $attachmentPath = $request->file('attachment')?->store('surat', 'local');
+        $marked = [];
+
+        foreach ($days as $date) {
             $setAttendanceStatus->handle($student, $date, $status, AttendanceSource::Staff, $request->user(), [
                 'note' => $request->string('note')->value(),
                 'attachment_path' => $attachmentPath,
             ]);
             $marked[] = $date->translatedFormat('j M');
-        }
-
-        if ($marked === []) {
-            return back()->with('error', "Tidak ada hari yang dicatat untuk {$student->name}: rentang tanggal itu libur atau siswa sudah hadir.");
         }
 
         $message = "{$student->name} dicatat {$status->label()} untuk ".count($marked).' hari ('.implode(', ', $marked).').';

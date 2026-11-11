@@ -34,7 +34,14 @@ export default function SchoolRecap({ academicYear, period, month, semester, lab
                         <Printer size={16} aria-hidden="true" /> Cetak
                     </button>
                     <a href={`/rekap/ekspor/sekolah?${new URLSearchParams(params)}`} className="btn btn-secondary">
-                        <Download size={16} aria-hidden="true" /> Excel
+                        <Download size={16} aria-hidden="true" /> Excel ringkasan
+                    </a>
+                    <a
+                        href={`/rekap/ekspor/semua-kelas?${new URLSearchParams(params)}`}
+                        className="btn btn-primary"
+                        title={period === 'semester' ? 'Satu file: ringkasan lalu satu sheet per kelas berisi total S/I/A per siswa' : 'Satu file: ringkasan lalu satu sheet per kelas berisi absen harian'}
+                    >
+                        <Download size={16} aria-hidden="true" /> Excel semua kelas
                     </a>
                 </div>
             </div>

@@ -50,7 +50,7 @@ function HistoryDialog({ cell, onClose }) {
 
             <div className="history">
                 {history === null && <p className="text-muted">Memuat riwayat…</p>}
-                {history && !history.mark && <p className="text-muted">Belum ada catatan untuk hari ini (kelas tidak di-scan).</p>}
+                {history && !history.mark && <p className="text-muted">Belum ada catatan untuk hari ini.</p>}
                 {history?.mark && (
                     <p style={{ margin: 0 }}>
                         Sekarang <b>{history.mark.statusLabel}</b> · {history.mark.source}

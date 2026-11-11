@@ -28,6 +28,10 @@ class ClassroomRequest extends FormRequest
         return $classroom?->academic_year_id ?? AcademicYear::active()?->id;
     }
 
+    /**
+     * Build the class name from grade and section. An empty class code
+     * becomes the standard one, e.g. VII-A → "7A".
+     */
     protected function prepareForValidation(): void
     {
         $grade = (int) $this->input('grade');
@@ -37,7 +41,13 @@ class ClassroomRequest extends FormRequest
             $this->merge(['name' => Classroom::nameFor($grade, $section)]);
         }
 
-        $this->merge(['access_code' => strtoupper(preg_replace('/\s+/', '', (string) $this->input('access_code'))) ?: null]);
+        $code = Classroom::normalizeViewCode($this->input('view_code'));
+
+        if ($code === '' && $section !== '') {
+            $code = Classroom::normalizeViewCode($grade.$section);
+        }
+
+        $this->merge(['view_code' => $code === '' ? null : $code]);
     }
 
     /**
@@ -57,10 +67,12 @@ class ClassroomRequest extends FormRequest
                     ->where('academic_year_id', $academicYearId)
                     ->ignore($this->route('classroom')),
             ],
-            'access_code' => [
-                'nullable',
-                'regex:/^[A-Z0-9]{'.Classroom::ACCESS_CODE_MIN.','.Classroom::ACCESS_CODE_MAX.'}$/',
-                Rule::unique('classrooms', 'access_code')->where('academic_year_id', $academicYearId)->ignore($this->route('classroom')),
+            'view_code' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('classrooms', 'view_code')->where('academic_year_id', $academicYearId)->ignore($this->route('classroom')),
+                Rule::unique('gate_stations', 'code'),
             ],
             'homeroom_teacher_id' => [
                 'nullable',
@@ -80,9 +92,8 @@ class ClassroomRequest extends FormRequest
     {
         return [
             'section.regex' => 'Rombel berupa 1–2 huruf, misalnya A.',
-            'access_code.regex' => 'Kode kelas berupa '.Classroom::ACCESS_CODE_MIN.'–'.Classroom::ACCESS_CODE_MAX.' huruf atau angka, tanpa spasi.',
-            'access_code.unique' => 'Kode :input sudah dipakai kelas lain di tahun ajaran ini. Pilih kode lain.',
             'name.unique' => 'Kelas :input sudah ada di tahun ajaran ini.',
+            'view_code.unique' => 'Kode :input sudah dipakai kelas lain atau tab gerbang. Pilih kode lain.',
             'homeroom_teacher_id.exists' => 'Pilih guru dengan peran wali kelas yang masih aktif.',
             'homeroom_teacher_id.unique' => 'Guru ini sudah menjadi wali kelas lain di tahun ajaran ini.',
         ];

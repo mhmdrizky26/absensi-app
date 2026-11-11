@@ -102,8 +102,8 @@ export default function Login() {
                         </p>
 
                         <div className="auth-foot" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                            <span className="text-muted">Mengabsen kelas jam pertama?</span>
-                            <Link href="/absen">Masuk dengan kode kelas</Link>
+                            <span className="text-muted">Tab gerbang atau guru mapel?</span>
+                            <Link href="/kode">Masuk dengan kode</Link>
                         </div>
                     </form>
                 </div>

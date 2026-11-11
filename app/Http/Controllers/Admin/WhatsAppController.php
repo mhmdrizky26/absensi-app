@@ -91,6 +91,19 @@ class WhatsAppController extends Controller
     }
 
     /**
+     * The Fonnte device token, stored encrypted. An empty token disconnects.
+     */
+    public function updateToken(Request $request): RedirectResponse
+    {
+        $validated = $request->validate(['token' => ['nullable', 'string', 'max:200']], [], ['token' => 'Token Fonnte']);
+        $token = trim((string) ($validated['token'] ?? ''));
+
+        Setting::put([Setting::FONNTE_TOKEN => $token]);
+
+        return back()->with('success', $token === '' ? 'Token Fonnte dihapus. Pesan WhatsApp tidak dikirim sampai token diisi lagi.' : 'Token Fonnte disimpan.');
+    }
+
+    /**
      * Save the message texts. A text equal to the default is stored empty so
      * later changes to the default still apply.
      */

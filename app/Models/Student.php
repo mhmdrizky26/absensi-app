@@ -111,13 +111,21 @@ class Student extends Model
     }
 
     /**
-     * A one-way fingerprint of the QR text. Class scanners receive this
-     * instead of the token, so a leaked class code cannot be used to make
+     * A one-way fingerprint of the QR text. Scanners receive this
+     * instead of the token, so a leaked scanner login cannot be used to make
      * copies of classmates' cards.
      */
     public function qrHash(): string
     {
-        return substr(hash('sha256', $this->qrPayload()), 0, 16);
+        return self::qrHashOfToken($this->qr_token);
+    }
+
+    /**
+     * The fingerprint of a card token, for rosters read without models.
+     */
+    public static function qrHashOfToken(string $token): string
+    {
+        return substr(hash('sha256', self::QR_PREFIX.$token), 0, 16);
     }
 
     public function hasActiveCard(): bool

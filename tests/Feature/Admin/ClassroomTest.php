@@ -31,7 +31,7 @@ class ClassroomTest extends TestCase
         $this->actingAs(User::factory()->guruPiket()->create())->get('/kelas')->assertForbidden();
     }
 
-    public function test_admin_creates_a_classroom_with_the_standard_access_code(): void
+    public function test_admin_creates_a_classroom(): void
     {
         $teacher = User::factory()->waliKelas()->create();
 
@@ -42,7 +42,7 @@ class ClassroomTest extends TestCase
         $classroom = Classroom::firstWhere('name', 'VIII-C');
         $this->assertTrue($classroom->academicYear->is($this->academicYear));
         $this->assertTrue($classroom->homeroomTeacher->is($teacher));
-        $this->assertSame('ESSAR8C', $classroom->access_code);
+        $this->assertSame('8C', $classroom->view_code);
     }
 
     public function test_classroom_name_must_be_unique_within_the_year(): void
@@ -82,47 +82,30 @@ class ClassroomTest extends TestCase
             ->assertSessionHas('success', '32 kelas baru dibuat.');
 
         $this->assertSame(33, $this->academicYear->classrooms()->count());
-        $this->assertSame(33, Classroom::query()->distinct()->count('access_code'));
-        $this->assertSame('ESSAR9K', Classroom::firstWhere('name', 'IX-K')->access_code);
+        $this->assertSame('9K', Classroom::query()->where('name', 'IX-K')->value('view_code'));
     }
 
-    public function test_the_random_button_replaces_the_code_with_a_random_one(): void
+    public function test_admin_sets_a_custom_class_code_and_an_empty_one_goes_back_to_standard(): void
     {
-        $classroom = Classroom::factory()->for($this->academicYear)->create(['grade' => 7, 'name' => 'VII-A']);
-        $this->assertSame('ESSAR7A', $classroom->access_code);
+        $this->actingAs($this->admin)->post('/kelas', ['grade' => 7, 'section' => 'A', 'view_code' => ' 7A Pagi '])->assertSessionHasNoErrors();
+        $classroom = Classroom::firstWhere('name', 'VII-A');
+        $this->assertSame('7APAGI', $classroom->view_code);
 
-        $this->actingAs($this->admin)->put("/kelas/{$classroom->id}/kode");
+        $this->actingAs($this->admin)->post('/kelas', ['grade' => 7, 'section' => 'B', 'view_code' => '7APAGI'])->assertSessionHasErrors('view_code');
 
-        $this->assertMatchesRegularExpression('/^[A-HJKMNP-Z2-9]{6}$/', $classroom->fresh()->access_code);
+        $this->actingAs($this->admin)->put("/kelas/{$classroom->id}", ['grade' => 7, 'section' => 'A', 'view_code' => ''])->assertSessionHasNoErrors();
+        $this->assertSame('7A', $classroom->fresh()->view_code);
+
+        $this->actingAs($this->admin)->get('/kelas')->assertInertia(fn (Assert $page) => $page->where('classrooms.0.viewCode', '7A'));
     }
 
-    public function test_all_classes_can_go_back_to_standard_codes(): void
-    {
-        $seventh = Classroom::factory()->for($this->academicYear)->create(['grade' => 7, 'name' => 'VII-A', 'access_code' => 'ESSAR7B']);
-        $other = Classroom::factory()->for($this->academicYear)->create(['grade' => 7, 'name' => 'VII-B', 'access_code' => 'ACAK99']);
-
-        $this->actingAs($this->admin)->post('/kelas/kode-standar')->assertSessionHas('success');
-
-        $this->assertSame('ESSAR7A', $seventh->fresh()->access_code);
-        $this->assertSame('ESSAR7B', $other->fresh()->access_code);
-    }
-
-    public function test_the_same_standard_code_is_used_again_in_the_next_year(): void
+    public function test_the_same_class_code_comes_back_in_the_next_year(): void
     {
         $thisYear = Classroom::factory()->for($this->academicYear)->create(['grade' => 7, 'name' => 'VII-A']);
         $nextYear = Classroom::factory()->for(AcademicYear::factory())->create(['grade' => 7, 'name' => 'VII-A']);
 
-        $this->assertSame('ESSAR7A', $thisYear->access_code);
-        $this->assertSame('ESSAR7A', $nextYear->access_code);
-    }
-
-    public function test_a_taken_standard_code_falls_back_to_a_random_one(): void
-    {
-        Classroom::factory()->for($this->academicYear)->create(['grade' => 7, 'name' => 'VII-A', 'access_code' => 'ESSAR7B']);
-
-        $this->actingAs($this->admin)->post('/kelas', ['grade' => 7, 'section' => 'B'])->assertSessionHasNoErrors();
-
-        $this->assertMatchesRegularExpression('/^[A-HJKMNP-Z2-9]{6}$/', Classroom::firstWhere('name', 'VII-B')->access_code);
+        $this->assertSame('7A', $thisYear->view_code);
+        $this->assertSame('7A', $nextYear->view_code);
     }
 
     public function test_classroom_with_students_cannot_be_deleted(): void
@@ -147,41 +130,5 @@ class ClassroomTest extends TestCase
                 ->has('classrooms', 1)
                 ->where('classrooms.0.name', 'VII-A')
             );
-    }
-
-    public function test_admin_can_set_an_easy_to_remember_code(): void
-    {
-        $this->actingAs($this->admin)
-            ->post('/kelas', ['grade' => 7, 'section' => 'A', 'access_code' => ' 7a pagi '])
-            ->assertSessionHasNoErrors();
-        $this->assertSame('7APAGI', Classroom::firstWhere('name', 'VII-A')->access_code);
-
-        $classroom = Classroom::factory()->for($this->academicYear)->create(['grade' => 8, 'name' => 'VIII-A']);
-        $this->actingAs($this->admin)
-            ->put("/kelas/{$classroom->id}", ['grade' => 8, 'section' => 'A', 'access_code' => 'delapana'])
-            ->assertSessionHasNoErrors();
-        $this->assertSame('DELAPANA', $classroom->fresh()->access_code);
-    }
-
-    public function test_leaving_the_code_empty_keeps_or_generates_one(): void
-    {
-        $classroom = Classroom::factory()->for($this->academicYear)->create(['grade' => 8, 'name' => 'VIII-A']);
-        $oldCode = $classroom->access_code;
-
-        $this->actingAs($this->admin)->put("/kelas/{$classroom->id}", ['grade' => 8, 'section' => 'A', 'access_code' => '']);
-        $this->actingAs($this->admin)->post('/kelas', ['grade' => 9, 'section' => 'A', 'access_code' => '']);
-
-        $this->assertSame($oldCode, $classroom->fresh()->access_code);
-        $this->assertSame('ESSAR9A', Classroom::firstWhere('name', 'IX-A')->access_code);
-    }
-
-    public function test_custom_code_must_be_valid_and_unique(): void
-    {
-        Classroom::factory()->for($this->academicYear)->create(['access_code' => 'KELASKU']);
-
-        $this->actingAs($this->admin)->post('/kelas', ['grade' => 7, 'section' => 'B', 'access_code' => 'kelasku'])->assertSessionHasErrors('access_code');
-        $this->actingAs($this->admin)->post('/kelas', ['grade' => 7, 'section' => 'C', 'access_code' => 'ABC'])->assertSessionHasErrors('access_code');
-        $this->actingAs($this->admin)->post('/kelas', ['grade' => 7, 'section' => 'D', 'access_code' => 'KODE-7D!'])->assertSessionHasErrors('access_code');
-        $this->actingAs($this->admin)->post('/kelas', ['grade' => 7, 'section' => 'E', 'access_code' => 'TIGABELASHURUF'])->assertSessionHasErrors('access_code');
     }
 }

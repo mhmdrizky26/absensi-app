@@ -2,35 +2,44 @@
 
 namespace App\Exports;
 
-use Maatwebsite\Excel\Concerns\FromArray;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
-use Maatwebsite\Excel\Concerns\WithColumnFormatting;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
-
 /**
  * Empty spreadsheet with the headings the student import expects. NIS, NISN
- * and the parent's WhatsApp number are formatted as text so Excel keeps
- * leading zeros. The parent columns are optional.
+ * and the parent's WhatsApp number stay text, so a leading 0 is kept while
+ * typing. Only NIS, Nama, JK and Kelas are required.
  */
-class StudentTemplateExport implements FromArray, ShouldAutoSize, WithColumnFormatting, WithHeadings
+class StudentTemplateExport extends ImportTemplate
 {
-    public function array(): array
+    public function title(): string
     {
-        return [];
+        return 'Siswa';
     }
 
-    public function headings(): array
-    {
-        return ['NIS', 'NISN', 'Nama', 'JK', 'Kelas', 'Nama Orang Tua', 'Hubungan', 'No WA Orang Tua', 'Bersedia Dihubungi'];
-    }
-
-    public function columnFormats(): array
+    protected function columns(): array
     {
         return [
-            'A' => NumberFormat::FORMAT_TEXT,
-            'B' => NumberFormat::FORMAT_TEXT,
-            'H' => NumberFormat::FORMAT_TEXT,
+            'NIS' => 'Wajib. Nomor induk siswa dari sekolah. Siswa dengan NIS yang sudah terdaftar diperbarui, bukan dibuat dobel.',
+            'NISN' => 'Boleh kosong. 10 digit; angka 0 di depan tetap tersimpan.',
+            'Nama' => 'Wajib. Nama lengkap siswa.',
+            'JK' => 'Wajib. L atau P.',
+            'Kelas' => 'Wajib. Nama kelas yang sudah dibuat di menu Kelas, misalnya VII-A. Penulisan 7A, 7-a, atau VII A juga dibaca VII-A.',
+            'Nama Orang Tua' => 'Boleh kosong.',
+            'Hubungan' => 'Boleh kosong. ayah, ibu, atau wali.',
+            'No WA Orang Tua' => 'Boleh kosong. Nomor WhatsApp, misalnya 081234567890.',
+            'Bersedia Dihubungi' => 'Boleh kosong (dianggap Ya). Tulis Tidak bila orang tua tidak mau dikabari lewat WhatsApp.',
+        ];
+    }
+
+    protected function textColumns(): array
+    {
+        return ['A', 'B', 'H'];
+    }
+
+    protected function dropdowns(): array
+    {
+        return [
+            'D' => ['L', 'P'],
+            'G' => ['ayah', 'ibu', 'wali'],
+            'I' => ['Ya', 'Tidak'],
         ];
     }
 }

@@ -4,6 +4,7 @@ namespace App\Exports;
 
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
 use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithTitle;
@@ -11,9 +12,10 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 /**
  * A recap worksheet: a few title lines, a blank line, a bold heading row
- * and the data rows below it. Zero counts are written as 0, not as blanks.
+ * and the data rows below it. Zero counts are written as 0, not as blanks,
+ * and text starting with "=" is never run as a formula.
  */
-abstract class RecapSheet implements FromArray, ShouldAutoSize, WithStrictNullComparison, WithStyles, WithTitle
+abstract class RecapSheet extends FormulaSafeValueBinder implements FromArray, ShouldAutoSize, WithCustomValueBinder, WithStrictNullComparison, WithStyles, WithTitle
 {
     /**
      * @return list<string>
@@ -34,7 +36,7 @@ abstract class RecapSheet implements FromArray, ShouldAutoSize, WithStrictNullCo
     {
         return [
             ...array_map(fn (string $line): array => [$line], $this->titleLines()),
-            [],
+            [''],
             $this->headings(),
             ...$this->rows(),
         ];

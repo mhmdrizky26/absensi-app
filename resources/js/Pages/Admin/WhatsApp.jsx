@@ -3,6 +3,7 @@ import { useState } from 'react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Field from '@/Components/Field';
 import Pagination from '@/Components/Pagination';
+import SecretInput from '@/Components/SecretInput';
 import AppLayout from '@/Layouts/AppLayout';
 import { formatDate, formatDateTime } from '@/lib/format';
 
@@ -74,7 +75,13 @@ export default function WhatsApp({ settings, texts, defaultTexts, placeholders, 
 
     const form = useForm(settings);
     const testForm = useForm({ phone: '' });
+    const tokenForm = useForm({ token: '' });
     const [confirmRun, setConfirmRun] = useState(false);
+
+    function submitToken(event) {
+        event.preventDefault();
+        tokenForm.put('/notifikasi-wa/token', { preserveScroll: true, onSuccess: () => tokenForm.reset() });
+    }
 
     function submit(event) {
         event.preventDefault();
@@ -114,9 +121,30 @@ export default function WhatsApp({ settings, texts, defaultTexts, placeholders, 
                 </p>
             ) : (
                 <p className="alert alert-error" role="alert">
-                    Belum terhubung. Isi <code>FONNTE_TOKEN</code> di file <code>.env</code> dengan token device dari fonnte.com (setelah nomor WA tersambung lewat QR), lalu muat ulang halaman ini.
+                    Belum terhubung. Isi token device dari fonnte.com di bawah (setelah nomor WA tersambung lewat QR di fonnte.com).
                 </p>
             )}
+
+            <form onSubmit={submitToken} noValidate className="token-form">
+                <Field
+                    label="Token Fonnte"
+                    htmlFor="fonnte-token"
+                    error={tokenForm.errors.token}
+                    hint={connection.configured ? 'Token sudah tersimpan dan disembunyikan. Isi token baru untuk menggantinya.' : 'Salin dari menu Device di fonnte.com.'}
+                >
+                    <SecretInput id="fonnte-token" label="token" value={tokenForm.data.token} placeholder={connection.configured ? '•••••••• (tersimpan)' : ''} onChange={(event) => tokenForm.setData('token', event.target.value)} />
+                </Field>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button type="submit" className="btn btn-secondary" disabled={tokenForm.processing || tokenForm.data.token.trim() === ''}>
+                        Simpan token
+                    </button>
+                    {connection.configured && (
+                        <button type="button" className="btn btn-ghost" disabled={tokenForm.processing} onClick={() => router.put('/notifikasi-wa/token', { token: '' }, { preserveScroll: true })}>
+                            Hapus token
+                        </button>
+                    )}
+                </div>
+            </form>
 
             {form.data.test_mode && form.data.enabled && <p className="alert">Mode uji aktif: pemeriksaan tetap berjalan, tetapi pesan hanya dicatat di log dan tidak dikirim ke orang tua.</p>}
 

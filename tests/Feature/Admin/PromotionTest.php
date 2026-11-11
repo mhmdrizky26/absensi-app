@@ -12,6 +12,7 @@ use App\Models\Classroom;
 use App\Models\Student;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Maatwebsite\Excel\Facades\Excel;
@@ -104,8 +105,6 @@ class PromotionTest extends TestCase
         $newClassrooms = $this->next->classrooms()->get()->keyBy('name');
         $this->assertSame(['IX-A', 'VII-A', 'VIII-A'], $newClassrooms->keys()->sort()->values()->all());
         $this->assertTrue($newClassrooms->every(fn (Classroom $classroom) => $classroom->homeroom_teacher_id === null));
-        $this->assertSame('ESSAR7A', $newClassrooms['VII-A']->access_code);
-        $this->assertSame('ESSAR8A', $newClassrooms['VIII-A']->access_code);
 
         $this->assertSame('VIII-A', $seventh->classroomIn($this->next)->name);
         $this->assertSame('IX-A', $eighth->classroomIn($this->next)->name);
@@ -116,6 +115,20 @@ class PromotionTest extends TestCase
         $this->assertModelExists($oldMark);
         $this->assertSame($this->classrooms['VII-A']->id, $oldMark->fresh()->classroom_id);
         $this->assertSame('VII-A', $seventh->classroomIn($this->current)->name);
+    }
+
+    public function test_a_student_studying_in_another_room_moves_up_with_their_own_class(): void
+    {
+        $roomless = Classroom::factory()->for($this->current)->create(['grade' => 8, 'name' => 'VIII-K', 'has_room' => false]);
+        $student = Student::factory()->create();
+        $student->placeIn($roomless, $this->current);
+        DB::table('classroom_student')->where('student_id', $student->id)->update(['study_classroom_id' => $this->classrooms['VIII-A']->id]);
+
+        $this->actingAs($this->admin)->post("/tahun-ajaran/{$this->next->id}/kenaikan-kelas", ['confirm_delete' => true])->assertSessionHasNoErrors();
+
+        $this->assertSame('IX-K', $student->classroomIn($this->next)->name);
+        $this->assertNull($student->classroomIn($this->next)->pivot->study_classroom_id, 'Ruang belajar diatur ulang tiap tahun.');
+        $this->assertSame($this->classrooms['VIII-A']->id, (int) $student->classroomIn($this->current)->pivot->study_classroom_id);
     }
 
     public function test_repeaters_stay_and_leavers_are_marked_transferred(): void

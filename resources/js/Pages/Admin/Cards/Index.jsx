@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Ban, Download, Printer, RefreshCw, RotateCcw } from 'lucide-react';
+import { Ban, Download, Palette, Printer, RefreshCw, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Modal from '@/Components/Modal';
@@ -13,7 +13,7 @@ import { useMediaQuery } from '@/lib/useMediaQuery';
  * Pratinjau dan tindakan untuk kartu satu siswa: di panel kanan pada layar
  * lebar, di modal pada HP.
  */
-function CardDetail({ student, classroom, schoolName, onConfirm }) {
+function CardDetail({ student, classroom, schoolName, cardDesign, onConfirm }) {
     return (
         <>
             <div className="text-muted" style={{ fontSize: 13, marginBottom: 16 }}>
@@ -22,7 +22,7 @@ function CardDetail({ student, classroom, schoolName, onConfirm }) {
             </div>
 
             <div className="card-preview">
-                <StudentCard card={student} schoolName={schoolName} />
+                <StudentCard card={student} schoolName={schoolName} design={cardDesign} />
                 {student.isRevoked && <div className="card-revoked">Dicabut — kartu ini tidak bisa dipakai absen</div>}
             </div>
 
@@ -40,7 +40,7 @@ function CardDetail({ student, classroom, schoolName, onConfirm }) {
                 <a href={`/kartu/cetak?students=${student.id}`} target="_blank" rel="noreferrer" className={`btn btn-secondary btn-block ${student.isRevoked ? 'is-disabled' : ''}`} aria-disabled={student.isRevoked}>
                     Cetak kartu <Printer size={16} aria-hidden="true" />
                 </a>
-                <button type="button" className="btn btn-secondary btn-block" disabled={student.isRevoked} onClick={() => downloadCardPng(student, schoolName)}>
+                <button type="button" className="btn btn-secondary btn-block" disabled={student.isRevoked} onClick={() => downloadCardPng(student, schoolName, cardDesign)}>
                     Unduh PNG <Download size={16} aria-hidden="true" />
                 </button>
                 <button type="button" className="btn btn-secondary btn-block" onClick={() => onConfirm('reissue')}>
@@ -60,7 +60,7 @@ function CardDetail({ student, classroom, schoolName, onConfirm }) {
     );
 }
 
-export default function CardsIndex({ academicYear, classrooms, classroom, students }) {
+export default function CardsIndex({ academicYear, classrooms, classroom, students, cardDesign }) {
     const { schoolName } = usePage().props;
     const [selectedId, setSelectedId] = useState(students[0]?.id ?? null);
     const [checked, setChecked] = useState([]);
@@ -148,6 +148,9 @@ export default function CardsIndex({ academicYear, classrooms, classroom, studen
                     <h1>Kartu QR · {classroom.name}</h1>
                 </div>
                 <div className="page-actions">
+                    <Link href="/kartu/desain" className="btn btn-secondary">
+                        <Palette size={16} aria-hidden="true" /> Desain kartu
+                    </Link>
                     {checked.length > 0 && (
                         <a href={`/kartu/cetak?students=${checked.join(',')}`} target="_blank" rel="noreferrer" className="btn btn-secondary">
                             <Printer size={16} aria-hidden="true" /> Cetak terpilih ({checked.length})
@@ -232,14 +235,14 @@ export default function CardsIndex({ academicYear, classrooms, classroom, studen
                             Siswa terpilih
                         </h6>
                         <h3 style={{ margin: 0 }}>{selected.name}</h3>
-                        <CardDetail student={selected} classroom={classroom} schoolName={schoolName} onConfirm={(action) => setConfirming({ action, student: selected })} />
+                        <CardDetail student={selected} classroom={classroom} schoolName={schoolName} cardDesign={cardDesign} onConfirm={(action) => setConfirming({ action, student: selected })} />
                     </aside>
                 )}
             </div>
 
             {isNarrow && selected && (
                 <Modal open={modalOpen} title={selected.name} onClose={() => setModalOpen(false)} width={420}>
-                    <CardDetail student={selected} classroom={classroom} schoolName={schoolName} onConfirm={(action) => setConfirming({ action, student: selected })} />
+                    <CardDetail student={selected} classroom={classroom} schoolName={schoolName} cardDesign={cardDesign} onConfirm={(action) => setConfirming({ action, student: selected })} />
                     <div className="dialog-actions">
                         <button type="button" className="btn btn-secondary" onClick={() => setModalOpen(false)}>
                             Tutup
