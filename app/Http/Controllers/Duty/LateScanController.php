@@ -9,6 +9,7 @@ use App\Enums\StudentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicYear;
 use App\Models\Attendance;
+use App\Models\AttendanceDay;
 use App\Models\Student;
 use App\Support\AttendanceWindow;
 use Illuminate\Http\JsonResponse;
@@ -19,24 +20,31 @@ use Inertia\Response;
 class LateScanController extends Controller
 {
     /**
-     * The duty teacher's scanner for students arriving after first period.
+     * The guru piket's scanner for students the gate tablets did not record:
+     * those who forgot their card, and those who arrive after jam masuk.
      */
-    public function create(): Response
+    public function create(AttendanceWindow $window): Response
     {
-        $late = Attendance::query()
+        $recorded = Attendance::query()
             ->with(['student:id,name,nis', 'classroom:id,name'])
             ->whereDate('date', today())
-            ->where('status', AttendanceStatus::Late)
+            ->where('source', AttendanceSource::DutyScan)
+            ->whereIn('status', [AttendanceStatus::Present, AttendanceStatus::Late])
             ->latest('recorded_at')
             ->limit(100)
             ->get()
             ->map(fn (Attendance $attendance): array => $this->present($attendance->student, $attendance->classroom->name, $attendance));
 
-        return Inertia::render('Duty/LateScan', ['late' => $late]);
+        return Inertia::render('Duty/LateScan', [
+            'recorded' => $recorded,
+            'closesAt' => $window->isEnforced() ? $window->closesAt(today())->toIso8601String() : null,
+            'isFinalized' => AttendanceDay::forDate(today()) !== null,
+        ]);
     }
 
     /**
-     * Mark one student late, from a card scan (payload) or a name search (student_id).
+     * Mark one student, from a card scan (payload) or a name search
+     * (student_id): Hadir before jam masuk (forgot the card), Terlambat after.
      */
     public function store(Request $request, AttendanceWindow $window, SetAttendanceStatus $setAttendanceStatus): JsonResponse
     {
@@ -67,6 +75,10 @@ class LateScanController extends Controller
             return $this->rejected('Hari ini bukan hari sekolah.');
         }
 
+        if (AttendanceDay::forDate(today())) {
+            return $this->rejected('Absen hari ini sudah diselesaikan. Perubahan dilakukan wali kelas lewat koreksi rekap.');
+        }
+
         $existing = Attendance::query()->where('student_id', $student->id)->whereDate('date', today())->first();
 
         if ($existing?->status->isAtSchool()) {
@@ -77,13 +89,16 @@ class LateScanController extends Controller
             ]);
         }
 
-        $attendance = $setAttendanceStatus->handle($student, today(), AttendanceStatus::Late, AttendanceSource::DutyScan, $request->user(), [
-            'note' => 'Datang pukul '.now()->format('H:i').'.',
+        $isLate = $window->isEnforced() && now()->greaterThanOrEqualTo($window->closesAt(today()));
+        $time = now()->format('H:i');
+
+        $attendance = $setAttendanceStatus->handle($student, today(), $isLate ? AttendanceStatus::Late : AttendanceStatus::Present, AttendanceSource::DutyScan, $request->user(), [
+            'note' => $isLate ? "Datang pukul {$time}." : 'Lupa membawa kartu, diabsen guru piket.',
         ]);
 
         return response()->json([
             'result' => 'recorded',
-            'message' => 'Dicatat terlambat pukul '.$attendance->recorded_at->format('H:i').'.',
+            'message' => $isLate ? "Dicatat terlambat pukul {$time}." : "Dicatat hadir pukul {$time} (lupa kartu).",
             'student' => $this->present($student, $classroom->name, $attendance),
         ]);
     }
@@ -94,7 +109,7 @@ class LateScanController extends Controller
     }
 
     /**
-     * @return array{id: int, name: string, nis: string, classroom: string, recordedAt: string}
+     * @return array{id: int, name: string, nis: string, classroom: string, status: string, statusLabel: string, recordedAt: string}
      */
     private function present(Student $student, string $classroomName, Attendance $attendance): array
     {
@@ -103,6 +118,8 @@ class LateScanController extends Controller
             'name' => $student->name,
             'nis' => $student->nis,
             'classroom' => $classroomName,
+            'status' => $attendance->status->value,
+            'statusLabel' => $attendance->status->label(),
             'recordedAt' => $attendance->recorded_at->toIso8601String(),
         ];
     }

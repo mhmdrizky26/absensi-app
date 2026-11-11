@@ -45,8 +45,11 @@ export default function SemesterRecap({ academicYear, classrooms, classroom, sem
                     <button type="button" className="btn btn-secondary" onClick={() => window.print()}>
                         <Printer size={16} aria-hidden="true" /> Cetak / PDF
                     </button>
-                    <a href={`/rekap/ekspor/semester?classroom=${classroom.id}&semester=${semester}`} className="btn btn-primary">
+                    <a href={`/rekap/ekspor/semester?classroom=${classroom.id}&semester=${semester}`} className="btn btn-secondary">
                         <Download size={16} aria-hidden="true" /> Excel untuk rapor
+                    </a>
+                    <a href={`/rekap/ekspor/semester-lengkap?classroom=${classroom.id}&semester=${semester}`} className="btn btn-primary" title="Satu file: rekap semester lalu satu sheet per bulan berisi absen harian">
+                        <Download size={16} aria-hidden="true" /> Excel semester lengkap
                     </a>
                 </div>
             </div>

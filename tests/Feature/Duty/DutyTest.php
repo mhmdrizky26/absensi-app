@@ -7,8 +7,9 @@ use App\Enums\AttendanceStatus;
 use App\Enums\StudentStatus;
 use App\Models\AcademicYear;
 use App\Models\Attendance;
-use App\Models\AttendanceSession;
+use App\Models\AttendanceDay;
 use App\Models\Classroom;
+use App\Models\GateStation;
 use App\Models\Student;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -29,11 +30,11 @@ class DutyTest extends TestCase
     {
         parent::setUp();
 
-        // Senin, 28 September 2026 pukul 07:45.
+        // Senin, 28 September 2026 pukul 07:45, jam masuk 08:00.
         $this->travelTo(now()->setDate(2026, 9, 28)->setTime(7, 45));
-        config(['attendance.enforce_window' => true, 'attendance.class_scan_closes_at' => '08:00', 'attendance.school_days' => [1, 2, 3, 4, 5]]);
+        config(['attendance.enforce_window' => true, 'attendance.opens_at' => '06:30', 'attendance.closes_at' => '08:00', 'attendance.school_days' => [1, 2, 3, 4, 5]]);
 
-        $this->piket = User::factory()->guruPiket()->create();
+        $this->piket = User::factory()->guruPiket()->create(['name' => 'Bu Sari']);
         $this->academicYear = AcademicYear::factory()->active()->create();
         $this->classroom = Classroom::factory()->for($this->academicYear)->create(['grade' => 7, 'name' => 'VII-A']);
     }
@@ -64,47 +65,56 @@ class DutyTest extends TestCase
 
         $this->actingAs($wali)->get('/pantauan')->assertForbidden();
         $this->actingAs($wali)->postJson('/terlambat', ['student_id' => 1])->assertForbidden();
+        $this->actingAs($wali)->post('/pantauan/selesaikan')->assertForbidden();
     }
 
-    public function test_late_scan_turns_alpa_into_terlambat_and_logs_who_did_it(): void
+    public function test_before_jam_masuk_piket_records_a_forgotten_card_as_hadir(): void
     {
         $student = $this->studentInClass(['name' => 'Ayu']);
-        $this->mark($student, AttendanceStatus::Absent);
 
-        $response = $this->actingAs($this->piket)->postJson('/terlambat', ['payload' => $student->qrPayload()]);
+        $this->actingAs($this->piket)->postJson('/terlambat', ['student_id' => $student->id])
+            ->assertOk()
+            ->assertJson(['result' => 'recorded', 'message' => 'Dicatat hadir pukul 07:45 (lupa kartu).', 'student' => ['name' => 'Ayu', 'classroom' => 'VII-A', 'status' => 'H']]);
 
-        $response->assertOk()->assertJson(['result' => 'recorded', 'student' => ['name' => 'Ayu', 'classroom' => 'VII-A']]);
-        $attendance = Attendance::firstOrFail();
-        $this->assertSame(AttendanceStatus::Late, $attendance->status);
+        $attendance = Attendance::sole();
+        $this->assertSame(AttendanceStatus::Present, $attendance->status);
         $this->assertSame(AttendanceSource::DutyScan, $attendance->source);
         $this->assertTrue($attendance->recorder->is($this->piket));
-        $this->assertSame('Datang pukul 07:45.', $attendance->note);
+        $this->assertSame('Lupa membawa kartu, diabsen guru piket.', $attendance->note);
+    }
+
+    public function test_after_jam_masuk_piket_records_terlambat_and_logs_who_did_it(): void
+    {
+        $student = $this->studentInClass(['name' => 'Ayu']);
+        $this->mark($student, AttendanceStatus::Excused);
+        $this->travelTo(now()->setTime(8, 10));
+
+        $this->actingAs($this->piket)->postJson('/terlambat', ['payload' => $student->qrPayload()])->assertJson(['result' => 'recorded', 'student' => ['status' => 'T']]);
+
+        $attendance = Attendance::sole();
+        $this->assertSame(AttendanceStatus::Late, $attendance->status);
+        $this->assertSame('Datang pukul 08:10.', $attendance->note);
 
         $log = $attendance->logs()->sole();
-        $this->assertSame(AttendanceStatus::Absent, $log->from_status);
+        $this->assertSame(AttendanceStatus::Excused, $log->from_status);
         $this->assertSame(AttendanceStatus::Late, $log->to_status);
         $this->assertTrue($log->changer->is($this->piket));
+
+        $this->actingAs($this->piket)->get('/terlambat')->assertInertia(fn (Assert $page) => $page
+            ->component('Duty/LateScan')
+            ->where('recorded.0.statusLabel', 'Terlambat')
+            ->where('isFinalized', false)
+        );
     }
 
-    public function test_late_scan_without_an_earlier_mark_creates_one(): void
-    {
-        $student = $this->studentInClass();
-
-        $this->actingAs($this->piket)->postJson('/terlambat', ['student_id' => $student->id])->assertJson(['result' => 'recorded']);
-
-        $this->assertSame(AttendanceStatus::Late, Attendance::firstOrFail()->status);
-        $this->assertTrue(Attendance::firstOrFail()->classroom->is($this->classroom));
-    }
-
-    public function test_student_already_present_is_not_marked_late(): void
+    public function test_student_already_present_is_not_recorded_again(): void
     {
         $student = $this->studentInClass();
         $this->mark($student, AttendanceStatus::Present);
 
-        $this->actingAs($this->piket)->postJson('/terlambat', ['payload' => $student->qrPayload()])
-            ->assertJson(['result' => 'duplicate']);
+        $this->actingAs($this->piket)->postJson('/terlambat', ['payload' => $student->qrPayload()])->assertJson(['result' => 'duplicate']);
 
-        $this->assertSame(AttendanceStatus::Present, Attendance::firstOrFail()->status);
+        $this->assertSame(AttendanceStatus::Present, Attendance::sole()->status);
     }
 
     public function test_unknown_revoked_or_inactive_students_are_rejected(): void
@@ -120,28 +130,106 @@ class DutyTest extends TestCase
         $this->assertDatabaseCount('attendances', 0);
     }
 
-    public function test_monitor_shows_each_class_session_and_counts(): void
+    public function test_finishing_the_day_marks_students_without_a_mark_alpa(): void
     {
-        $openClass = Classroom::factory()->for($this->academicYear)->create(['grade' => 7, 'name' => 'VII-B']);
-        $idleClass = Classroom::factory()->for($this->academicYear)->create(['grade' => 7, 'name' => 'VII-C']);
-        $absent = $this->studentInClass(['name' => 'Budi']);
-        $this->mark($absent, AttendanceStatus::Absent);
+        $ayu = $this->studentInClass(['name' => 'Ayu']);
+        $budi = $this->studentInClass(['name' => 'Budi']);
+        $citra = $this->studentInClass(['name' => 'Citra']);
+        $this->studentInClass(['name' => 'Dodi', 'status' => StudentStatus::Graduated]);
+        $this->mark($ayu, AttendanceStatus::Present);
+        $this->mark($budi, AttendanceStatus::Sick);
+
+        $this->actingAs($this->piket)->post('/pantauan/selesaikan')->assertSessionHas('error');
+        $this->assertDatabaseCount('attendance_days', 0);
+
+        $this->travelTo(now()->setTime(8, 30));
+        $this->actingAs($this->piket)->get('/pantauan')->assertInertia(fn (Assert $page) => $page->where('missingCount', 1)->where('finalized', null));
+
+        $this->actingAs($this->piket)->post('/pantauan/selesaikan')
+            ->assertSessionHas('success', 'Absen hari ini selesai. 1 siswa yang belum absen dicatat Alpa.');
+
+        $this->assertSame(AttendanceStatus::Absent, Attendance::where('student_id', $citra->id)->sole()->status);
+        $this->assertSame(AttendanceStatus::Sick, Attendance::where('student_id', $budi->id)->sole()->status);
+        $this->assertSame(3, Attendance::count());
+
+        $this->actingAs($this->piket)->get('/pantauan')->assertInertia(fn (Assert $page) => $page
+            ->where('finalized.by', 'Bu Sari')
+            ->where('finalized.absentCount', 1)
+            ->where('missingCount', 0)
+        );
+        $this->actingAs($this->piket)->post('/pantauan/selesaikan')->assertSessionHas('error', 'Absen hari ini sudah diselesaikan.');
+    }
+
+    public function test_in_demo_mode_the_day_can_be_finished_at_any_time(): void
+    {
+        config(['attendance.enforce_window' => false]);
+        $this->travelTo(now()->setDate(2026, 9, 27)->setTime(6, 0)); // Minggu, sebelum jam masuk
+        $this->studentInClass();
+
+        $this->actingAs($this->piket)->post('/pantauan/selesaikan')->assertSessionHas('success');
+
+        $this->assertSame(1, AttendanceDay::forDate(now())->absent_count);
+    }
+
+    public function test_in_demo_mode_a_finished_day_can_be_opened_again_for_another_practice(): void
+    {
+        config(['attendance.enforce_window' => false]);
+        $absent = $this->studentInClass();
+        $present = $this->studentInClass();
+        $this->mark($present, AttendanceStatus::Present);
+
+        $this->actingAs($this->piket)->post('/pantauan/selesaikan')->assertSessionHas('success');
+        $this->assertSame(AttendanceStatus::Absent, Attendance::where('student_id', $absent->id)->sole()->status);
+
+        $this->actingAs($this->piket)->delete('/pantauan/selesaikan')->assertSessionHas('success');
+
+        $this->assertNull(AttendanceDay::forDate(now()));
+        $this->assertFalse(Attendance::where('student_id', $absent->id)->exists());
+        $this->assertSame(AttendanceStatus::Present, Attendance::where('student_id', $present->id)->sole()->status);
+        $this->actingAs($this->piket)->postJson('/terlambat', ['student_id' => $absent->id])->assertJson(['result' => 'recorded']);
+    }
+
+    public function test_a_finished_day_cannot_be_opened_again_outside_demo_mode(): void
+    {
+        $this->studentInClass();
+        $this->travelTo(now()->setTime(8, 30));
+        $this->actingAs($this->piket)->post('/pantauan/selesaikan');
+
+        $this->actingAs($this->piket)->delete('/pantauan/selesaikan')->assertSessionHas('error');
+
+        $this->assertNotNull(AttendanceDay::forDate(now()));
+        $this->assertSame(1, Attendance::count());
+    }
+
+    public function test_after_finishing_piket_can_no_longer_record(): void
+    {
+        $student = $this->studentInClass();
+        $this->travelTo(now()->setTime(9, 0));
+        AttendanceDay::create(['date' => '2026-09-28', 'finalized_at' => now(), 'absent_count' => 1]);
+
+        $this->actingAs($this->piket)->postJson('/terlambat', ['student_id' => $student->id])
+            ->assertJson(['result' => 'rejected', 'message' => 'Absen hari ini sudah diselesaikan. Perubahan dilakukan wali kelas lewat koreksi rekap.']);
+    }
+
+    public function test_monitor_shows_counts_per_class_and_the_gate_tablets(): void
+    {
+        $otherClass = Classroom::factory()->for($this->academicYear)->create(['grade' => 7, 'name' => 'VII-B']);
         $this->mark($this->studentInClass(), AttendanceStatus::Present);
-        $this->studentInClass([], $idleClass);
-        AttendanceSession::factory()->closed()->create(['classroom_id' => $this->classroom->id, 'date' => '2026-09-28']);
-        AttendanceSession::factory()->create(['classroom_id' => $openClass->id, 'date' => '2026-09-28']);
+        $this->studentInClass();
+        $this->studentInClass([], $otherClass);
+        GateStation::factory()->create(['name' => 'Tab 1', 'code' => 'TAB1'])->markSeen(3);
+        GateStation::factory()->revoked()->create(['code' => 'TAB2']);
 
         $this->actingAs($this->piket)->get('/pantauan')->assertInertia(fn (Assert $page) => $page
             ->component('Duty/Monitor')
             ->where('window.isSchoolDay', true)
             ->where('classrooms.0.name', 'VII-A')
-            ->where('classrooms.0.session.state', 'closed')
+            ->where('classrooms.0.total', 2)
             ->where('classrooms.0.counts.H', 1)
-            ->where('classrooms.0.counts.A', 1)
-            ->where('classrooms.1.session.state', 'open')
-            ->where('classrooms.2.session.state', 'not_opened')
-            ->where('classrooms.2.total', 1)
-            ->missing('absent')
+            ->where('classrooms.1.total', 1)
+            ->where('missingCount', 2)
+            ->has('stations', 1)
+            ->where('stations.0', ['id' => GateStation::where('code', 'TAB1')->value('id'), 'name' => 'Tab 1', 'isOnline' => true, 'pendingScans' => 3])
         );
     }
 
@@ -165,45 +253,42 @@ class DutyTest extends TestCase
         $this->actingAs(User::factory()->waliKelas()->create())->getJson("/pantauan/kelas/{$this->classroom->id}")->assertForbidden();
     }
 
-    public function test_forgotten_sessions_are_closed_after_the_window(): void
+    public function test_forgotten_days_are_finished_automatically_at_night(): void
     {
-        $yesterdaysClass = Classroom::factory()->for($this->academicYear)->create();
-        $missingYesterday = $this->studentInClass([], $yesterdaysClass);
-        $yesterday = AttendanceSession::factory()->create(['classroom_id' => $yesterdaysClass->id, 'date' => '2026-09-25', 'opened_at' => '2026-09-25 07:00']);
-        $missingToday = $this->studentInClass();
-        $today = AttendanceSession::factory()->create(['classroom_id' => $this->classroom->id, 'date' => '2026-09-28']);
+        $this->travelTo(now()->setDate(2026, 9, 20)); // Minggu sebelumnya
+        GateStation::factory()->create();
+        $this->travelTo(now()->setDate(2026, 9, 28)->setTime(7, 45));
 
-        $this->artisan('attendance:close-sessions')->assertSuccessful();
+        $present = $this->studentInClass();
+        $missing = $this->studentInClass();
+        $this->mark($present, AttendanceStatus::Present, '2026-09-25'); // Jumat: ada absen
+        $this->mark($present, AttendanceStatus::Present, '2026-09-28');
 
-        $this->assertTrue($yesterday->fresh()->isClosed());
-        $this->assertFalse($today->fresh()->isClosed(), 'Sesi hari ini masih dalam jam absensi.');
-        $this->assertSame(AttendanceStatus::Absent, Attendance::where('student_id', $missingYesterday->id)->first()->status);
+        $this->artisan('attendance:finalize-days')->assertSuccessful();
 
-        $this->travelTo(now()->setTime(8, 0));
-        $this->artisan('attendance:close-sessions')->assertSuccessful();
+        $this->assertNotNull(AttendanceDay::forDate(now()->setDate(2026, 9, 25)));
+        $this->assertSame(AttendanceStatus::Absent, Attendance::where('student_id', $missing->id)->whereDate('date', '2026-09-25')->sole()->status);
+        $this->assertNull(AttendanceDay::forDate(now()->setDate(2026, 9, 24)), 'Hari tanpa absen sama sekali dilewati.');
+        $this->assertNull(AttendanceDay::forDate(now()), 'Hari ini baru diselesaikan malam hari.');
 
-        $this->assertTrue($today->fresh()->isClosed());
-        $this->assertSame(AttendanceStatus::Absent, Attendance::where('student_id', $missingToday->id)->first()->status);
+        $this->travelTo(now()->setTime(23, 0));
+        $this->artisan('attendance:finalize-days')->assertSuccessful();
+
+        $this->assertSame(1, AttendanceDay::forDate(now())->absent_count);
     }
 
-    public function test_todays_sessions_stay_open_when_the_window_is_not_enforced(): void
+    public function test_days_before_the_first_gate_tablet_are_never_finished(): void
     {
-        config(['attendance.enforce_window' => false]);
-        $this->travelTo(now()->setTime(20, 0));
-        $session = AttendanceSession::factory()->create(['classroom_id' => $this->classroom->id, 'date' => '2026-09-28']);
-
-        $this->artisan('attendance:close-sessions')->assertSuccessful();
-
-        $this->assertFalse($session->fresh()->isClosed());
-    }
-
-    public function test_classes_that_never_opened_are_not_marked_alpa(): void
-    {
+        $present = $this->studentInClass();
         $this->studentInClass();
-        $this->travelTo(now()->setTime(9, 0));
+        $this->mark($present, AttendanceStatus::Present, '2026-09-25');
 
-        $this->artisan('attendance:close-sessions')->assertSuccessful();
+        $this->artisan('attendance:finalize-days')->assertSuccessful();
+        $this->assertDatabaseCount('attendance_days', 0);
 
-        $this->assertDatabaseCount('attendances', 0);
+        GateStation::factory()->create(); // dibuat hari ini, Senin 28 September
+        $this->artisan('attendance:finalize-days')->assertSuccessful();
+        $this->assertDatabaseCount('attendance_days', 0);
+        $this->assertSame(1, Attendance::count());
     }
 }

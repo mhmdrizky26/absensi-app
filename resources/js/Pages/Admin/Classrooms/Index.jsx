@@ -1,28 +1,19 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Eye, EyeOff, Layers, Plus, RefreshCw, Shuffle, WandSparkles } from 'lucide-react';
+import { Eye, EyeOff, Layers, Plus } from 'lucide-react';
 import { useState } from 'react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Field from '@/Components/Field';
 import Modal from '@/Components/Modal';
+import SecretInput from '@/Components/SecretInput';
 import AppLayout from '@/Layouts/AppLayout';
 
-const RANDOM_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-
-function randomCode() {
-    const values = crypto.getRandomValues(new Uint32Array(6));
-
-    return Array.from(values, (value) => RANDOM_ALPHABET[value % RANDOM_ALPHABET.length]).join('');
-}
-
-export default function ClassroomsIndex({ academicYear, classrooms, teachers, grades, codePrefix }) {
+export default function ClassroomsIndex({ academicYear, classrooms, teachers, grades }) {
     const [editing, setEditing] = useState(null);
     const [batchOpen, setBatchOpen] = useState(false);
     const [deleting, setDeleting] = useState(null);
-    const [regenerating, setRegenerating] = useState(null);
     const [showCodes, setShowCodes] = useState(false);
-    const [standardizing, setStandardizing] = useState(false);
 
-    const form = useForm({ grade: 7, section: '', homeroom_teacher_id: '', access_code: '', has_room: true });
+    const form = useForm({ grade: 7, section: '', view_code: '', homeroom_teacher_id: '', has_room: true });
     const [lodging, setLodging] = useState(null);
     const batchForm = useForm({ grades: [7, 8, 9], count: 11 });
 
@@ -46,13 +37,13 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
 
     function openCreate() {
         form.clearErrors();
-        form.setData({ grade: 7, section: '', homeroom_teacher_id: '', access_code: '', has_room: true });
+        form.setData({ grade: 7, section: '', view_code: '', homeroom_teacher_id: '', has_room: true });
         setEditing('new');
     }
 
     function openEdit(classroom) {
         form.clearErrors();
-        form.setData({ grade: classroom.grade, section: classroom.section, homeroom_teacher_id: classroom.homeroomTeacher?.id ?? '', access_code: classroom.accessCode, has_room: classroom.hasRoom });
+        form.setData({ grade: classroom.grade, section: classroom.section, view_code: classroom.viewCode ?? '', homeroom_teacher_id: classroom.homeroomTeacher?.id ?? '', has_room: classroom.hasRoom });
         setEditing(classroom);
     }
 
@@ -77,16 +68,11 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
         batchForm.setData('grades', selected.includes(grade) ? selected.filter((value) => value !== grade) : [...selected, grade].sort());
     }
 
-    function regenerate() {
-        router.put(`/kelas/${regenerating.id}/kode`, {}, { preserveScroll: true, onFinish: () => setRegenerating(null) });
-    }
-
     function destroy() {
         router.delete(`/kelas/${deleting.id}`, { preserveScroll: true, onFinish: () => setDeleting(null) });
     }
 
     const editingId = editing === 'new' ? null : editing?.id;
-    const standardCode = form.data.section ? `${codePrefix}${form.data.grade}${form.data.section}`.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) : '';
     const totalStudents = classrooms.reduce((sum, classroom) => sum + classroom.studentsCount, 0);
 
     return (
@@ -99,12 +85,9 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
                     <h1>Kelas</h1>
                 </div>
                 <div className="page-actions">
-                    <button type="button" className="btn btn-secondary" onClick={() => setShowCodes((value) => !value)}>
+                    <button type="button" className="btn btn-secondary" onClick={() => setShowCodes((shown) => !shown)}>
                         {showCodes ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
                         {showCodes ? 'Sembunyikan kode' : 'Tampilkan kode'}
-                    </button>
-                    <button type="button" className="btn btn-secondary" onClick={() => setStandardizing(true)}>
-                        <WandSparkles size={16} aria-hidden="true" /> Kode standar semua kelas
                     </button>
                     <button type="button" className="btn btn-secondary" onClick={() => { batchForm.clearErrors(); setBatchOpen(true); }}>
                         <Layers size={16} aria-hidden="true" /> Buat kelas massal
@@ -116,7 +99,7 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
             </div>
 
             <p className="text-muted" style={{ maxWidth: 680 }}>
-                {classrooms.length} kelas · {totalStudents.toLocaleString('id-ID')} siswa. Kode kelas dipakai guru jam pertama untuk membuka scanner di HP. Kode standar mengikuti pola {codePrefix} + tingkat + rombel (VII-A → {codePrefix}7A). Tekan ⟳ di samping kode untuk membuat kode acak kalau kode sebuah kelas perlu dirahasiakan.
+                {classrooms.length} kelas · {totalStudents.toLocaleString('id-ID')} siswa. Siswa absen di tab gerbang; kelas menentukan rekap dan wali kelasnya. Guru mapel melihat siapa yang hadir hari ini dengan kode kelas. Kelas tanpa ruang sendiri bisa dititipkan ke kelas lain.
             </p>
 
             {classrooms.length === 0 ? (
@@ -144,7 +127,8 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
                                             <th style={{ width: 110 }}>Kelas</th>
                                             <th>Wali kelas</th>
                                             <th className="num" style={{ width: 90 }}>Siswa</th>
-                                            <th style={{ width: 180 }}>Kode kelas</th>
+                                            <th style={{ width: 110 }}>Kode kelas</th>
+                                            <th style={{ width: 220 }}>Ruang</th>
                                             <th />
                                         </tr>
                                     </thead>
@@ -158,13 +142,11 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
                                                     {classroom.guests > 0 && <span className="cell-sub">+{classroom.guests} titipan</span>}
                                                 </td>
                                                 <td>
+                                                    <span className="mono">{showCodes ? classroom.viewCode : '••••'}</span>
+                                                </td>
+                                                <td>
                                                     {classroom.hasRoom ? (
-                                                        <>
-                                                            <span className="mono">{showCodes ? classroom.accessCode : '••••••'}</span>
-                                                            <button type="button" className="btn btn-ghost" title="Buat kode acak" aria-label={`Buat kode acak untuk kelas ${classroom.name}`} onClick={() => setRegenerating(classroom)}>
-                                                                <RefreshCw size={14} aria-hidden="true" />
-                                                            </button>
-                                                        </>
+                                                        <span className="text-muted">Ruang sendiri</span>
                                                     ) : (
                                                         <>
                                                             <span className="tag tag-warning">Tanpa ruang</span>{' '}
@@ -226,37 +208,21 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
                             })}
                         </select>
                     </Field>
+                    <Field
+                        label="Kode kelas"
+                        htmlFor="view_code"
+                        error={form.errors.view_code}
+                        hint={`Dipakai guru mapel untuk melihat kehadiran kelas hari ini. Kosongkan untuk kode standar${form.data.section ? ` (${form.data.grade}${form.data.section.toUpperCase()})` : ', misalnya 7A'}.`}
+                    >
+                        <SecretInput id="view_code" label="kode kelas" className="input mono" maxLength={20} value={form.data.view_code} autoCapitalize="characters" onChange={(event) => form.setData('view_code', event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} />
+                    </Field>
                     <label className="wa-toggle" htmlFor="has_room" style={{ marginBottom: 16 }}>
                         <input id="has_room" type="checkbox" checked={form.data.has_room} onChange={(event) => form.setData('has_room', event.target.checked)} />
                         <span>
                             <b>Kelas ini punya ruang sendiri</b>
-                            <span className="cell-sub">Matikan bila kelas tidak kebagian ruangan: siswanya dititipkan ke kelas lain saat absen pagi, tetapi rekap dan rapor tetap di kelas ini.</span>
+                            <span className="cell-sub">Matikan bila kelas tidak kebagian ruangan: siswanya belajar di kelas lain, tetapi absensi, rekap, dan rapor tetap di kelas ini.</span>
                         </span>
                     </label>
-                    <Field
-                        label="Kode kelas"
-                        htmlFor="access_code"
-                        error={form.errors.access_code}
-                        hint={editing === 'new' ? `Kosongkan untuk kode standar (${standardCode || codePrefix + '7A'}), atau tulis sendiri 4–12 huruf/angka.` : '4–12 huruf/angka. Kalau diganti, kode lama langsung tidak berlaku.'}
-                    >
-                        <div className="code-field">
-                            <input
-                                id="access_code"
-                                className="input mono"
-                                maxLength={12}
-                                autoComplete="off"
-                                placeholder={editing === 'new' ? standardCode || 'Otomatis' : ''}
-                                value={form.data.access_code}
-                                onChange={(event) => form.setData('access_code', event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                            />
-                            <button type="button" className="btn btn-secondary" disabled={!standardCode} onClick={() => form.setData('access_code', standardCode)} title="Pakai kode standar">
-                                <WandSparkles size={16} aria-hidden="true" /> Standar
-                            </button>
-                            <button type="button" className="btn btn-secondary" onClick={() => form.setData('access_code', randomCode())} title="Buat kode acak">
-                                <Shuffle size={16} aria-hidden="true" /> Acak
-                            </button>
-                        </div>
-                    </Field>
                     {teachers.length === 0 && (
                         <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
                             Belum ada akun wali kelas. Buat dulu di menu <Link href="/pengguna">Pengguna</Link>.
@@ -307,15 +273,7 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
                 onConfirm={() => router.post(`/kelas/${lodging.id}/titipkan`, {}, { preserveScroll: true, onFinish: () => setLodging(null) })}
                 onClose={() => setLodging(null)}
             >
-                Siswa aktif {lodging?.name} dibagi rata ke kelas setingkat yang punya ruang, mulai dari kelas yang paling sedikit siswanya. Mereka di-scan bersama kelas titipan setiap pagi, tetapi absensi, rekap, dan rapornya tetap milik {lodging?.name} dan dipantau wali kelasnya. Pembagian bisa diubah per siswa di menu Siswa.
-            </ConfirmDialog>
-
-            <ConfirmDialog open={regenerating !== null} title={`Buat kode acak untuk ${regenerating?.name}?`} confirmLabel="Buat kode acak" onConfirm={regenerate} onClose={() => setRegenerating(null)}>
-                Kode lama langsung tidak berlaku. Berikan kode baru ke guru yang mengajar jam pertama di kelas ini.
-            </ConfirmDialog>
-
-            <ConfirmDialog open={standardizing} title="Pakai kode standar untuk semua kelas?" confirmLabel="Pakai kode standar" onConfirm={() => router.post('/kelas/kode-standar', {}, { preserveScroll: true, onFinish: () => setStandardizing(false) })} onClose={() => setStandardizing(false)}>
-                Semua kelas di tahun ajaran {academicYear.name} memakai kode {codePrefix} + tingkat + rombel, misalnya VII-A → {codePrefix}7A dan IX-K → {codePrefix}9K. Kode acak yang pernah dibuat tidak berlaku lagi.
+                Siswa aktif {lodging?.name} dibagi rata ke kelas setingkat yang punya ruang, mulai dari kelas yang paling sedikit siswanya. Mereka belajar di kelas itu, tetapi absensi, rekap, dan rapornya tetap milik {lodging?.name} dan dipantau wali kelasnya. Pembagian bisa diubah per siswa di menu Siswa (kolom Belajar di).
             </ConfirmDialog>
 
             <ConfirmDialog open={deleting !== null} title={`Hapus kelas ${deleting?.name}?`} confirmLabel="Hapus" onConfirm={destroy} onClose={() => setDeleting(null)}>

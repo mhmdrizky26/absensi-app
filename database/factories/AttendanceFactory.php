@@ -26,7 +26,7 @@ class AttendanceFactory extends Factory
             'classroom_id' => Classroom::factory(),
             'date' => today(),
             'status' => AttendanceStatus::Present,
-            'source' => AttendanceSource::ClassScan,
+            'source' => AttendanceSource::GateScan,
             'recorded_at' => now(),
         ];
     }

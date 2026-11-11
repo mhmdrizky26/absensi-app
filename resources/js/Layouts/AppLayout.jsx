@@ -15,6 +15,7 @@ const NAV_LINKS = {
         { href: '/kelas', label: 'Kelas' },
         { href: '/siswa', label: 'Siswa' },
         { href: '/kartu', label: 'Kartu QR' },
+        { href: '/tab-gerbang', label: 'Tab gerbang' },
         { href: '/izin', label: 'Izin & sakit' },
         { href: '/dispensasi', label: 'Dispensasi', badge: 'pendingDispensations' },
         { href: '/rekap', label: 'Rekap' },
@@ -25,7 +26,7 @@ const NAV_LINKS = {
     ],
     guru_piket: [
         { href: '/pantauan', label: 'Pantauan' },
-        { href: '/terlambat', label: 'Scan terlambat' },
+        { href: '/terlambat', label: 'Absen piket' },
         { href: '/dispensasi', label: 'Dispensasi', badge: 'pendingDispensations' },
     ],
     guru_bk: [
@@ -153,7 +154,7 @@ export default function AppLayout({ children }) {
             <nav ref={navRef} className={`nav nav-app ${compact ? 'is-compact' : ''}`}>
                 <span ref={brandRef} className="nav-brand-wrap">
                     <Link href={links[0]?.href ?? '/dasbor'} className="nav-brand">
-                        Absensi
+                        {props.appName}
                     </Link>
                 </span>
 
@@ -204,22 +205,26 @@ export default function AppLayout({ children }) {
                             <b>{user.name}</b>
                             <span className="text-muted">{user.roleLabel}</span>
                         </div>
-                        <NavLinks links={links} url={url} counts={counts} className="nav-drawer-link" onNavigate={() => setMenuOpen(false)} />
-                        {hasProfile && (
-                            <button
-                                type="button"
-                                className="nav-drawer-link"
-                                onClick={() => {
-                                    setMenuOpen(false);
-                                    setProfileOpen(true);
-                                }}
-                            >
-                                Profil <UserRound size={16} aria-hidden="true" />
-                            </button>
-                        )}
-                        <Link href="/keluar" method="post" as="button" className="nav-drawer-link nav-drawer-logout">
-                            Keluar <LogOut size={16} aria-hidden="true" />
-                        </Link>
+                        <div className="nav-drawer-links">
+                            <NavLinks links={links} url={url} counts={counts} className="nav-drawer-link" onNavigate={() => setMenuOpen(false)} />
+                        </div>
+                        <div className="nav-drawer-actions">
+                            {hasProfile && (
+                                <button
+                                    type="button"
+                                    className="nav-drawer-link"
+                                    onClick={() => {
+                                        setMenuOpen(false);
+                                        setProfileOpen(true);
+                                    }}
+                                >
+                                    Profil <UserRound size={16} aria-hidden="true" />
+                                </button>
+                            )}
+                            <Link href="/keluar" method="post" as="button" className="nav-drawer-link nav-drawer-logout">
+                                Keluar <LogOut size={16} aria-hidden="true" />
+                            </Link>
+                        </div>
                     </div>
                 )}
             </nav>
@@ -238,6 +243,29 @@ export default function AppLayout({ children }) {
             {hasProfile && profileOpen && <ProfileModal user={user} onClose={() => setProfileOpen(false)} />}
 
             <main ref={mainRef} className="page">
+                {props.serverWarnings?.length > 0 && (
+                    <div className="alert alert-error" role="alert" style={{ marginBottom: 16 }}>
+                        <b>Pengaturan server belum aman.</b>
+                        <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                            {props.serverWarnings.map((warning) => (
+                                <li key={warning}>{warning}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+                {props.demoMode && (
+                    <p className="alert alert-warning demo-banner" role="note">
+                        <b>Mode demo aktif.</b> Jadwal gerbang tidak dipakai dan siswa tidak pernah tercatat Terlambat.
+                        {user.role === 'admin' ? (
+                            <>
+                                {' '}
+                                Matikan di <Link href="/pengaturan">Pengaturan</Link> sebelum dipakai sungguhan.
+                            </>
+                        ) : (
+                            ' Minta admin mematikannya sebelum dipakai sungguhan.'
+                        )}
+                    </p>
+                )}
                 {flash.success && (
                     <p className="alert" role="status">
                         {flash.success}

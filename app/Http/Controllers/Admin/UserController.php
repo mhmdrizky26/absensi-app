@@ -50,6 +50,7 @@ class UserController extends Controller
         return Inertia::render('Admin/Users/Index', [
             'users' => $users,
             'filters' => $filters,
+            'importedAccounts' => count(UserImportController::importedAccounts($request)),
             'roles' => collect(Role::cases())->map(fn (Role $role): array => ['value' => $role->value, 'label' => $role->label()]),
         ]);
     }

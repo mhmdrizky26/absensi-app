@@ -1,2 +1,3 @@
+# Aplikasi absensi sekolah berisi data siswa: tidak untuk mesin pencari.
 User-agent: *
-Disallow:
+Disallow: /

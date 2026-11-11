@@ -16,11 +16,12 @@ class MonthlyRecapExport extends RecapSheet
         private CarbonImmutable $month,
         private array $grid,
         private string $schoolName,
+        private ?string $sheetTitle = null,
     ) {}
 
     public function title(): string
     {
-        return $this->classroom->name.' '.$this->month->format('Y-m');
+        return $this->sheetTitle ?? $this->classroom->name.' '.$this->month->format('Y-m');
     }
 
     protected function titleLines(): array

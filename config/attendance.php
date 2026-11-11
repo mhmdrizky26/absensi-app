@@ -4,36 +4,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Class Scan Window
+    | Default Gate Hours
     |--------------------------------------------------------------------------
     |
-    | The first-period teacher can open a class with its code only between
-    | these times on school days (24-hour "HH:MM", school timezone).
+    | When the gate opens and when it closes (jam masuk), 24-hour "HH:MM" in
+    | the school timezone. Only defaults: the admin sets the hours of each
+    | school day in Pengaturan.
     |
     */
 
-    'class_scan_opens_at' => env('ATTENDANCE_OPENS_AT', '06:30'),
+    'opens_at' => env('ATTENDANCE_OPENS_AT', '06:30'),
 
-    'class_scan_closes_at' => env('ATTENDANCE_CLOSES_AT', '08:00'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Class Code Prefix
-    |--------------------------------------------------------------------------
-    |
-    | Standard class codes are this prefix + grade number + section, e.g.
-    | "ESSAR" + "7" + "A" = ESSAR7A. Admins can still set a random code.
-    |
-    */
-
-    'class_code_prefix' => env('CLASS_CODE_PREFIX', 'ESSAR'),
+    'closes_at' => env('ATTENDANCE_CLOSES_AT', '08:00'),
 
     /*
     |--------------------------------------------------------------------------
     | School Days
     |--------------------------------------------------------------------------
     |
-    | ISO weekday numbers: 1 = Monday … 7 = Sunday.
+    | ISO weekday numbers: 1 = Monday … 7 = Sunday. Only a default until the
+    | admin saves the weekly schedule in Pengaturan.
     |
     */
 
@@ -41,11 +31,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Automatic Finish
+    |--------------------------------------------------------------------------
+    |
+    | If the guru piket forgot "Selesaikan absen", the day is finished at this
+    | time: students without a mark become Alpa. Admins change it in
+    | Pengaturan.
+    |
+    */
+
+    'finalize_at' => env('ATTENDANCE_FINALIZE_AT', '23:00'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Enforce Window
     |--------------------------------------------------------------------------
     |
     | Set to false only for demos and development, to scan outside school
-    | hours and on weekends. Keep it true on the school's server.
+    | hours and on weekends. Admins switch this with "Mode demo" in
+    | Pengaturan, which overrules this value.
     |
     */
 

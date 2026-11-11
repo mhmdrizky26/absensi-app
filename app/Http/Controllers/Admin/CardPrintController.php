@@ -6,6 +6,7 @@ use App\Enums\StudentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Classroom;
 use App\Models\Student;
+use App\Support\CardDesign;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -24,7 +25,7 @@ class CardPrintController extends Controller
      * (?classroom=ID) or chosen students (?students=1,2,3). Revoked cards and
      * inactive students are skipped.
      */
-    public function show(Request $request): Response
+    public function show(Request $request, CardDesign $cardDesign): Response
     {
         $query = Student::query()
             ->where('status', StudentStatus::Active)
@@ -45,6 +46,7 @@ class CardPrintController extends Controller
         return Inertia::render('Admin/Cards/Print', [
             'title' => $title,
             'cards' => $query->limit(self::MAX_CARDS)->get()->map(fn (Student $student): array => $student->toCard()),
+            'cardDesign' => $cardDesign->forFrontend(),
         ]);
     }
 }

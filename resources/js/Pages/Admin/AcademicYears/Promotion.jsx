@@ -87,7 +87,7 @@ export default function Promotion({ source, target, classrooms }) {
             </div>
 
             <p className="text-muted" style={{ maxWidth: 820 }}>
-                Sebelum tahun ajaran {target.name} diaktifkan, siswa dinaikkan otomatis: kelas yang sama dibuat dengan <b>kode kelas baru</b> dan <b>tanpa wali kelas</b>, setiap siswa naik satu tingkat di rombel yang sama (VII-A → VIII-A). Tandai siswa yang tinggal kelas atau pindah sekolah di bawah.
+                Sebelum tahun ajaran {target.name} diaktifkan, siswa dinaikkan otomatis: kelas yang sama dibuat <b>tanpa wali kelas</b>, setiap siswa naik satu tingkat di rombel yang sama (VII-A → VIII-A). Tandai siswa yang tinggal kelas atau pindah sekolah di bawah.
             </p>
 
             <div className="stat-strip">

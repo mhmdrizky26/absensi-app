@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AcademicYear;
 use App\Models\Classroom;
 use App\Models\Student;
+use App\Support\CardDesign;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -16,7 +17,7 @@ class CardController extends Controller
     /**
      * Cards of the active students in one classroom of the active year.
      */
-    public function index(Request $request): Response
+    public function index(Request $request, CardDesign $cardDesign): Response
     {
         $academicYear = AcademicYear::active();
         $classrooms = $academicYear?->classrooms()->orderBy('grade')->orderBy('name')->get(['id', 'name']) ?? collect();
@@ -37,6 +38,7 @@ class CardController extends Controller
             'classrooms' => $classrooms,
             'classroom' => $classroom?->only('id', 'name'),
             'students' => $students,
+            'cardDesign' => $cardDesign->forFrontend(),
         ]);
     }
 }

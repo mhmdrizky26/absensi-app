@@ -39,7 +39,7 @@ class ClassroomController extends Controller
                     'grade' => $classroom->grade,
                     'name' => $classroom->name,
                     'section' => Str::after($classroom->name, '-'),
-                    'accessCode' => $classroom->access_code,
+                    'viewCode' => $classroom->view_code,
                     'studentsCount' => $classroom->students_count,
                     'homeroomTeacher' => $classroom->homeroomTeacher?->only('id', 'name'),
                 ])
@@ -60,7 +60,6 @@ class ClassroomController extends Controller
             'academicYear' => $academicYear?->only('id', 'name'),
             'classrooms' => $classrooms,
             'teachers' => $teachers,
-            'codePrefix' => config('attendance.class_code_prefix'),
             'grades' => collect(Classroom::GRADES)->map(fn (string $label, int $grade): array => ['value' => $grade, 'label' => $label])->values(),
         ]);
     }
@@ -73,30 +72,23 @@ class ClassroomController extends Controller
             return back()->with('error', 'Aktifkan tahun ajaran terlebih dahulu.');
         }
 
-        $classroom = new Classroom([
-            ...$request->safe()->only(['grade', 'name', 'homeroom_teacher_id']),
+        $classroom = Classroom::create([
+            ...$request->safe()->only(['grade', 'name', 'view_code', 'homeroom_teacher_id']),
             'has_room' => $request->boolean('has_room', true),
             'academic_year_id' => $academicYearId,
         ]);
-        // Kode kosong berarti dibuat otomatis (lihat Classroom::booted()).
-        $classroom->access_code = $request->validated('access_code');
-        $classroom->save();
 
         return back()->with('success', "Kelas {$classroom->name} ditambahkan.");
     }
 
     public function update(ClassroomRequest $request, Classroom $classroom): RedirectResponse
     {
-        $classroom->fill([...$request->safe()->only(['grade', 'name', 'homeroom_teacher_id']), 'has_room' => $request->boolean('has_room', true)]);
+        $classroom->fill([...$request->safe()->only(['grade', 'name', 'view_code', 'homeroom_teacher_id']), 'has_room' => $request->boolean('has_room', true)]);
 
         if ($classroom->isDirty('has_room')) {
             // Punya ruang lagi: siswanya kembali belajar di kelasnya. Kehilangan ruang: titipan di sini dilepas.
             $column = $classroom->has_room ? 'classroom_id' : 'study_classroom_id';
             DB::table('classroom_student')->where($column, $classroom->id)->update(['study_classroom_id' => null]);
-        }
-
-        if ($request->validated('access_code')) {
-            $classroom->access_code = $request->validated('access_code');
         }
 
         $classroom->save();

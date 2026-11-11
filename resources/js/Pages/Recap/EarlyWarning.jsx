@@ -69,7 +69,7 @@ function FollowUpDialog({ student, onClose }) {
     );
 }
 
-export default function EarlyWarning({ students, rules, period, classrooms, filters, homeroom, isHomeroomTeacher, whatsappEnabled, canSendWhatsApp, canFollowUp }) {
+export default function EarlyWarning({ students, rules, period, classrooms, grades, filters, homeroom, isHomeroomTeacher, whatsappEnabled, canSendWhatsApp, canFollowUp }) {
     const { auth } = usePage().props;
     const [level, setLevel] = useState('semua');
     const [tab, setTab] = useState('perlu');
@@ -112,12 +112,28 @@ export default function EarlyWarning({ students, rules, period, classrooms, filt
                         <select
                             className="input"
                             style={{ width: 'auto' }}
+                            aria-label="Tingkat"
+                            value={filters.grade ?? ''}
+                            onChange={(event) => router.get('/siswa-berisiko', { grade: event.target.value || undefined }, { preserveScroll: true, replace: true })}
+                        >
+                            <option value="">Semua tingkat</option>
+                            {grades.map((grade) => (
+                                <option key={grade} value={grade}>
+                                    Kelas {grade}
+                                </option>
+                            ))}
+                        </select>
+                        <select
+                            className="input"
+                            style={{ width: 'auto' }}
                             aria-label="Kelas"
                             value={filters.classroom ?? ''}
-                            onChange={(event) => router.get('/siswa-berisiko', { classroom: event.target.value || undefined }, { preserveScroll: true, replace: true })}
+                            onChange={(event) =>
+                                router.get('/siswa-berisiko', { grade: filters.grade ?? undefined, classroom: event.target.value || undefined }, { preserveScroll: true, replace: true })
+                            }
                         >
-                            <option value="">Semua kelas</option>
-                            {classrooms.map((classroom) => (
+                            <option value="">{filters.grade ? `Semua kelas ${filters.grade}` : 'Semua kelas'}</option>
+                            {classrooms.filter((classroom) => !filters.grade || classroom.grade === filters.grade).map((classroom) => (
                                 <option key={classroom.id} value={classroom.id}>
                                     Kelas {classroom.name}
                                 </option>

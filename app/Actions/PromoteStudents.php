@@ -16,7 +16,7 @@ use Illuminate\Support\Str;
 
 /**
  * Moves a school from one academic year to the next when the new year is
- * activated: the same classes are created with new codes and no wali kelas,
+ * activated: the same classes are created with no wali kelas,
  * every active student goes up one grade in the same section, grade IX
  * students are deleted permanently, and chosen students repeat the grade or
  * leave the school.
@@ -131,7 +131,7 @@ class PromoteStudents
 
     /**
      * Every class name of the source year plus the names promoted students
-     * need, each with a new random code and no wali kelas.
+     * need, each with no wali kelas.
      *
      * @param  Collection<int, Classroom>  $sourceClassrooms
      * @return Collection<string, Classroom> keyed by class name

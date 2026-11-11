@@ -4,12 +4,15 @@ use App\Http\Controllers\Account\ProfileController;
 use App\Http\Controllers\Admin\AcademicYearActivationController;
 use App\Http\Controllers\Admin\AcademicYearController;
 use App\Http\Controllers\Admin\CardController;
+use App\Http\Controllers\Admin\CardDesignController;
 use App\Http\Controllers\Admin\CardPrintController;
-use App\Http\Controllers\Admin\ClassroomAccessCodeController;
 use App\Http\Controllers\Admin\ClassroomBatchController;
 use App\Http\Controllers\Admin\ClassroomController;
 use App\Http\Controllers\Admin\ClassroomLodgingController;
-use App\Http\Controllers\Admin\ClassroomStandardCodeController;
+use App\Http\Controllers\Admin\DataExportController;
+use App\Http\Controllers\Admin\GateNetworkController;
+use App\Http\Controllers\Admin\GateStationController;
+use App\Http\Controllers\Admin\GateStationRevocationController;
 use App\Http\Controllers\Admin\HolidayController;
 use App\Http\Controllers\Admin\PromotionController;
 use App\Http\Controllers\Admin\SettingController;
@@ -17,18 +20,22 @@ use App\Http\Controllers\Admin\StudentCardController;
 use App\Http\Controllers\Admin\StudentCardRevocationController;
 use App\Http\Controllers\Admin\StudentController;
 use App\Http\Controllers\Admin\StudentImportController;
+use App\Http\Controllers\Admin\StudentStudyRoomController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\UserImportController;
 use App\Http\Controllers\Admin\WhatsAppController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
-use App\Http\Controllers\ClassScan\ClassLoginController;
-use App\Http\Controllers\ClassScan\ClassSessionCloseController;
-use App\Http\Controllers\ClassScan\ScanController;
-use App\Http\Controllers\ClassScan\ScannerController;
+use App\Http\Controllers\Auth\CodeLoginController;
+use App\Http\Controllers\ClassView\ClassViewController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Duty\FinalizeDayController;
 use App\Http\Controllers\Duty\LateScanController;
 use App\Http\Controllers\Duty\MonitorClassroomController;
 use App\Http\Controllers\Duty\MonitorController;
+use App\Http\Controllers\Gate\GateScanController;
+use App\Http\Controllers\Gate\GateScannerController;
 use App\Http\Controllers\LiveUpdateController;
+use App\Http\Controllers\ManifestController;
 use App\Http\Controllers\Recap\AttendanceCorrectionController;
 use App\Http\Controllers\Recap\EarlyWarningController;
 use App\Http\Controllers\Recap\GuardianContactController;
@@ -43,19 +50,34 @@ use App\Http\Controllers\Staff\AttachmentController;
 use App\Http\Controllers\Staff\DispensationController;
 use App\Http\Controllers\Staff\ExcuseController;
 use App\Http\Controllers\Staff\StudentSearchController;
+use App\Http\Middleware\EnsureGateStation;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => redirect()->route(auth()->check() ? 'dashboard' : 'class.login'));
+Route::get('manifest.webmanifest', ManifestController::class)->name('manifest');
 
-// Guru jam pertama: masuk dengan kode kelas, lalu scan dari HP.
-Route::get('absen', [ClassLoginController::class, 'create'])->name('class.login');
-Route::post('absen', [ClassLoginController::class, 'store'])->name('class.login.store');
+Route::get('/', fn (Request $request) => redirect()->route(match (true) {
+    auth()->check() => 'dashboard',
+    EnsureGateStation::stationFrom($request) !== null => 'gate.scanner',
+    default => 'login',
+}));
 
-Route::middleware('class.session')->prefix('absen')->group(function () {
-    Route::get('kelas', [ScannerController::class, 'show'])->name('class.scanner');
-    Route::post('kelas/scan', [ScanController::class, 'store'])->name('class.scan');
-    Route::post('kelas/selesai', [ClassSessionCloseController::class, 'store'])->name('class.close');
-    Route::post('keluar', [ClassLoginController::class, 'destroy'])->name('class.logout');
+// Satu layar kode: kode tab (tab1) membuka scanner gerbang, kode kelas (7a)
+// menampilkan kehadiran kelas hari ini untuk guru mapel.
+Route::get('kode', [CodeLoginController::class, 'create'])->name('code.login');
+Route::post('kode', [CodeLoginController::class, 'store'])->name('code.login.store');
+
+Route::redirect('lihat-kelas', 'kode');
+Route::get('lihat-kelas/hari-ini', [ClassViewController::class, 'show'])->name('class-view.show');
+Route::post('lihat-kelas/ganti', [ClassViewController::class, 'destroy'])->name('class-view.logout');
+
+// Tab di gerbang: login sekali dengan kode tab, lalu siswa scan sendiri.
+Route::redirect('gerbang', 'kode');
+
+Route::middleware('gate.station')->prefix('gerbang')->group(function () {
+    Route::get('scan', [GateScannerController::class, 'show'])->name('gate.scanner');
+    Route::post('status', [GateScannerController::class, 'status'])->name('gate.status');
+    Route::post('scan', [GateScanController::class, 'store'])->name('gate.scan');
 });
 
 Route::middleware('guest')->group(function () {
@@ -80,6 +102,8 @@ Route::middleware('auth')->group(function () {
         Route::get('pantauan/kelas/{classroom}', [MonitorClassroomController::class, 'show'])->name('duty.monitor.classroom');
         Route::get('terlambat', [LateScanController::class, 'create'])->name('duty.late');
         Route::post('terlambat', [LateScanController::class, 'store'])->name('duty.late.store');
+        Route::post('pantauan/selesaikan', [FinalizeDayController::class, 'store'])->name('duty.finalize');
+        Route::delete('pantauan/selesaikan', [FinalizeDayController::class, 'destroy'])->name('duty.reopen');
     });
 
     Route::middleware('role:admin,guru_piket,wali_kelas')->group(function () {
@@ -123,11 +147,13 @@ Route::middleware('auth')->group(function () {
         Route::post('koreksi', [AttendanceCorrectionController::class, 'store'])->name('recap.correct');
         Route::get('ekspor/bulanan', [RecapExportController::class, 'monthly'])->name('recap.export.monthly');
         Route::get('ekspor/semester', [RecapExportController::class, 'semester'])->name('recap.export.semester');
+        Route::get('ekspor/semester-lengkap', [RecapExportController::class, 'semesterWorkbook'])->name('recap.export.semester-workbook');
     });
 
     Route::middleware('role:admin')->prefix('rekap')->group(function () {
         Route::get('sekolah', [SchoolRecapController::class, 'index'])->name('recap.school');
         Route::get('ekspor/sekolah', [RecapExportController::class, 'school'])->name('recap.export.school');
+        Route::get('ekspor/semua-kelas', [RecapExportController::class, 'schoolWorkbook'])->name('recap.export.school-workbook');
     });
 
     Route::middleware('role:admin')->group(function () {
@@ -142,8 +168,6 @@ Route::middleware('auth')->group(function () {
         Route::get('tahun-ajaran/{academicYear}/kenaikan-kelas/arsip', [PromotionController::class, 'archive'])->name('academic-years.promotion.archive');
 
         Route::post('kelas/massal', [ClassroomBatchController::class, 'store'])->name('classrooms.batch');
-        Route::put('kelas/{classroom}/kode', [ClassroomAccessCodeController::class, 'update'])->name('classrooms.access-code');
-        Route::post('kelas/kode-standar', [ClassroomStandardCodeController::class, 'store'])->name('classrooms.standard-codes');
         Route::post('kelas/{classroom}/titipkan', [ClassroomLodgingController::class, 'store'])->name('classrooms.lodge');
         Route::resource('kelas', ClassroomController::class)
             ->only(['index', 'store', 'update', 'destroy'])
@@ -153,6 +177,7 @@ Route::middleware('auth')->group(function () {
         Route::get('siswa/import', [StudentImportController::class, 'create'])->name('students.import');
         Route::post('siswa/import', [StudentImportController::class, 'store'])->name('students.import.store');
         Route::get('siswa/import/template', [StudentImportController::class, 'template'])->name('students.import.template');
+        Route::get('siswa/ekspor', [DataExportController::class, 'students'])->name('students.export');
         Route::resource('siswa', StudentController::class)
             ->only(['index', 'store', 'update', 'destroy'])
             ->parameters(['siswa' => 'student'])
@@ -160,22 +185,42 @@ Route::middleware('auth')->group(function () {
 
         Route::get('kartu', [CardController::class, 'index'])->name('cards.index');
         Route::get('kartu/cetak', [CardPrintController::class, 'show'])->name('cards.print');
+        Route::get('kartu/desain', [CardDesignController::class, 'edit'])->name('cards.design');
+        Route::put('kartu/desain', [CardDesignController::class, 'update'])->name('cards.design.update');
+        Route::get('kartu/desain/latar', [CardDesignController::class, 'background'])->name('cards.design.background');
+        Route::post('kartu/desain/latar', [CardDesignController::class, 'storeBackground'])->name('cards.design.background.store');
+        Route::delete('kartu/desain/latar', [CardDesignController::class, 'destroyBackground'])->name('cards.design.background.destroy');
         Route::post('siswa/{student}/kartu', [StudentCardController::class, 'store'])->name('students.card.store');
+        Route::put('siswa/{student}/ruang-belajar', [StudentStudyRoomController::class, 'update'])->name('students.study-room');
         Route::post('siswa/{student}/kartu/cabut', [StudentCardRevocationController::class, 'store'])->name('students.card.revoke');
         Route::delete('siswa/{student}/kartu/cabut', [StudentCardRevocationController::class, 'destroy'])->name('students.card.restore');
 
         Route::get('pengaturan', [SettingController::class, 'edit'])->name('settings.edit');
         Route::put('pengaturan', [SettingController::class, 'update'])->name('settings.update');
         Route::put('pengaturan/risiko', [SettingController::class, 'updateRisk'])->name('settings.risk');
+        Route::put('pengaturan/umum', [SettingController::class, 'updateGeneral'])->name('settings.general');
         Route::get('notifikasi-wa', [WhatsAppController::class, 'index'])->name('whatsapp.index');
         Route::put('notifikasi-wa', [WhatsAppController::class, 'update'])->name('whatsapp.update');
         Route::put('notifikasi-wa/pesan', [WhatsAppController::class, 'updateTexts'])->name('whatsapp.texts');
+        Route::put('notifikasi-wa/token', [WhatsAppController::class, 'updateToken'])->name('whatsapp.token');
         Route::post('notifikasi-wa/uji', [WhatsAppController::class, 'test'])->name('whatsapp.test');
         Route::post('notifikasi-wa/jalankan', [WhatsAppController::class, 'run'])->name('whatsapp.run');
         Route::post('notifikasi-wa/pesan/{riskMessage}/kirim-ulang', [WhatsAppController::class, 'resend'])->name('whatsapp.resend');
+        Route::resource('tab-gerbang', GateStationController::class)
+            ->only(['index', 'store', 'update', 'destroy'])
+            ->parameters(['tab-gerbang' => 'gateStation'])
+            ->names('gate-stations');
+        Route::post('tab-gerbang/{gateStation}/cabut', [GateStationRevocationController::class, 'store'])->name('gate-stations.revoke');
+        Route::delete('tab-gerbang/{gateStation}/cabut', [GateStationRevocationController::class, 'destroy'])->name('gate-stations.restore');
+        Route::put('jaringan-gerbang', [GateNetworkController::class, 'update'])->name('gate-network.update');
         Route::post('libur', [HolidayController::class, 'store'])->name('holidays.store');
         Route::delete('libur/{holiday}', [HolidayController::class, 'destroy'])->name('holidays.destroy');
 
+        Route::get('pengguna/import', [UserImportController::class, 'create'])->name('users.import');
+        Route::post('pengguna/import', [UserImportController::class, 'store'])->name('users.import.store');
+        Route::get('pengguna/import/template', [UserImportController::class, 'template'])->name('users.import.template');
+        Route::get('pengguna/import/akun', [UserImportController::class, 'accounts'])->name('users.import.accounts');
+        Route::delete('pengguna/import/akun', [UserImportController::class, 'forgetAccounts'])->name('users.import.accounts.forget');
         Route::resource('pengguna', UserController::class)
             ->only(['index', 'store', 'update', 'destroy'])
             ->parameters(['pengguna' => 'user'])

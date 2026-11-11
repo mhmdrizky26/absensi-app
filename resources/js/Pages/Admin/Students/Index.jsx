@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { FileSpreadsheet, Plus } from 'lucide-react';
+import { Download, FileSpreadsheet, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Field from '@/Components/Field';
@@ -77,6 +77,13 @@ export default function StudentsIndex({ academicYear, students, filters, classro
         router.delete(`/siswa/${deleting.id}`, { preserveScroll: true, onFinish: () => setDeleting(null) });
     }
 
+    function setStudyRoom(student, studyClassroomId) {
+        router.put(`/siswa/${student.id}/ruang-belajar`, { study_classroom_id: studyClassroomId || null }, { preserveScroll: true, preserveState: true });
+    }
+
+    const roomlessIds = new Set(classrooms.filter((classroom) => !classroom.has_room).map((classroom) => classroom.id));
+    const studyRooms = classrooms.filter((classroom) => classroom.has_room);
+
     return (
         <>
             <Head title="Siswa" />
@@ -87,6 +94,9 @@ export default function StudentsIndex({ academicYear, students, filters, classro
                     <h1>Siswa</h1>
                 </div>
                 <div className="page-actions">
+                    <a href="/siswa/ekspor" className="btn btn-secondary" title="Semua siswa aktif, satu sheet per kelas">
+                        <Download size={16} aria-hidden="true" /> Export Excel
+                    </a>
                     <Link href="/siswa/import" className="btn btn-secondary">
                         <FileSpreadsheet size={16} aria-hidden="true" /> Import Excel
                     </Link>
@@ -138,7 +148,7 @@ export default function StudentsIndex({ academicYear, students, filters, classro
                             <tr>
                                 <th>Nama</th>
                                 <th style={{ width: 60 }}>JK</th>
-                                <th style={{ width: 110 }}>Kelas</th>
+                                <th style={{ width: 170 }}>Kelas</th>
                                 <th style={{ width: 100 }}>Status</th>
                                 <th />
                             </tr>
@@ -151,13 +161,29 @@ export default function StudentsIndex({ academicYear, students, filters, classro
                                         <span className="cell-sub">
                                             NIS {student.nis}
                                             {student.nisn ? ` · NISN ${student.nisn}` : ''}
-                                            {student.studyClassroomId ? ` · belajar di ${classrooms.find((classroom) => classroom.id === student.studyClassroomId)?.name ?? '-'}` : ''}
                                             {' · '}
                                             {student.guardians.length > 0 ? `WA ortu: ${student.guardians.map((guardian) => guardian.phone).join(', ')}` : 'belum ada nomor WA ortu'}
                                         </span>
                                     </td>
                                     <td>{student.gender}</td>
-                                    <td style={{ fontWeight: 800 }}>{student.classroom?.name ?? <span className="text-muted" style={{ fontWeight: 400 }}>—</span>}</td>
+                                    <td style={{ fontWeight: 800 }}>
+                                        {student.classroom?.name ?? <span className="text-muted" style={{ fontWeight: 400 }}>—</span>}
+                                        {student.classroom && roomlessIds.has(student.classroom.id) && student.status === 'aktif' && (
+                                            <select
+                                                className="input study-room-select"
+                                                aria-label={`Belajar di (${student.name})`}
+                                                value={student.studyClassroomId ?? ''}
+                                                onChange={(event) => setStudyRoom(student, event.target.value)}
+                                            >
+                                                <option value="">Belajar di: belum diatur</option>
+                                                {studyRooms.map((classroom) => (
+                                                    <option key={classroom.id} value={classroom.id}>
+                                                        Belajar di {classroom.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    </td>
                                     <td>
                                         <span className={`tag ${student.status === 'aktif' ? 'tag-neutral' : 'tag-outline'}`}>{student.statusLabel}</span>
                                     </td>
@@ -222,7 +248,7 @@ export default function StudentsIndex({ academicYear, students, filters, classro
                         </Field>
                     </div>
                     {classrooms.find((classroom) => String(classroom.id) === String(form.data.classroom_id))?.has_room === false && (
-                        <Field label="Ruang belajar (absen pagi)" htmlFor="study_classroom" error={form.errors.study_classroom_id} hint="Kelas ini tidak punya ruang: siswa di-scan di kelas titipan ini, tetapi rekap dan rapor tetap di kelasnya.">
+                        <Field label="Belajar di" htmlFor="study_classroom" error={form.errors.study_classroom_id} hint="Kelas ini tidak punya ruang, jadi siswa ikut belajar di kelas lain. Tab gerbang menampilkan kelas ini saat scan, tetapi absensi, rekap, dan rapornya tetap di kelasnya sendiri. Saat naik kelas pengaturan ini kosong lagi.">
                             <select id="study_classroom" className="input" value={form.data.study_classroom_id} onChange={(event) => form.setData('study_classroom_id', event.target.value)}>
                                 <option value="">— Belum dititipkan —</option>
                                 {classrooms

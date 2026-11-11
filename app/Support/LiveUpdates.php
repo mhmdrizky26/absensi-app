@@ -18,7 +18,7 @@ class LiveUpdates
     /**
      * Tables whose changes show up on other users' pages.
      */
-    private const TABLES = ['attendances', 'attendance_sessions', 'dispensations', 'guardian_contacts', 'risk_episodes', 'risk_messages', 'holidays', 'students'];
+    private const TABLES = ['attendances', 'attendance_days', 'dispensations', 'guardian_contacts', 'risk_episodes', 'risk_messages', 'holidays', 'students'];
 
     private const CACHE_SECONDS = 5;
 

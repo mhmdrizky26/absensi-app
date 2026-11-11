@@ -15,11 +15,12 @@ class SemesterRecapExport extends RecapSheet
         private string $periodLabel,
         private array $studentRows,
         private string $schoolName,
+        private ?string $sheetTitle = null,
     ) {}
 
     public function title(): string
     {
-        return 'Rekap '.$this->classroom->name;
+        return $this->sheetTitle ?? 'Rekap '.$this->classroom->name;
     }
 
     protected function titleLines(): array

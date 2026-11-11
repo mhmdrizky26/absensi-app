@@ -2,36 +2,96 @@
 
 namespace App\Support;
 
+use App\Models\AttendanceDay;
 use App\Models\Holiday;
 use App\Models\Setting;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 
 /**
- * When the first-period class scan is allowed. Hours and school days come
- * from the admin's settings, falling back to config/attendance.php.
+ * The school's weekly schedule: which weekdays are school days and, per day,
+ * when the gate opens and when it closes (jam masuk). Set by the admin,
+ * falling back to config/attendance.php.
  */
 class AttendanceWindow
 {
-    public const OPENS_AT = 'class_scan_opens_at';
+    public const SCHEDULE = 'gate_schedule';
 
-    public const CLOSES_AT = 'class_scan_closes_at';
+    /**
+     * Settings from before the per-day schedule, still read until the admin
+     * saves a schedule.
+     */
+    private const LEGACY_OPENS_AT = 'class_scan_opens_at';
 
-    public const SCHOOL_DAYS = 'school_days';
+    private const LEGACY_CLOSES_AT = 'class_scan_closes_at';
+
+    private const LEGACY_SCHOOL_DAYS = 'school_days';
+
+    public const WEEKDAYS = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
 
     public function isEnforced(): bool
     {
         return (bool) config('attendance.enforce_window');
     }
 
-    public function opensAtTime(): string
+    /**
+     * Gate hours of each school day, keyed by ISO weekday (1 = Monday … 7 = Sunday).
+     * Weekdays that are not school days are left out.
+     *
+     * @return array<int, array{opens_at: string, closes_at: string}>
+     */
+    public function schedule(): array
     {
-        return Setting::value(self::OPENS_AT, config('attendance.class_scan_opens_at'));
+        $stored = Setting::value(self::SCHEDULE);
+
+        if ($stored !== null) {
+            $schedule = [];
+
+            foreach (json_decode($stored, true) ?: [] as $weekday => $hours) {
+                $schedule[(int) $weekday] = ['opens_at' => $hours['opens_at'], 'closes_at' => $hours['closes_at']];
+            }
+
+            ksort($schedule);
+
+            return $schedule;
+        }
+
+        $legacyDays = Setting::value(self::LEGACY_SCHOOL_DAYS);
+        $days = $legacyDays === null ? config('attendance.school_days') : array_map('intval', array_filter(explode(',', $legacyDays)));
+        $hours = [
+            'opens_at' => Setting::value(self::LEGACY_OPENS_AT, config('attendance.opens_at')),
+            'closes_at' => Setting::value(self::LEGACY_CLOSES_AT, config('attendance.closes_at')),
+        ];
+
+        return collect($days)->sort()->mapWithKeys(fn (int $day): array => [$day => $hours])->all();
     }
 
-    public function closesAtTime(): string
+    /**
+     * Every weekday, school day or not, for the admin's schedule form.
+     *
+     * @return list<array{day: int, label: string, active: bool, opens_at: string, closes_at: string}>
+     */
+    public function weekForm(): array
     {
-        return Setting::value(self::CLOSES_AT, config('attendance.class_scan_closes_at'));
+        $schedule = $this->schedule();
+
+        return collect(self::WEEKDAYS)->map(fn (string $label, int $day): array => [
+            'day' => $day,
+            'label' => $label,
+            'active' => isset($schedule[$day]),
+            'opens_at' => $schedule[$day]['opens_at'] ?? config('attendance.opens_at'),
+            'closes_at' => $schedule[$day]['closes_at'] ?? config('attendance.closes_at'),
+        ])->values()->all();
+    }
+
+    /**
+     * @param  array<int, array{opens_at: string, closes_at: string}>  $schedule
+     */
+    public function saveSchedule(array $schedule): void
+    {
+        ksort($schedule);
+
+        Setting::put([self::SCHEDULE => json_encode((object) $schedule)]);
     }
 
     /**
@@ -41,11 +101,7 @@ class AttendanceWindow
      */
     public function schoolDays(): array
     {
-        $stored = Setting::value(self::SCHOOL_DAYS);
-
-        return $stored === null
-            ? config('attendance.school_days')
-            : array_map('intval', array_filter(explode(',', $stored)));
+        return array_keys($this->schedule());
     }
 
     public function holidayOn(CarbonInterface $date): ?Holiday
@@ -85,42 +141,78 @@ class AttendanceWindow
         return $days;
     }
 
+    /**
+     * When the gate opens on the given day.
+     */
     public function opensAt(CarbonInterface $date): CarbonImmutable
     {
-        return $this->timeOn($date, $this->opensAtTime());
-    }
-
-    public function closesAt(CarbonInterface $date): CarbonImmutable
-    {
-        return $this->timeOn($date, $this->closesAtTime());
+        return $this->timeOn($date, $this->hoursOn($date)['opens_at']);
     }
 
     /**
-     * Why a class cannot be opened at the given moment, or null when it can.
+     * When the gate closes on the given day (jam masuk). Students who arrive
+     * later are recorded by the guru piket.
      */
-    public function closedReason(CarbonInterface $moment): ?string
+    public function closesAt(CarbonInterface $date): CarbonImmutable
     {
+        return $this->timeOn($date, $this->hoursOn($date)['closes_at']);
+    }
+
+    /**
+     * Minutes after jam masuk during which a gate tablet may still send scans
+     * it queued before the gate closed (it was offline, or the scan was made
+     * seconds before closing). Logging in is refused already.
+     */
+    public const QUEUE_GRACE_MINUTES = 30;
+
+    /**
+     * Why a gate tablet cannot be used at the given moment, or null when it
+     * can. Before the gate opens a tablet may log in and wait; after jam
+     * masuk, on days without school and once the day is finished it is
+     * logged out and cannot log in. In demo mode only a finished day closes it.
+     */
+    public function gateClosedReason(CarbonInterface $moment): ?string
+    {
+        if (AttendanceDay::forDate($moment)) {
+            return 'Absen hari ini sudah diselesaikan guru piket, jadi tab gerbang ditutup sampai besok.';
+        }
+
         if (! $this->isEnforced()) {
             return null;
         }
 
         if ($holiday = $this->holidayOn($moment)) {
-            return "Hari ini libur ({$holiday->description}), jadi absensi kelas tidak dibuka.";
+            return "Hari ini libur ({$holiday->description}), jadi tab gerbang tidak dibuka.";
         }
 
         if (! $this->isSchoolDay($moment)) {
-            return 'Hari ini bukan hari sekolah, jadi absensi kelas tidak dibuka.';
-        }
-
-        if ($moment->lessThan($this->opensAt($moment))) {
-            return 'Absensi kelas baru dibuka pukul '.$this->opensAt($moment)->format('H:i').'.';
+            return 'Hari ini bukan hari sekolah, jadi tab gerbang tidak dibuka.';
         }
 
         if ($moment->greaterThanOrEqualTo($this->closesAt($moment))) {
-            return 'Absensi kelas sudah ditutup pukul '.$this->closesAt($moment)->format('H:i').'. Siswa yang datang terlambat melapor ke guru piket.';
+            return 'Scan gerbang sudah ditutup pukul '.$this->closesAt($moment)->format('H:i').'. Siswa yang datang terlambat atau lupa kartu melapor ke guru piket.';
         }
 
         return null;
+    }
+
+    /**
+     * Whether a tablet may still send scans it queued before jam masuk.
+     */
+    public function acceptsQueuedScans(CarbonInterface $moment): bool
+    {
+        return $this->isEnforced()
+            && ! AttendanceDay::forDate($moment)
+            && $this->isSchoolDay($moment)
+            && $moment->lessThan($this->closesAt($moment)->addMinutes(self::QUEUE_GRACE_MINUTES));
+    }
+
+    /**
+     * @return array{opens_at: string, closes_at: string}
+     */
+    private function hoursOn(CarbonInterface $date): array
+    {
+        return $this->schedule()[$date->isoWeekday()] ?? ['opens_at' => config('attendance.opens_at'), 'closes_at' => config('attendance.closes_at')];
     }
 
     private function timeOn(CarbonInterface $date, string $time): CarbonImmutable

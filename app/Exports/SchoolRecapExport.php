@@ -16,11 +16,12 @@ class SchoolRecapExport extends RecapSheet
         private array $totals,
         private ?int $rate,
         private string $schoolName,
+        private ?string $sheetTitle = null,
     ) {}
 
     public function title(): string
     {
-        return 'Rekap sekolah';
+        return $this->sheetTitle ?? 'Rekap sekolah';
     }
 
     protected function titleLines(): array

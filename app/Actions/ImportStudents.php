@@ -115,7 +115,7 @@ class ImportStudents
                 $errors[] = "No. WA orang tua \"{$values['guardian_phone']}\" tidak valid";
             }
 
-            $classroomName = $this->normalizeClassroomName($values['classroom']);
+            $classroomName = self::normalizeClassroomName($values['classroom']);
 
             if (! isset($classroomIds[$classroomName])) {
                 $errors[] = $values['classroom'] === ''
@@ -226,7 +226,7 @@ class ImportStudents
      * Turn the many ways schools write class names into the stored form:
      * "7A", "7-a", "VII A" and "Kelas VII-A" all become "VII-A".
      */
-    public function normalizeClassroomName(string $value): string
+    public static function normalizeClassroomName(string $value): string
     {
         $value = Str::upper(trim($value));
         $value = preg_replace('/^KELAS\s*/', '', $value);

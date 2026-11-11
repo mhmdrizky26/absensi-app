@@ -14,8 +14,12 @@ function newRef() {
 }
 
 export class ScanQueue {
-    constructor({ sessionId, endpoint, onResults, onStateChange, onSessionExpired }) {
+    /**
+     * `now` memberi jam scan; tab gerbang memakai jam yang sudah disamakan dengan server.
+     */
+    constructor({ sessionId, endpoint, onResults, onStateChange, onSessionExpired, now = () => new Date() }) {
         this.storageKey = `absen:antrean:${sessionId}`;
+        this.now = now;
         this.endpoint = endpoint;
         this.onResults = onResults;
         this.onStateChange = onStateChange;
@@ -59,7 +63,7 @@ export class ScanQueue {
      */
     add(item) {
         const ref = newRef();
-        this.items.push({ ...item, ref, scanned_at: new Date().toISOString() });
+        this.items.push({ ...item, ref, scanned_at: this.now().toISOString() });
         this.save();
         this.flush();
 

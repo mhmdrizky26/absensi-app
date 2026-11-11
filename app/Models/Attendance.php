@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['student_id', 'classroom_id', 'date', 'status', 'source', 'recorded_at', 'attendance_session_id', 'recorded_by', 'note', 'attachment_path', 'dispensation_id'])]
+#[Fillable(['student_id', 'classroom_id', 'date', 'status', 'source', 'recorded_at', 'gate_station_id', 'recorded_by', 'note', 'attachment_path', 'dispensation_id'])]
 class Attendance extends Model
 {
     /** @use HasFactory<AttendanceFactory> */
@@ -44,11 +44,11 @@ class Attendance extends Model
     }
 
     /**
-     * @return BelongsTo<AttendanceSession, $this>
+     * @return BelongsTo<GateStation, $this>
      */
-    public function session(): BelongsTo
+    public function gateStation(): BelongsTo
     {
-        return $this->belongsTo(AttendanceSession::class, 'attendance_session_id');
+        return $this->belongsTo(GateStation::class);
     }
 
     /**

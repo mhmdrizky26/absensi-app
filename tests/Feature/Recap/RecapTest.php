@@ -5,6 +5,7 @@ namespace Tests\Feature\Recap;
 use App\Enums\AttendanceSource;
 use App\Enums\AttendanceStatus;
 use App\Exports\MonthlyRecapExport;
+use App\Exports\RecapWorkbook;
 use App\Exports\SchoolRecapExport;
 use App\Exports\SemesterRecapExport;
 use App\Models\AcademicYear;
@@ -201,6 +202,49 @@ class RecapTest extends TestCase
 
         $this->actingAs($admin)->get('/rekap/ekspor/sekolah?jenis=bulan&bulan=2026-09');
         Excel::assertDownloaded('rekap-sekolah-september-2026.xlsx', fn (SchoolRecapExport $export): bool => collect($export->array())->last()[0] === 'Total');
+    }
+
+    public function test_admin_downloads_every_class_in_one_file_with_a_sheet_per_class(): void
+    {
+        Excel::fake();
+        $this->mark('2026-09-21', AttendanceStatus::Sick);
+        $otherClassroom = Classroom::factory()->for($this->academicYear)->create(['grade' => 7, 'name' => 'VII-B']);
+        $this->classroom->update(['grade' => 7]);
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)->get('/rekap/ekspor/semua-kelas?jenis=bulan&bulan=2026-09')->assertOk();
+        Excel::assertDownloaded('rekap-semua-kelas-september-2026.xlsx', function (RecapWorkbook $workbook): bool {
+            $sheets = $workbook->sheets();
+
+            return array_map(fn ($sheet): string => $sheet->title(), $sheets) === ['Ringkasan', 'VII-A', 'VII-B']
+                && $sheets[1] instanceof MonthlyRecapExport
+                && $sheets[1]->array()[6][2] === 'Ayu';
+        });
+
+        $this->actingAs($admin)->get('/rekap/ekspor/semua-kelas?jenis=semester&semester=ganjil')->assertOk();
+        Excel::assertDownloaded('rekap-semua-kelas-semester-ganjil-'.str($this->academicYear->name)->slug().'.xlsx', fn (RecapWorkbook $workbook): bool => $workbook->sheets()[1] instanceof SemesterRecapExport
+            && $workbook->sheets()[1]->array()[5][4] === 1
+            && $workbook->sheets()[2]->title() === 'VII-B');
+
+        $this->actingAs($this->wali)->get('/rekap/ekspor/semua-kelas?jenis=bulan&bulan=2026-09')->assertForbidden();
+        $this->assertNotNull($otherClassroom);
+    }
+
+    public function test_wali_kelas_downloads_their_whole_semester_with_a_sheet_per_month(): void
+    {
+        Excel::fake();
+        $this->mark('2026-08-03', AttendanceStatus::Absent);
+        $otherClassroom = Classroom::factory()->for($this->academicYear)->create(['name' => 'VII-B']);
+
+        $this->actingAs($this->wali)->get('/rekap/ekspor/semester-lengkap?semester=ganjil')->assertOk();
+        Excel::assertDownloaded('rekap-semester-VII-A-ganjil.xlsx', function (RecapWorkbook $workbook): bool {
+            $sheets = $workbook->sheets();
+
+            return array_map(fn ($sheet): string => $sheet->title(), $sheets) === ['Rekap semester', 'Juli 2026', 'Agustus 2026', 'September 2026']
+                && $sheets[0]->array()[5][6] === 1;
+        });
+
+        $this->actingAs($this->wali)->get("/rekap/ekspor/semester-lengkap?classroom={$otherClassroom->id}&semester=ganjil")->assertForbidden();
     }
 
     public function test_late_students_count_as_present_in_every_export(): void
