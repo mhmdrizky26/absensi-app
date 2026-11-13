@@ -14,7 +14,7 @@ class StudentStudyRoomController extends Controller
     /**
      * Where a student of a class without its own room studies this year
      * ("belajar di"). Their marks, recap and report stay with their own class;
-     * next year's class starts without a study room.
+     * at promotion they keep studying in the host class one grade higher.
      */
     public function update(Request $request, Student $student): RedirectResponse
     {

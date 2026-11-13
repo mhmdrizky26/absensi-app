@@ -180,6 +180,7 @@ Route::middleware('auth')->group(function () {
 
         Route::post('kelas/massal', [ClassroomBatchController::class, 'store'])->name('classrooms.batch');
         Route::post('kelas/{classroom}/titipkan', [ClassroomLodgingController::class, 'store'])->name('classrooms.lodge');
+        Route::delete('kelas/{classroom}/titipkan', [ClassroomLodgingController::class, 'destroy'])->name('classrooms.lodge.destroy');
         Route::resource('kelas', ClassroomController::class)
             ->only(['index', 'store', 'update', 'destroy'])
             ->parameters(['kelas' => 'classroom'])

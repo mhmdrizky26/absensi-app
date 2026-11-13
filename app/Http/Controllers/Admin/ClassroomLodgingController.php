@@ -60,4 +60,28 @@ class ClassroomLodgingController extends Controller
 
         return back()->with('success', "{$studentIds->count()} siswa {$classroom->name} dititipkan ke {$hosts->count()} kelas. Absen pagi mereka di kelas titipan, tetapi tetap tercatat untuk {$classroom->name}.");
     }
+
+    /**
+     * Bring the students of a class without a room back to their own class:
+     * the class gets its room again and every lodging of it ends. Lodgings
+     * carry over to the next year at promotion until this is done.
+     */
+    public function destroy(Classroom $classroom): RedirectResponse
+    {
+        if ($classroom->has_room) {
+            return back()->with('error', "Kelas {$classroom->name} sudah punya ruang sendiri.");
+        }
+
+        $returned = DB::transaction(function () use ($classroom): int {
+            $classroom->update(['has_room' => true]);
+
+            return DB::table('classroom_student')
+                ->where('academic_year_id', $classroom->academic_year_id)
+                ->where('classroom_id', $classroom->id)
+                ->whereNotNull('study_classroom_id')
+                ->update(['study_classroom_id' => null]);
+        });
+
+        return back()->with('success', "Kelas {$classroom->name} kini punya ruang sendiri. {$returned} siswa titipan kembali belajar di {$classroom->name}.");
+    }
 }
