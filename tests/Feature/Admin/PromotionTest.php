@@ -117,18 +117,49 @@ class PromotionTest extends TestCase
         $this->assertSame('VII-A', $seventh->classroomIn($this->current)->name);
     }
 
-    public function test_a_student_studying_in_another_room_moves_up_with_their_own_class(): void
+    public function test_a_lodged_student_moves_up_and_keeps_studying_in_the_promoted_host_class(): void
+    {
+        $roomless = Classroom::factory()->for($this->current)->create(['grade' => 8, 'name' => 'VIII-K', 'has_room' => false]);
+        $student = Student::factory()->create(['name' => 'Dodi']);
+        $student->placeIn($roomless, $this->current);
+        DB::table('classroom_student')->where('student_id', $student->id)->update(['study_classroom_id' => $this->classrooms['VIII-A']->id]);
+        $notLodged = Student::factory()->create(['name' => 'Eka']);
+        $notLodged->placeIn($roomless, $this->current);
+
+        $this->actingAs($this->admin)->get("/tahun-ajaran/{$this->next->id}/kenaikan-kelas")->assertInertia(fn (Assert $page) => $page
+            ->where('classrooms.2.name', 'VIII-K')
+            ->where('classrooms.2.hasRoom', false)
+            ->where('classrooms.2.students.0.studyIn', 'IX-A')
+            ->where('classrooms.2.students.1.studyIn', null)
+        );
+
+        $this->actingAs($this->admin)->post("/tahun-ajaran/{$this->next->id}/kenaikan-kelas", ['confirm_delete' => true])->assertSessionHasNoErrors();
+
+        $newClassrooms = $this->next->classrooms()->get()->keyBy('name');
+        $this->assertFalse($newClassrooms['IX-K']->has_room, 'Angkatan tanpa ruang tetap tanpa ruang.');
+        $this->assertTrue($newClassrooms['VIII-K']->has_room);
+        $this->assertTrue($newClassrooms['IX-A']->has_room);
+
+        $placement = $student->classroomIn($this->next);
+        $this->assertSame('IX-K', $placement->name);
+        $this->assertSame($newClassrooms['IX-A']->id, (int) $placement->pivot->study_classroom_id);
+        $this->assertNull($notLodged->classroomIn($this->next)->pivot->study_classroom_id);
+        $this->assertSame($this->classrooms['VIII-A']->id, (int) $student->classroomIn($this->current)->pivot->study_classroom_id);
+    }
+
+    public function test_a_lodged_student_who_repeats_studies_in_their_own_class_again(): void
     {
         $roomless = Classroom::factory()->for($this->current)->create(['grade' => 8, 'name' => 'VIII-K', 'has_room' => false]);
         $student = Student::factory()->create();
         $student->placeIn($roomless, $this->current);
         DB::table('classroom_student')->where('student_id', $student->id)->update(['study_classroom_id' => $this->classrooms['VIII-A']->id]);
 
-        $this->actingAs($this->admin)->post("/tahun-ajaran/{$this->next->id}/kenaikan-kelas", ['confirm_delete' => true])->assertSessionHasNoErrors();
+        $this->actingAs($this->admin)->post("/tahun-ajaran/{$this->next->id}/kenaikan-kelas", ['repeaters' => [$student->id], 'confirm_delete' => true])->assertSessionHasNoErrors();
 
-        $this->assertSame('IX-K', $student->classroomIn($this->next)->name);
-        $this->assertNull($student->classroomIn($this->next)->pivot->study_classroom_id, 'Ruang belajar diatur ulang tiap tahun.');
-        $this->assertSame($this->classrooms['VIII-A']->id, (int) $student->classroomIn($this->current)->pivot->study_classroom_id);
+        $placement = $student->classroomIn($this->next);
+        $this->assertSame('VIII-K', $placement->name);
+        $this->assertTrue((bool) $placement->has_room);
+        $this->assertNull($placement->pivot->study_classroom_id);
     }
 
     public function test_repeaters_stay_and_leavers_are_marked_transferred(): void

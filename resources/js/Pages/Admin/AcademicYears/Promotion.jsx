@@ -87,7 +87,7 @@ export default function Promotion({ source, target, classrooms }) {
             </div>
 
             <p className="text-muted" style={{ maxWidth: 820 }}>
-                Sebelum tahun ajaran {target.name} diaktifkan, siswa dinaikkan otomatis: kelas yang sama dibuat <b>tanpa wali kelas</b>, setiap siswa naik satu tingkat di rombel yang sama (VII-A → VIII-A). Tandai siswa yang tinggal kelas atau pindah sekolah di bawah.
+                Sebelum tahun ajaran {target.name} diaktifkan, siswa dinaikkan otomatis: kelas yang sama dibuat <b>tanpa wali kelas</b>, setiap siswa naik satu tingkat di rombel yang sama (VII-A → VIII-A). Kelas tanpa ruang tetap tanpa ruang dan siswa titipannya tetap dititipkan di kelas yang ikut naik (titipan VIII-A → IX-A) sampai admin menekan "Kembalikan ke kelas asal" di menu Kelas. Tandai siswa yang tinggal kelas atau pindah sekolah di bawah.
             </p>
 
             <div className="stat-strip">
@@ -150,6 +150,7 @@ export default function Promotion({ source, target, classrooms }) {
                                 <span className={classroom.target ? undefined : 'is-danger'}>{classroom.target ?? 'Dihapus (lulus)'}</span>
                                 <span className="text-muted">
                                     · {classroom.students.length} siswa{exceptions > 0 ? ` · ${exceptions} dikecualikan` : ''}
+                                    {!classroom.hasRoom && classroom.target ? ' · tanpa ruang, titipan ikut naik' : ''}
                                 </span>
                             </summary>
                             <div className="promotion-students">
@@ -163,6 +164,7 @@ export default function Promotion({ source, target, classrooms }) {
                                                 <span className="cell-sub">
                                                     NIS {student.nis}
                                                     {CHOICES[choice] ? ` · ${CHOICES[choice]}` : ''}
+                                                    {choice === 'normal' && student.studyIn ? ` · tetap dititipkan di ${student.studyIn}` : ''}
                                                 </span>
                                             </span>
                                             <select className="input" value={choice} onChange={(event) => choose(student.id, event.target.value)} aria-label={`Keputusan untuk ${student.name}`}>

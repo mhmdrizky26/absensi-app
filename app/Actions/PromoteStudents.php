@@ -19,7 +19,9 @@ use Illuminate\Support\Str;
  * activated: the same classes are created with no wali kelas,
  * every active student goes up one grade in the same section, grade IX
  * students are deleted permanently, and chosen students repeat the grade or
- * leave the school.
+ * leave the school. A class without a room keeps that state as it moves up
+ * (VIII-K → IX-K), and its students keep studying in the promoted host class
+ * (VIII-A → IX-A) until the admin brings them back.
  */
 class PromoteStudents
 {
@@ -48,16 +50,23 @@ class PromoteStudents
     /**
      * What will happen to each class of the source year.
      *
-     * @return list<array{id: int, name: string, grade: int, target: ?string, students: list<array{id: int, name: string, nis: string}>}>
+     * @return list<array{id: int, name: string, grade: int, target: ?string, hasRoom: bool, students: list<array{id: int, name: string, nis: string, studyIn: ?string}>}>
      */
     public function preview(AcademicYear $source): array
     {
-        return $this->sourceClassrooms($source)->map(fn (Classroom $classroom): array => [
+        $sourceClassrooms = $this->sourceClassrooms($source);
+        $sourceById = $sourceClassrooms->keyBy('id');
+
+        return $sourceClassrooms->map(fn (Classroom $classroom): array => [
             'id' => $classroom->id,
             'name' => $classroom->name,
             'grade' => $classroom->grade,
             'target' => $classroom->grade >= self::FINAL_GRADE ? null : Classroom::nameFor($classroom->grade + 1, $this->section($classroom)),
-            'students' => $classroom->students->map(fn (Student $student): array => $student->only('id', 'name', 'nis'))->values()->all(),
+            'hasRoom' => $classroom->has_room,
+            'students' => $classroom->students->map(fn (Student $student): array => [
+                ...$student->only('id', 'name', 'nis'),
+                'studyIn' => $this->promotedStudyRoomName($classroom, $student, $sourceById),
+            ])->values()->all(),
         ])->values()->all();
     }
 
@@ -75,6 +84,7 @@ class PromoteStudents
 
         DB::transaction(function () use ($source, $target, $repeaters, $leavers, &$result, &$filesToDelete): void {
             $sourceClassrooms = $this->sourceClassrooms($source);
+            $sourceById = $sourceClassrooms->keyBy('id');
             $targetClassrooms = $this->createTargetClassrooms($target, $sourceClassrooms);
             $result['classrooms'] = $targetClassrooms->count();
 
@@ -87,12 +97,17 @@ class PromoteStudents
                     if (isset($leavers[$student->id])) {
                         $leaverIds[] = $student->id;
                     } elseif (isset($repeaters[$student->id])) {
-                        $placements[$student->id] = $targetClassrooms[$classroom->name]->id;
+                        $placements[$student->id] = ['classroom_id' => $targetClassrooms[$classroom->name]->id, 'study_classroom_id' => null];
                         $result['repeated']++;
                     } elseif ($classroom->grade >= self::FINAL_GRADE) {
                         $graduateIds[] = $student->id;
                     } else {
-                        $placements[$student->id] = $targetClassrooms[Classroom::nameFor($classroom->grade + 1, $this->section($classroom))]->id;
+                        $targetClassroom = $targetClassrooms[Classroom::nameFor($classroom->grade + 1, $this->section($classroom))];
+                        $studyRoom = $targetClassrooms->get((string) $this->promotedStudyRoomName($classroom, $student, $sourceById));
+                        $placements[$student->id] = [
+                            'classroom_id' => $targetClassroom->id,
+                            'study_classroom_id' => ! $targetClassroom->has_room && $studyRoom?->has_room ? $studyRoom->id : null,
+                        ];
                         $result['promoted']++;
                     }
                 }
@@ -130,8 +145,26 @@ class PromoteStudents
     }
 
     /**
+     * Where a lodged student of a class without a room studies after moving
+     * up: the host class one grade higher in the host's section, or null.
+     *
+     * @param  Collection<int, Classroom>  $sourceById
+     */
+    private function promotedStudyRoomName(Classroom $classroom, Student $student, Collection $sourceById): ?string
+    {
+        $host = $sourceById->get($student->pivot->study_classroom_id);
+
+        if ($classroom->has_room || $classroom->grade >= self::FINAL_GRADE || ! $host) {
+            return null;
+        }
+
+        return Classroom::nameFor($host->grade + 1, $this->section($host));
+    }
+
+    /**
      * Every class name of the source year plus the names promoted students
-     * need, each with no wali kelas.
+     * need, each with no wali kelas. A class promoted from one without a room
+     * has no room either; every other class has one.
      *
      * @param  Collection<int, Classroom>  $sourceClassrooms
      * @return Collection<string, Classroom> keyed by class name
@@ -139,22 +172,32 @@ class PromoteStudents
     private function createTargetClassrooms(AcademicYear $target, Collection $sourceClassrooms): Collection
     {
         $names = [];
+        $roomless = [];
 
         foreach ($sourceClassrooms as $classroom) {
             $names[$classroom->name] = $classroom->grade;
 
             if ($classroom->grade < self::FINAL_GRADE) {
-                $names[Classroom::nameFor($classroom->grade + 1, $this->section($classroom))] = $classroom->grade + 1;
+                $promotedName = Classroom::nameFor($classroom->grade + 1, $this->section($classroom));
+                $names[$promotedName] = $classroom->grade + 1;
+
+                if (! $classroom->has_room) {
+                    $roomless[$promotedName] = true;
+                }
             }
         }
 
         return collect($names)
-            ->map(fn (int $grade, string $name): Classroom => $target->classrooms()->create(['grade' => $grade, 'name' => $name]))
+            ->map(fn (int $grade, string $name): Classroom => $target->classrooms()->create([
+                'grade' => $grade,
+                'name' => $name,
+                'has_room' => ! isset($roomless[$name]),
+            ]))
             ->sortKeys();
     }
 
     /**
-     * @param  array<int, int>  $placements  student id => classroom id
+     * @param  array<int, array{classroom_id: int, study_classroom_id: ?int}>  $placements  keyed by student id
      */
     private function place(AcademicYear $target, array $placements): void
     {
@@ -162,9 +205,10 @@ class PromoteStudents
 
         foreach (array_chunk($placements, 500, true) as $chunk) {
             DB::table('classroom_student')->insert(array_map(
-                fn (int $studentId, int $classroomId): array => [
+                fn (int $studentId, array $placement): array => [
                     'academic_year_id' => $target->id,
-                    'classroom_id' => $classroomId,
+                    'classroom_id' => $placement['classroom_id'],
+                    'study_classroom_id' => $placement['study_classroom_id'],
                     'student_id' => $studentId,
                     'created_at' => $now,
                     'updated_at' => $now,

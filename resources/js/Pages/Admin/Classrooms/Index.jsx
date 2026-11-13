@@ -13,6 +13,7 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
 
     const form = useForm({ grade: 7, section: '', homeroom_teacher_id: '', has_room: true });
     const [lodging, setLodging] = useState(null);
+    const [returning, setReturning] = useState(null);
     const batchForm = useForm({ grades: [7, 8, 9], count: 11 });
 
     if (!academicYear) {
@@ -143,6 +144,9 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
                                                             <button type="button" className="btn btn-ghost" onClick={() => setLodging(classroom)}>
                                                                 Titipkan siswa
                                                             </button>
+                                                            <button type="button" className="btn btn-ghost" onClick={() => setReturning(classroom)}>
+                                                                Kembalikan ke kelas asal
+                                                            </button>
                                                             <span className="cell-sub">
                                                                 {classroom.lodged}/{classroom.studentsCount} siswa sudah dititipkan
                                                             </span>
@@ -256,6 +260,16 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
                 onClose={() => setLodging(null)}
             >
                 Siswa aktif {lodging?.name} dibagi rata ke kelas setingkat yang punya ruang, mulai dari kelas yang paling sedikit siswanya. Mereka belajar di kelas itu, tetapi absensi, rekap, dan rapornya tetap milik {lodging?.name} dan dipantau wali kelasnya. Pembagian bisa diubah per siswa di menu Siswa (kolom Belajar di).
+            </ConfirmDialog>
+
+            <ConfirmDialog
+                open={returning !== null}
+                title={`Kembalikan siswa ${returning?.name} ke kelasnya?`}
+                confirmLabel="Kembalikan"
+                onConfirm={() => router.delete(`/kelas/${returning.id}/titipkan`, { preserveScroll: true, onFinish: () => setReturning(null) })}
+                onClose={() => setReturning(null)}
+            >
+                {returning?.name} ditandai punya ruang sendiri dan {returning?.lodged} siswa titipannya kembali belajar di {returning?.name}. Titipan yang ikut terbawa saat kenaikan kelas juga berakhir di sini.
             </ConfirmDialog>
 
             <ConfirmDialog open={deleting !== null} title={`Hapus kelas ${deleting?.name}?`} confirmLabel="Hapus" onConfirm={destroy} onClose={() => setDeleting(null)}>

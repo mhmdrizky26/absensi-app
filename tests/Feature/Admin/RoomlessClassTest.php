@@ -114,6 +114,24 @@ class RoomlessClassTest extends TestCase
         );
     }
 
+    public function test_admin_brings_lodged_students_back_to_their_own_class(): void
+    {
+        $guests = collect(['Ayu', 'Budi'])->map(fn (string $name): Student => $this->studentIn($this->roomless, $name));
+        DB::table('classroom_student')->whereIn('student_id', $guests->pluck('id'))->update(['study_classroom_id' => $this->host->id]);
+        $hostStudent = $this->studentIn($this->host, 'Citra');
+
+        $this->actingAs(User::factory()->guruPiket()->create())->delete("/kelas/{$this->roomless->id}/titipkan")->assertForbidden();
+
+        $this->actingAs($this->admin)->delete("/kelas/{$this->roomless->id}/titipkan")
+            ->assertSessionHas('success', 'Kelas VIII-K kini punya ruang sendiri. 2 siswa titipan kembali belajar di VIII-K.');
+
+        $this->assertTrue($this->roomless->fresh()->has_room);
+        $guests->each(fn (Student $guest) => $this->assertNull($this->studyRoomOf($guest)));
+        $this->assertNull($this->studyRoomOf($hostStudent));
+
+        $this->actingAs($this->admin)->delete("/kelas/{$this->roomless->id}/titipkan")->assertSessionHas('error');
+    }
+
     public function test_a_class_that_gets_its_room_back_takes_its_students_back(): void
     {
         $guest = $this->studentIn($this->roomless, 'Citra');
