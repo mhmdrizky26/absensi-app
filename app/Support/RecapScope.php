@@ -26,7 +26,7 @@ class RecapScope
             return collect();
         }
 
-        if ($user->hasRole(Role::WaliKelas)) {
+        if ($user->hasRole(Role::Guru)) {
             return new EloquentCollection(array_filter([$user->currentHomeroom()]));
         }
 

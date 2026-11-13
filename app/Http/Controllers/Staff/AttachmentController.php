@@ -13,7 +13,8 @@ class AttachmentController extends Controller
 {
     /**
      * Show the parent's letter attached to a Sakit/Izin mark. Letters are
-     * kept on the private disk; a wali kelas sees only their own class's.
+     * kept on the private disk; a wali kelas sees only their own class's,
+     * except on their duty day.
      */
     public function show(Request $request, Attendance $attendance): StreamedResponse
     {
@@ -21,7 +22,7 @@ class AttachmentController extends Controller
 
         abort_if($attendance->attachment_path === null, 404);
         abort_if(
-            $user->hasRole(Role::WaliKelas) && $user->currentHomeroom()?->id !== $attendance->classroom_id,
+            $user->hasRole(Role::Guru) && ! $user->isOnDuty() && $user->currentHomeroom()?->id !== $attendance->classroom_id,
             403,
         );
 

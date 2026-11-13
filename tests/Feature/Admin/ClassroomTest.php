@@ -26,7 +26,7 @@ class ClassroomTest extends TestCase
         $this->academicYear = AcademicYear::factory()->active()->create();
     }
 
-    public function test_guru_piket_cannot_see_classrooms_or_their_codes(): void
+    public function test_guru_piket_cannot_see_classrooms(): void
     {
         $this->actingAs(User::factory()->guruPiket()->create())->get('/kelas')->assertForbidden();
     }
@@ -42,7 +42,6 @@ class ClassroomTest extends TestCase
         $classroom = Classroom::firstWhere('name', 'VIII-C');
         $this->assertTrue($classroom->academicYear->is($this->academicYear));
         $this->assertTrue($classroom->homeroomTeacher->is($teacher));
-        $this->assertSame('8C', $classroom->view_code);
     }
 
     public function test_classroom_name_must_be_unique_within_the_year(): void
@@ -64,13 +63,19 @@ class ClassroomTest extends TestCase
             ->assertSessionHasErrors('homeroom_teacher_id');
     }
 
-    public function test_only_wali_kelas_accounts_can_be_homeroom_teachers(): void
+    public function test_only_active_guru_accounts_can_be_homeroom_teachers(): void
     {
+        foreach ([User::factory()->guruBk()->create(), User::factory()->admin()->create(), User::factory()->guru()->inactive()->create()] as $notAllowed) {
+            $this->actingAs($this->admin)
+                ->post('/kelas', ['grade' => 9, 'section' => 'B', 'homeroom_teacher_id' => $notAllowed->id])
+                ->assertSessionHasErrors('homeroom_teacher_id');
+        }
+
         $piket = User::factory()->guruPiket()->create();
 
         $this->actingAs($this->admin)
             ->post('/kelas', ['grade' => 9, 'section' => 'B', 'homeroom_teacher_id' => $piket->id])
-            ->assertSessionHasErrors('homeroom_teacher_id');
+            ->assertSessionHasNoErrors();
     }
 
     public function test_batch_creates_missing_sections_and_skips_existing_ones(): void
@@ -82,30 +87,6 @@ class ClassroomTest extends TestCase
             ->assertSessionHas('success', '32 kelas baru dibuat.');
 
         $this->assertSame(33, $this->academicYear->classrooms()->count());
-        $this->assertSame('9K', Classroom::query()->where('name', 'IX-K')->value('view_code'));
-    }
-
-    public function test_admin_sets_a_custom_class_code_and_an_empty_one_goes_back_to_standard(): void
-    {
-        $this->actingAs($this->admin)->post('/kelas', ['grade' => 7, 'section' => 'A', 'view_code' => ' 7A Pagi '])->assertSessionHasNoErrors();
-        $classroom = Classroom::firstWhere('name', 'VII-A');
-        $this->assertSame('7APAGI', $classroom->view_code);
-
-        $this->actingAs($this->admin)->post('/kelas', ['grade' => 7, 'section' => 'B', 'view_code' => '7APAGI'])->assertSessionHasErrors('view_code');
-
-        $this->actingAs($this->admin)->put("/kelas/{$classroom->id}", ['grade' => 7, 'section' => 'A', 'view_code' => ''])->assertSessionHasNoErrors();
-        $this->assertSame('7A', $classroom->fresh()->view_code);
-
-        $this->actingAs($this->admin)->get('/kelas')->assertInertia(fn (Assert $page) => $page->where('classrooms.0.viewCode', '7A'));
-    }
-
-    public function test_the_same_class_code_comes_back_in_the_next_year(): void
-    {
-        $thisYear = Classroom::factory()->for($this->academicYear)->create(['grade' => 7, 'name' => 'VII-A']);
-        $nextYear = Classroom::factory()->for(AcademicYear::factory())->create(['grade' => 7, 'name' => 'VII-A']);
-
-        $this->assertSame('7A', $thisYear->view_code);
-        $this->assertSame('7A', $nextYear->view_code);
     }
 
     public function test_classroom_with_students_cannot_be_deleted(): void

@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use App\Enums\Role;
+use Carbon\CarbonInterface;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -42,7 +44,68 @@ class User extends Authenticatable
     }
 
     /**
-     * The classroom this wali kelas leads in the active academic year.
+     * Whether this guru leads a class in the active academic year.
+     */
+    public function isHomeroomTeacher(): bool
+    {
+        return $this->hasRole(Role::Guru) && $this->currentHomeroom() !== null;
+    }
+
+    /**
+     * Whether this guru is guru piket on the given day (today by default):
+     * scheduled for its weekday and not replaced, or substituting for
+     * someone that day.
+     */
+    public function isOnDuty(?CarbonInterface $date = null): bool
+    {
+        if (! $this->hasRole(Role::Guru)) {
+            return false;
+        }
+
+        $date ??= today();
+
+        $substitutions = DutySubstitution::query()
+            ->whereDate('date', $date)
+            ->where(fn (Builder $query) => $query->where('absent_user_id', $this->id)->orWhere('substitute_user_id', $this->id))
+            ->get(['absent_user_id', 'substitute_user_id']);
+
+        if ($substitutions->contains('substitute_user_id', $this->id)) {
+            return true;
+        }
+
+        if ($substitutions->contains('absent_user_id', $this->id)) {
+            return false;
+        }
+
+        return $this->dutySchedules()->where('weekday', $date->dayOfWeekIso)->exists();
+    }
+
+    /**
+     * Whether this guru is guru piket on at least one weekday.
+     */
+    public function hasDutySchedule(): bool
+    {
+        return $this->hasRole(Role::Guru) && $this->dutySchedules()->exists();
+    }
+
+    /**
+     * Admins, and guru piket on their duty day, do the duty teacher's work.
+     */
+    public function canDoDuty(): bool
+    {
+        return $this->hasRole(Role::Admin) || $this->isOnDuty();
+    }
+
+    /**
+     * @return HasMany<DutySchedule, $this>
+     */
+    public function dutySchedules(): HasMany
+    {
+        return $this->hasMany(DutySchedule::class);
+    }
+
+    /**
+     * The classroom this guru leads as wali kelas in the active academic year.
      */
     public function currentHomeroom(): ?Classroom
     {

@@ -111,6 +111,7 @@ class ExcuseTest extends TestCase
         $ownWali = User::factory()->waliKelas()->create();
         $this->classroom->update(['homeroom_teacher_id' => $ownWali->id]);
         $otherWali = User::factory()->waliKelas()->create();
+        Classroom::factory()->for($this->academicYear)->create(['homeroom_teacher_id' => $otherWali->id]);
 
         $this->actingAs($otherWali)->post('/izin', $this->payload())->assertSessionHasErrors('student_id');
         $this->actingAs($ownWali)->post('/izin', $this->payload())->assertSessionHasNoErrors();

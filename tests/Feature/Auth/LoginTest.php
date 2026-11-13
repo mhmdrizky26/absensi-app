@@ -92,8 +92,10 @@ class LoginTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Dashboard')
                 ->where('auth.user.name', 'Siti Rahmawati')
-                ->where('auth.user.role', 'wali_kelas')
-                ->where('auth.user.roleLabel', 'Wali Kelas')
+                ->where('auth.user.role', 'guru')
+                ->where('auth.user.roleLabel', 'Guru')
+                ->where('auth.user.homeroom', null)
+                ->where('auth.user.isOnDuty', false)
                 ->missing('auth.user.password')
             );
     }

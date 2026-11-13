@@ -166,7 +166,9 @@ class DutyTest extends TestCase
         $this->travelTo(now()->setDate(2026, 9, 27)->setTime(6, 0)); // Minggu, sebelum jam masuk
         $this->studentInClass();
 
-        $this->actingAs($this->piket)->post('/pantauan/selesaikan')->assertSessionHas('success');
+        // Hari Minggu tidak ada jadwal piket; admin tetap bisa menjalankan tugas piket.
+        $this->actingAs($this->piket)->post('/pantauan/selesaikan')->assertForbidden();
+        $this->actingAs(User::factory()->admin()->create())->post('/pantauan/selesaikan')->assertSessionHas('success');
 
         $this->assertSame(1, AttendanceDay::forDate(now())->absent_count);
     }

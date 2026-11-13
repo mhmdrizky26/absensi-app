@@ -2,45 +2,9 @@ import { Link, usePage } from '@inertiajs/react';
 import { LogOut, Menu, UserRound, X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import ProfileModal from '@/Components/ProfileModal';
+import { dutyLabel, navLinksFor } from '@/lib/duties';
 import { labelStackedTables } from '@/lib/stackTables';
 import { useLiveUpdates } from '@/lib/useLiveUpdates';
-
-/**
- * Menu navigasi per peran.
- */
-const NAV_LINKS = {
-    admin: [
-        { href: '/dasbor', label: 'Dasbor' },
-        { href: '/pantauan', label: 'Pantauan' },
-        { href: '/kelas', label: 'Kelas' },
-        { href: '/siswa', label: 'Siswa' },
-        { href: '/kartu', label: 'Kartu QR' },
-        { href: '/tab-gerbang', label: 'Tab gerbang' },
-        { href: '/izin', label: 'Izin & sakit' },
-        { href: '/dispensasi', label: 'Dispensasi', badge: 'pendingDispensations' },
-        { href: '/rekap', label: 'Rekap' },
-        { href: '/siswa-berisiko', label: 'Siswa berisiko' },
-        { href: '/pengguna', label: 'Pengguna' },
-        { href: '/tahun-ajaran', label: 'Tahun ajaran' },
-        { href: '/pengaturan', label: 'Pengaturan' },
-    ],
-    guru_piket: [
-        { href: '/pantauan', label: 'Pantauan' },
-        { href: '/terlambat', label: 'Absen piket' },
-        { href: '/dispensasi', label: 'Dispensasi', badge: 'pendingDispensations' },
-    ],
-    guru_bk: [
-        { href: '/dasbor', label: 'Dasbor' },
-        { href: '/siswa-berisiko', label: 'Siswa berisiko' },
-    ],
-    wali_kelas: [
-        { href: '/dasbor', label: 'Dasbor' },
-        { href: '/rekap', label: 'Rekap kelas' },
-        { href: '/siswa-berisiko', label: 'Siswa berisiko' },
-        { href: '/izin', label: 'Izin & sakit' },
-        { href: '/dispensasi', label: 'Dispensasi', badge: 'pendingDispensations' },
-    ],
-};
 
 function initials(name) {
     return name
@@ -68,7 +32,8 @@ export default function AppLayout({ children }) {
     const { props, url } = usePage();
     const { auth, flash } = props;
     const user = auth.user;
-    const links = NAV_LINKS[user.role] ?? [];
+    const links = navLinksFor(user);
+    const userLabel = dutyLabel(user);
     const counts = props.navCounts ?? {};
 
     const navRef = useRef(null);
@@ -167,21 +132,21 @@ export default function AppLayout({ children }) {
 
                 <div ref={sideRef} className="nav-side">
                     {hasProfile ? (
-                        <button type="button" className="nav-user" title={`${user.name} · ${user.roleLabel} — ganti username atau password`} onClick={() => setProfileOpen(true)}>
+                        <button type="button" className="nav-user" title={`${user.name} · ${userLabel} — ganti username atau password`} onClick={() => setProfileOpen(true)}>
                             <span className="avatar" aria-hidden="true">
                                 {initials(user.name)}
                             </span>
                             <span className="nav-user-name">
-                                {user.name} <span className="text-muted">· {user.roleLabel}</span>
+                                {user.name} <span className="text-muted">· {userLabel}</span>
                             </span>
                         </button>
                     ) : (
-                        <span className="nav-user" title={`${user.name} · ${user.roleLabel}`}>
+                        <span className="nav-user" title={`${user.name} · ${userLabel}`}>
                             <span className="avatar" aria-hidden="true">
                                 {initials(user.name)}
                             </span>
                             <span className="nav-user-name">
-                                {user.name} <span className="text-muted">· {user.roleLabel}</span>
+                                {user.name} <span className="text-muted">· {userLabel}</span>
                             </span>
                         </span>
                     )}
@@ -203,7 +168,7 @@ export default function AppLayout({ children }) {
                     <div id="nav-drawer" className="nav-drawer">
                         <div className="nav-drawer-user">
                             <b>{user.name}</b>
-                            <span className="text-muted">{user.roleLabel}</span>
+                            <span className="text-muted">{userLabel}</span>
                         </div>
                         <div className="nav-drawer-links">
                             <NavLinks links={links} url={url} counts={counts} className="nav-drawer-link" onNavigate={() => setMenuOpen(false)} />

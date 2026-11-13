@@ -36,7 +36,7 @@ class MonthlyRecapController extends Controller
             'month' => $month->format('Y-m'),
             'today' => today()->toDateString(),
             'grid' => $classroom ? $report->monthGrid($classroom, $month) : null,
-            'parentContacts' => $classroom && $user->hasRole(Role::WaliKelas) ? $this->parentContacts($classroom) : null,
+            'parentContacts' => $classroom && $user->hasRole(Role::Guru) ? $this->parentContacts($classroom) : null,
             'relations' => collect(GuardianContact::RELATIONS)->map(fn (string $label, string $value): array => ['value' => $value, 'label' => $label])->values(),
         ]);
     }

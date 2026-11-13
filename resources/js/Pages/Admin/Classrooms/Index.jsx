@@ -1,19 +1,17 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Eye, EyeOff, Layers, Plus } from 'lucide-react';
+import { Layers, Plus } from 'lucide-react';
 import { useState } from 'react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Field from '@/Components/Field';
 import Modal from '@/Components/Modal';
-import SecretInput from '@/Components/SecretInput';
 import AppLayout from '@/Layouts/AppLayout';
 
 export default function ClassroomsIndex({ academicYear, classrooms, teachers, grades }) {
     const [editing, setEditing] = useState(null);
     const [batchOpen, setBatchOpen] = useState(false);
     const [deleting, setDeleting] = useState(null);
-    const [showCodes, setShowCodes] = useState(false);
 
-    const form = useForm({ grade: 7, section: '', view_code: '', homeroom_teacher_id: '', has_room: true });
+    const form = useForm({ grade: 7, section: '', homeroom_teacher_id: '', has_room: true });
     const [lodging, setLodging] = useState(null);
     const batchForm = useForm({ grades: [7, 8, 9], count: 11 });
 
@@ -37,13 +35,13 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
 
     function openCreate() {
         form.clearErrors();
-        form.setData({ grade: 7, section: '', view_code: '', homeroom_teacher_id: '', has_room: true });
+        form.setData({ grade: 7, section: '', homeroom_teacher_id: '', has_room: true });
         setEditing('new');
     }
 
     function openEdit(classroom) {
         form.clearErrors();
-        form.setData({ grade: classroom.grade, section: classroom.section, view_code: classroom.viewCode ?? '', homeroom_teacher_id: classroom.homeroomTeacher?.id ?? '', has_room: classroom.hasRoom });
+        form.setData({ grade: classroom.grade, section: classroom.section, homeroom_teacher_id: classroom.homeroomTeacher?.id ?? '', has_room: classroom.hasRoom });
         setEditing(classroom);
     }
 
@@ -85,10 +83,6 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
                     <h1>Kelas</h1>
                 </div>
                 <div className="page-actions">
-                    <button type="button" className="btn btn-secondary" onClick={() => setShowCodes((shown) => !shown)}>
-                        {showCodes ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
-                        {showCodes ? 'Sembunyikan kode' : 'Tampilkan kode'}
-                    </button>
                     <button type="button" className="btn btn-secondary" onClick={() => { batchForm.clearErrors(); setBatchOpen(true); }}>
                         <Layers size={16} aria-hidden="true" /> Buat kelas massal
                     </button>
@@ -99,7 +93,7 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
             </div>
 
             <p className="text-muted" style={{ maxWidth: 680 }}>
-                {classrooms.length} kelas · {totalStudents.toLocaleString('id-ID')} siswa. Siswa absen di tab gerbang; kelas menentukan rekap dan wali kelasnya. Guru mapel melihat siapa yang hadir hari ini dengan kode kelas. Kelas tanpa ruang sendiri bisa dititipkan ke kelas lain.
+                {classrooms.length} kelas · {totalStudents.toLocaleString('id-ID')} siswa. Siswa absen di tab gerbang; kelas menentukan rekap dan wali kelasnya. Semua guru melihat siapa yang hadir hari ini lewat menu Absen kelas di akunnya. Kelas tanpa ruang sendiri bisa dititipkan ke kelas lain.
             </p>
 
             {classrooms.length === 0 ? (
@@ -127,7 +121,6 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
                                             <th style={{ width: 110 }}>Kelas</th>
                                             <th>Wali kelas</th>
                                             <th className="num" style={{ width: 90 }}>Siswa</th>
-                                            <th style={{ width: 110 }}>Kode kelas</th>
                                             <th style={{ width: 220 }}>Ruang</th>
                                             <th />
                                         </tr>
@@ -140,9 +133,6 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
                                                 <td className="num">
                                                     <Link href={`/siswa?classroom=${classroom.id}`}>{classroom.studentsCount}</Link>
                                                     {classroom.guests > 0 && <span className="cell-sub">+{classroom.guests} titipan</span>}
-                                                </td>
-                                                <td>
-                                                    <span className="mono">{showCodes ? classroom.viewCode : '••••'}</span>
                                                 </td>
                                                 <td>
                                                     {classroom.hasRoom ? (
@@ -207,14 +197,6 @@ export default function ClassroomsIndex({ academicYear, classrooms, teachers, gr
                                 );
                             })}
                         </select>
-                    </Field>
-                    <Field
-                        label="Kode kelas"
-                        htmlFor="view_code"
-                        error={form.errors.view_code}
-                        hint={`Dipakai guru mapel untuk melihat kehadiran kelas hari ini. Kosongkan untuk kode standar${form.data.section ? ` (${form.data.grade}${form.data.section.toUpperCase()})` : ', misalnya 7A'}.`}
-                    >
-                        <SecretInput id="view_code" label="kode kelas" className="input mono" maxLength={20} value={form.data.view_code} autoCapitalize="characters" onChange={(event) => form.setData('view_code', event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} />
                     </Field>
                     <label className="wa-toggle" htmlFor="has_room" style={{ marginBottom: 16 }}>
                         <input id="has_room" type="checkbox" checked={form.data.has_room} onChange={(event) => form.setData('has_room', event.target.checked)} />

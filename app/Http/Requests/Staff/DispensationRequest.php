@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Staff;
 
-use App\Enums\Role;
 use App\Models\AcademicYear;
 use App\Models\Classroom;
 use App\Models\Student;
@@ -58,8 +57,8 @@ class DispensationRequest extends FormRequest
 
                 $user = $this->user();
 
-                if ($user->hasRole(Role::WaliKelas) && $classroom->homeroom_teacher_id !== $user->id) {
-                    $validator->errors()->add('student_id', 'Wali kelas hanya bisa mengajukan dispensasi untuk siswa kelasnya sendiri.');
+                if (! $user->canDoDuty() && $classroom->homeroom_teacher_id !== $user->id) {
+                    $validator->errors()->add('student_id', 'Di luar hari piket Anda, dispensasi hanya bisa diajukan untuk siswa kelas Anda sendiri.');
                 }
             },
         ];

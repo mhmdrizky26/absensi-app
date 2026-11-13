@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\AttendanceDay;
 use App\Models\Holiday;
+use App\Models\OnlineDay;
 use App\Models\Setting;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -110,6 +111,15 @@ class AttendanceWindow
     }
 
     /**
+     * A sekolah daring day: still a school day, but the gate stays shut and
+     * students are recorded Hadir automatically.
+     */
+    public function onlineDayOn(CarbonInterface $date): ?OnlineDay
+    {
+        return OnlineDay::forDate($date);
+    }
+
+    /**
      * A school day is a configured weekday that is not a holiday.
      */
     public function isSchoolDay(CarbonInterface $date): bool
@@ -169,10 +179,15 @@ class AttendanceWindow
      * Why a gate tablet cannot be used at the given moment, or null when it
      * can. Before the gate opens a tablet may log in and wait; after jam
      * masuk, on days without school and once the day is finished it is
-     * logged out and cannot log in. In demo mode only a finished day closes it.
+     * logged out and cannot log in. In demo mode only a finished day or a
+     * sekolah daring day closes it.
      */
     public function gateClosedReason(CarbonInterface $moment): ?string
     {
+        if ($onlineDay = $this->onlineDayOn($moment)) {
+            return "Hari ini sekolah daring ({$onlineDay->description}), semua siswa otomatis Hadir, jadi tab gerbang tidak dibuka.";
+        }
+
         if (AttendanceDay::forDate($moment)) {
             return 'Absen hari ini sudah diselesaikan guru piket, jadi tab gerbang ditutup sampai besok.';
         }
@@ -203,6 +218,7 @@ class AttendanceWindow
     {
         return $this->isEnforced()
             && ! AttendanceDay::forDate($moment)
+            && ! $this->onlineDayOn($moment)
             && $this->isSchoolDay($moment)
             && $moment->lessThan($this->closesAt($moment)->addMinutes(self::QUEUE_GRACE_MINUTES));
     }

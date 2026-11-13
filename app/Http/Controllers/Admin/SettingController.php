@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\GeneralSettingRequest;
 use App\Http\Requests\Admin\RiskSettingRequest;
 use App\Http\Requests\Admin\SettingRequest;
 use App\Models\Holiday;
+use App\Models\OnlineDay;
 use App\Models\Setting;
 use App\Support\AttendanceWindow;
 use App\Support\RiskSettings;
@@ -37,6 +38,15 @@ class SettingController extends Controller
                     'id' => $holiday->id,
                     'date' => $holiday->date->toDateString(),
                     'description' => $holiday->description,
+                ]),
+            'onlineDays' => OnlineDay::query()
+                ->whereDate('date', '>=', today()->subMonths(2))
+                ->orderBy('date')
+                ->get()
+                ->map(fn (OnlineDay $onlineDay): array => [
+                    'id' => $onlineDay->id,
+                    'date' => $onlineDay->date->toDateString(),
+                    'description' => $onlineDay->description,
                 ]),
         ]);
     }

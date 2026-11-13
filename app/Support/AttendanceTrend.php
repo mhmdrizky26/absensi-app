@@ -33,7 +33,7 @@ class AttendanceTrend
     {
         $academicYear = AcademicYear::active();
         $classrooms = $this->scope->classroomsFor($user);
-        $isHomeroomTeacher = $user->hasRole(Role::WaliKelas);
+        $isHomeroomTeacher = $user->hasRole(Role::Guru);
         $selectedId = $isHomeroomTeacher ? null : $classroomId;
         $target = $selectedId ? new EloquentCollection([$this->scope->classroomFor($user, $selectedId)]) : $classrooms;
 

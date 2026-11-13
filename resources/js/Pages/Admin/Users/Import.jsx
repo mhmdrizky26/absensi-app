@@ -33,8 +33,8 @@ export default function UsersImport({ academicYear, classroomNames }) {
                         <div>
                             <h5>Unduh template</h5>
                             <p className="text-muted" style={{ fontSize: 14 }}>
-                                Kolom: <b>Nama</b> (wajib), <b>Peran</b> (wali kelas, guru piket, atau guru bk; kosong dianggap wali kelas), <b>Wali Kelas</b> (kelas yang dipegang, boleh kosong), serta{' '}
-                                <b>Username</b> dan <b>Password</b> yang boleh dikosongkan. Guru mapel tidak perlu akun; mereka memakai kode kelas.
+                                Kolom: <b>Nama</b> (wajib), <b>Peran</b> (guru atau guru bk; kosong dianggap guru), <b>Wali Kelas</b> (kelas yang dipegang, boleh kosong), <b>Username</b> dan <b>Password</b> yang boleh dikosongkan, serta{' '}
+                                <b>Hari Piket</b> (misalnya Senin, Rabu; boleh kosong). Semua guru, termasuk guru mapel, perlu akun untuk melihat absen kelas hari ini.
                             </p>
                             <a href="/pengguna/import/template" className="btn btn-secondary">
                                 <Download size={16} aria-hidden="true" /> Template Excel
@@ -45,7 +45,7 @@ export default function UsersImport({ academicYear, classroomNames }) {
                         <div>
                             <h5>Isi data guru</h5>
                             <p className="text-muted" style={{ fontSize: 14, marginBottom: 0 }}>
-                                Username kosong dibuat dari nama tanpa gelar (Budi Santoso, S.Pd. → budi.santoso). Password kosong dibuat acak 8 karakter. Guru yang sudah punya akun (username atau namanya sama)
+                                Username kosong dibuat dari nama tanpa gelar (Budi Santoso, S.Pd. → budi.santoso). Password kosong diisi <b>12345</b>; guru bisa menggantinya sendiri lewat menu profil. Guru yang sudah punya akun (username atau namanya sama)
                                 diperbarui datanya; passwordnya hanya diganti kalau kolom Password diisi.
                             </p>
                             {academicYear && classroomNames.length > 0 && (
@@ -99,16 +99,16 @@ export default function UsersImport({ academicYear, classroomNames }) {
                         <table className="table">
                             <thead>
                                 <tr>
-                                    {['Nama', 'Peran', 'Wali Kelas', 'Username', 'Password'].map((heading) => (
+                                    {['Nama', 'Peran', 'Wali Kelas', 'Username', 'Password', 'Hari Piket'].map((heading) => (
                                         <th key={heading}>{heading}</th>
                                     ))}
                                 </tr>
                             </thead>
                             <tbody>
                                 {[
-                                    ['Budi Santoso, S.Pd.', 'wali kelas', 'VII-A', '', ''],
-                                    ['Dewi Lestari, S.Pd.', 'guru piket', '', '', ''],
-                                    ['Sri Wahyuni, S.Psi.', 'guru bk', '', 'bu.sri', 'rahasia123'],
+                                    ['Budi Santoso, S.Pd.', 'guru', 'VII-A', '', '', 'Rabu'],
+                                    ['Dewi Lestari, S.Pd.', 'guru', '', '', '', 'Senin, Kamis'],
+                                    ['Sri Wahyuni, S.Psi.', 'guru bk', '', 'bu.sri', 'rahasia123', ''],
                                 ].map((row) => (
                                     <tr key={row[0]}>
                                         {row.map((cell, index) => (
@@ -120,7 +120,7 @@ export default function UsersImport({ academicYear, classroomNames }) {
                         </table>
                     </div>
                     <p className="text-muted" style={{ fontSize: 13, marginTop: 8 }}>
-                        Dua baris pertama username dan password-nya dibuat otomatis; baris ketiga memakai isian sendiri.
+                        Dua baris pertama username dibuat otomatis dan password-nya 12345; baris ketiga memakai isian sendiri. Budi wali kelas VII-A sekaligus piket hari Rabu. Hari Piket yang dikosongkan tidak mengubah jadwal yang sudah ada.
                     </p>
                 </aside>
             </div>

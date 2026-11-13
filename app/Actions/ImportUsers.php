@@ -5,19 +5,21 @@ namespace App\Actions;
 use App\Enums\Role;
 use App\Models\AcademicYear;
 use App\Models\Classroom;
+use App\Models\DutySchedule;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Validates spreadsheet rows of teacher accounts (wali kelas, guru piket,
- * guru BK) and saves them all at once; nothing is saved when any row is
- * invalid. An empty username is made from the name and an empty password is
- * generated. Teachers are matched on username, or on their exact name when
- * the username is empty, so importing the same file again updates instead
+ * Validates spreadsheet rows of teacher accounts (guru, guru BK) and saves
+ * them all at once; nothing is saved when any row is invalid. A guru may lead
+ * a class (Wali Kelas column) and have duty days (Hari Piket column). An empty username is made from the name and an empty password is
+ * the default starting password (DEFAULT_PASSWORD). Teachers are matched on
+ * username, or on their exact name when the username is empty, so importing the same file again updates instead
  * of creating doubles. Existing passwords are only replaced when the file
- * has one. Only wali kelas lead a class: a teacher whose role changes loses
- * their class.
+ * has one, and duty days only when the Hari Piket cell is filled. Only a
+ * guru leads a class or has duty days: a teacher who becomes guru BK loses
+ * both.
  */
 class ImportUsers
 {
@@ -30,16 +32,17 @@ class ImportUsers
         'classroom' => ['wali_kelas', 'kelas', 'wali_kelas_untuk'],
         'username' => ['username', 'usn', 'nama_pengguna'],
         'password' => ['password', 'kata_sandi', 'sandi'],
+        'duty_days' => ['hari_piket', 'piket', 'jadwal_piket'],
     ];
 
     private const MAX_ERRORS = 50;
 
     /**
-     * Readable passwords: lower-case letters and digits without look-alikes.
+     * The starting password of a new account whose Password cell is empty,
+     * kept simple so teachers can log in on day one. They change it in
+     * their profile.
      */
-    private const PASSWORD_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
-
-    private const PASSWORD_LENGTH = 8;
+    public const DEFAULT_PASSWORD = '12345';
 
     /**
      * Academic titles left out of generated usernames.
@@ -88,7 +91,15 @@ class ImportUsers
             $role = $this->parseRole($values['role']);
 
             if (! $role) {
-                $errors[] = "Peran \"{$values['role']}\" harus wali kelas, guru piket, atau guru bk";
+                $errors[] = "Peran \"{$values['role']}\" harus guru atau guru bk";
+            }
+
+            $dutyDays = $this->parseDutyDays($values['duty_days']);
+
+            if ($dutyDays === null) {
+                $errors[] = "Hari Piket \"{$values['duty_days']}\" harus nama hari Senin sampai Jumat, misalnya Senin, Rabu";
+            } elseif ($dutyDays !== [] && $role && $role !== Role::Guru) {
+                $errors[] = 'Kolom Hari Piket hanya untuk peran guru';
             }
 
             $existing = $values['username'] !== ''
@@ -115,8 +126,8 @@ class ImportUsers
                 $classroomName = ImportStudents::normalizeClassroomName($values['classroom']);
                 $classroom = $classrooms->get($classroomName);
 
-                if ($role && $role !== Role::WaliKelas) {
-                    $errors[] = 'Kolom Wali Kelas hanya untuk peran wali kelas';
+                if ($role && $role !== Role::Guru) {
+                    $errors[] = 'Kolom Wali Kelas hanya untuk peran guru';
                 } elseif (! $classroom) {
                     $errors[] = $academicYear
                         ? "Kelas \"{$values['classroom']}\" belum ada di tahun ajaran {$academicYear->name}"
@@ -154,7 +165,8 @@ class ImportUsers
                 'role' => $role,
                 'classroom' => $classroom,
                 'username' => $username,
-                'password' => $values['password'] !== '' ? $values['password'] : ($existing ? null : $this->generatePassword()),
+                'password' => $values['password'] !== '' ? $values['password'] : ($existing ? null : self::DEFAULT_PASSWORD),
+                'dutyDays' => $dutyDays ?? [],
             ];
         }
 
@@ -179,8 +191,17 @@ class ImportUsers
                 $user->save();
                 $result[$isNew ? 'created' : 'updated']++;
 
-                if ($row['role'] !== Role::WaliKelas) {
+                if ($row['role'] !== Role::Guru) {
                     $user->homeroomClassrooms()->update(['homeroom_teacher_id' => null]);
+                    $user->dutySchedules()->delete();
+                }
+
+                if ($row['dutyDays'] !== []) {
+                    $user->dutySchedules()->delete();
+
+                    foreach ($row['dutyDays'] as $weekday) {
+                        $user->dutySchedules()->create(['weekday' => $weekday]);
+                    }
                 }
 
                 if ($row['classroom']) {
@@ -225,25 +246,38 @@ class ImportUsers
         return $username;
     }
 
-    private function generatePassword(): string
-    {
-        $password = '';
-
-        for ($i = 0; $i < self::PASSWORD_LENGTH; $i++) {
-            $password .= self::PASSWORD_ALPHABET[random_int(0, strlen(self::PASSWORD_ALPHABET) - 1)];
-        }
-
-        return $password;
-    }
-
     private function parseRole(string $value): ?Role
     {
         return match (Str::lower((string) preg_replace('/[\s_.-]+/', '', $value))) {
-            '', 'walikelas', 'wali', 'walas' => Role::WaliKelas,
-            'gurupiket', 'piket' => Role::GuruPiket,
+            '', 'guru', 'gurumapel', 'mapel', 'walikelas', 'wali', 'walas', 'gurupiket', 'piket' => Role::Guru,
             'gurubk', 'bk', 'bimbingankonseling' => Role::GuruBk,
             default => null,
         };
+    }
+
+    /**
+     * "Senin, Rabu" → [1, 3]; empty → []; null when a day is not Senin–Jumat.
+     *
+     * @return list<int>|null
+     */
+    private function parseDutyDays(string $value): ?array
+    {
+        $words = preg_split('/[\s,;\/&]+/', Str::lower(str_replace("'", '', $value)), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $weekdays = array_flip(array_map(fn (string $day): string => Str::lower($day), DutySchedule::WEEKDAYS));
+        $days = [];
+
+        foreach (array_diff($words, ['dan']) as $word) {
+            if (! isset($weekdays[$word])) {
+                return null;
+            }
+
+            $days[] = $weekdays[$word];
+        }
+
+        $days = array_values(array_unique($days));
+        sort($days);
+
+        return $days;
     }
 
     /**
@@ -268,7 +302,7 @@ class ImportUsers
     /**
      * @param  array<string, mixed>  $row
      * @param  array<string, string>  $columns
-     * @return array{name: string, role: string, classroom: string, username: string, password: string}
+     * @return array{name: string, role: string, classroom: string, username: string, password: string, duty_days: string}
      */
     private function extract(array $row, array $columns): array
     {
@@ -284,6 +318,7 @@ class ImportUsers
             'classroom' => $cell('classroom'),
             'username' => Str::lower($cell('username')),
             'password' => $cell('password'),
+            'duty_days' => $cell('duty_days'),
         ];
     }
 }

@@ -8,7 +8,7 @@ import Pagination from '@/Components/Pagination';
 import AppLayout from '@/Layouts/AppLayout';
 import { formatDateTime } from '@/lib/format';
 
-const EMPTY_USER = { name: '', username: '', role: 'wali_kelas', is_active: true, password: '' };
+const EMPTY_USER = { name: '', username: '', role: 'guru', is_active: true, password: '' };
 
 export default function UsersIndex({ users, filters, roles, importedAccounts }) {
     const { auth } = usePage().props;
@@ -37,7 +37,7 @@ export default function UsersIndex({ users, filters, roles, importedAccounts }) 
 
     function openCreate() {
         form.clearErrors();
-        form.setData({ ...EMPTY_USER, role: filters.role || 'wali_kelas' });
+        form.setData({ ...EMPTY_USER, role: filters.role || 'guru' });
         setEditing('new');
     }
 
@@ -130,6 +130,7 @@ export default function UsersIndex({ users, filters, roles, importedAccounts }) 
                                 <th>Nama</th>
                                 <th style={{ width: 120 }}>Peran</th>
                                 <th style={{ width: 110 }}>Wali kelas</th>
+                                <th style={{ width: 130 }}>Hari piket</th>
                                 <th style={{ width: 100 }}>Status</th>
                                 <th style={{ width: 150 }}>Login terakhir</th>
                                 <th />
@@ -144,6 +145,7 @@ export default function UsersIndex({ users, filters, roles, importedAccounts }) 
                                     </td>
                                     <td>{user.roleLabel}</td>
                                     <td style={{ fontWeight: 800 }}>{user.homeroomClassroom ?? <span className="text-muted" style={{ fontWeight: 400 }}>—</span>}</td>
+                                    <td>{user.dutyDays.length > 0 ? user.dutyDays.join(', ') : <span className="text-muted">—</span>}</td>
                                     <td>
                                         <span className={`tag ${user.isActive ? 'tag-neutral' : 'tag-outline'}`}>{user.isActive ? 'Aktif' : 'Nonaktif'}</span>
                                     </td>
@@ -204,9 +206,17 @@ export default function UsersIndex({ users, filters, roles, importedAccounts }) 
                         </label>
                         {form.errors.is_active && <div className="field-error">{form.errors.is_active}</div>}
                     </div>
-                    {editing !== 'new' && editing?.role === 'wali_kelas' && form.data.role !== 'wali_kelas' && editing.homeroomClassroom && (
+                    {form.data.role === 'guru' && (
+                        <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
+                            Guru menjadi wali kelas lewat menu <Link href="/kelas">Kelas</Link> dan guru piket lewat menu <Link href="/jadwal-piket">Jadwal piket</Link>. Semua guru bisa melihat absen kelas hari ini.
+                        </p>
+                    )}
+                    {editing !== 'new' && editing?.role === 'guru' && form.data.role !== 'guru' && (editing.homeroomClassroom || editing.dutyDays.length > 0) && (
                         <p className="alert" style={{ margin: 0 }}>
-                            {editing.name} tidak lagi menjadi wali kelas {editing.homeroomClassroom} setelah perannya diganti.
+                            Setelah perannya diganti, {editing.name}
+                            {editing.homeroomClassroom ? ` tidak lagi menjadi wali kelas ${editing.homeroomClassroom}` : ''}
+                            {editing.homeroomClassroom && editing.dutyDays.length > 0 ? ' dan' : ''}
+                            {editing.dutyDays.length > 0 ? ` dihapus dari jadwal piket (${editing.dutyDays.join(', ')})` : ''}.
                         </p>
                     )}
                     <div className="dialog-actions">

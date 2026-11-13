@@ -94,7 +94,8 @@ function DispensationCard({ dispensation, onApprove, onReject, onCancel }) {
     );
 }
 
-export default function Dispensations({ awaiting, others, homeroom }) {
+export default function Dispensations({ awaiting, others, homeroom, canRequest, canRequestAnyClass }) {
+    const ownClassOnly = homeroom && !canRequestAnyClass;
     const [student, setStudent] = useState(null);
     const [fileKey, setFileKey] = useState(0);
     const [approving, setApproving] = useState(null);
@@ -156,40 +157,49 @@ export default function Dispensations({ awaiting, others, homeroom }) {
             </div>
 
             <p className="text-muted" style={{ fontSize: 14, maxWidth: 760 }}>
-                Dispensasi untuk siswa yang mewakili sekolah (lomba, upacara, tugas OSIS, …) dihitung <b>sama dengan hadir</b>. Pengajuan baru berlaku setelah disetujui <b>wali kelas</b> siswa itu <b>dan guru piket</b>.
+                Dispensasi untuk siswa yang mewakili sekolah (lomba, upacara, tugas OSIS, …) dihitung <b>sama dengan hadir</b>. Pengajuan baru berlaku setelah disetujui <b>wali kelas</b> siswa itu <b>dan guru piket</b> yang sedang bertugas, dua orang yang berbeda. Wali kelas yang sedang piket tidak bisa menyetujui sisi piket untuk kelasnya sendiri.
             </p>
 
             <div className="excuse-layout">
-                <form onSubmit={submit} noValidate className="excuse-form">
-                    <h4 style={{ margin: 0 }}>Ajukan dispensasi</h4>
+                {canRequest ? (
+                    <form onSubmit={submit} noValidate className="excuse-form">
+                        <h4 style={{ margin: 0 }}>Ajukan dispensasi</h4>
 
-                    <Field label="Siswa" htmlFor="student" error={form.errors.student_id} hint={homeroom ? `Wali kelas hanya bisa memilih siswa kelas ${homeroom}.` : undefined}>
-                        <StudentPicker id="student" value={student} onChange={chooseStudent} error={form.errors.student_id} date={form.data.from} placeholder={homeroom ? `Cari siswa kelas ${homeroom}` : undefined} />
-                    </Field>
-
-                    <div className="form-grid">
-                        <Field label="Dari tanggal" htmlFor="from" error={form.errors.from}>
-                            <input id="from" type="date" className="input" value={form.data.from} onChange={(event) => form.setData((data) => ({ ...data, from: event.target.value, to: data.to < event.target.value ? event.target.value : data.to }))} />
+                        <Field label="Siswa" htmlFor="student" error={form.errors.student_id} hint={ownClassOnly ? `Di luar hari piket, wali kelas hanya bisa memilih siswa kelas ${homeroom}.` : undefined}>
+                            <StudentPicker id="student" value={student} onChange={chooseStudent} error={form.errors.student_id} date={form.data.from} placeholder={ownClassOnly ? `Cari siswa kelas ${homeroom}` : undefined} />
                         </Field>
-                        <Field label="Sampai tanggal" htmlFor="to" error={form.errors.to}>
-                            <input id="to" type="date" className="input" min={form.data.from} value={form.data.to} onChange={(event) => form.setData('to', event.target.value)} />
+
+                        <div className="form-grid">
+                            <Field label="Dari tanggal" htmlFor="from" error={form.errors.from}>
+                                <input id="from" type="date" className="input" value={form.data.from} onChange={(event) => form.setData((data) => ({ ...data, from: event.target.value, to: data.to < event.target.value ? event.target.value : data.to }))} />
+                            </Field>
+                            <Field label="Sampai tanggal" htmlFor="to" error={form.errors.to}>
+                                <input id="to" type="date" className="input" min={form.data.from} value={form.data.to} onChange={(event) => form.setData('to', event.target.value)} />
+                            </Field>
+                        </div>
+
+                        <Field label="Kegiatan" htmlFor="reason" error={form.errors.reason} hint="Contoh: Lomba cerdas cermat tingkat kabupaten">
+                            <input id="reason" className="input" maxLength={200} value={form.data.reason} onChange={(event) => form.setData('reason', event.target.value)} />
                         </Field>
+
+                        <Field label="Surat tugas (opsional)" htmlFor="attachment" error={form.errors.attachment} hint="JPG, PNG, atau PDF, maks. 4 MB">
+                            <input key={fileKey} id="attachment" type="file" className="input" accept="image/*,.pdf" onChange={(event) => form.setData('attachment', event.target.files[0] ?? null)} />
+                        </Field>
+
+                        <div>
+                            <button type="submit" className="btn btn-primary" disabled={form.processing || !student}>
+                                {form.processing ? 'Mengirim…' : 'Ajukan'}
+                            </button>
+                        </div>
+                    </form>
+                ) : (
+                    <div className="excuse-form">
+                        <h4 style={{ margin: 0 }}>Hanya melihat</h4>
+                        <p className="text-muted" style={{ fontSize: 14, margin: 0 }}>
+                            Hari ini bukan jadwal piket Anda. Anda bisa melihat semua pengajuan, tetapi mengajukan dan menyetujui dispensasi hanya bisa di hari piket Anda.
+                        </p>
                     </div>
-
-                    <Field label="Kegiatan" htmlFor="reason" error={form.errors.reason} hint="Contoh: Lomba cerdas cermat tingkat kabupaten">
-                        <input id="reason" className="input" maxLength={200} value={form.data.reason} onChange={(event) => form.setData('reason', event.target.value)} />
-                    </Field>
-
-                    <Field label="Surat tugas (opsional)" htmlFor="attachment" error={form.errors.attachment} hint="JPG, PNG, atau PDF, maks. 4 MB">
-                        <input key={fileKey} id="attachment" type="file" className="input" accept="image/*,.pdf" onChange={(event) => form.setData('attachment', event.target.files[0] ?? null)} />
-                    </Field>
-
-                    <div>
-                        <button type="submit" className="btn btn-primary" disabled={form.processing || !student}>
-                            {form.processing ? 'Mengirim…' : 'Ajukan'}
-                        </button>
-                    </div>
-                </form>
+                )}
 
                 <section style={{ minWidth: 0 }}>
                     <h4>Perlu persetujuan Anda ({awaiting.length})</h4>

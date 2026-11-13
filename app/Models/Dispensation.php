@@ -46,14 +46,16 @@ class Dispensation extends Model
 
     /**
      * Which approval this user gives: the wali kelas of the student's class
-     * approves as homeroom, any guru piket approves as duty teacher. Null
-     * when the user cannot approve this request.
+     * approves as homeroom, a guru piket on duty right now as duty teacher.
+     * The two approvals always come from two people, so a wali kelas on duty
+     * only gives the homeroom approval for their own class. Null when the
+     * user cannot approve this request.
      */
     public function approvalSideFor(User $user): ?string
     {
         return match (true) {
-            $user->hasRole(Role::WaliKelas) && $this->classroom->homeroom_teacher_id === $user->id => self::APPROVAL_HOMEROOM,
-            $user->hasRole(Role::GuruPiket) => self::APPROVAL_DUTY,
+            $user->hasRole(Role::Guru) && $this->classroom->homeroom_teacher_id === $user->id => self::APPROVAL_HOMEROOM,
+            $this->homeroom_approved_by !== $user->id && $user->isOnDuty() => self::APPROVAL_DUTY,
             default => null,
         };
     }
@@ -87,13 +89,16 @@ class Dispensation extends Model
     {
         $query->where('status', DispensationStatus::Pending);
 
-        if ($user->hasRole(Role::WaliKelas)) {
-            $query->whereNull('homeroom_approved_at')->where('classroom_id', $user->currentHomeroom()?->id ?? 0);
-        } elseif ($user->hasRole(Role::GuruPiket)) {
-            $query->whereNull('duty_approved_at');
-        } else {
-            $query->whereRaw('1 = 0');
-        }
+        $homeroomId = $user->hasRole(Role::Guru) ? $user->currentHomeroom()?->id : null;
+        $isOnDuty = $user->isOnDuty();
+
+        $query->where(fn (Builder $query) => $query
+            ->when($homeroomId, fn (Builder $query) => $query->orWhere(fn (Builder $query) => $query->whereNull('homeroom_approved_at')->where('classroom_id', $homeroomId)))
+            ->when($isOnDuty, fn (Builder $query) => $query->orWhere(fn (Builder $query) => $query
+                ->whereNull('duty_approved_at')
+                ->where('classroom_id', '!=', $homeroomId ?? 0)
+                ->where(fn (Builder $query) => $query->whereNull('homeroom_approved_by')->orWhere('homeroom_approved_by', '!=', $user->id))))
+            ->when(! $homeroomId && ! $isOnDuty, fn (Builder $query) => $query->whereRaw('1 = 0')));
     }
 
     /**

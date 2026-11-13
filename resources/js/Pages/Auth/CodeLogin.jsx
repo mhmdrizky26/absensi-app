@@ -7,8 +7,8 @@ import SecretInput from '@/Components/SecretInput';
 const today = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 
 /**
- * Satu layar untuk dua jenis kode: kode tab (TAB1) membuka scanner gerbang,
- * kode kelas (7A) menampilkan kehadiran kelas hari ini untuk guru mapel.
+ * Layar kode untuk tab gerbang: kode tab (TAB1) membuka scanner gerbang.
+ * Guru masuk lewat akunnya sendiri.
  */
 export default function CodeLogin() {
     const { appName, schoolName, flash } = usePage().props;
@@ -36,7 +36,7 @@ export default function CodeLogin() {
                 <div className="auth-poster auth-poster-accent">
                     <div className="auth-brand">{appName}</div>
                     <div>
-                        <div className="auth-kicker">Tab gerbang · Guru mapel</div>
+                        <div className="auth-kicker">Tab gerbang</div>
                         <h1 className="auth-headline">Masukkan kode.</h1>
                     </div>
                     <div className="auth-poster-foot">
@@ -48,9 +48,9 @@ export default function CodeLogin() {
                 <div className="auth-panel">
                     <form className="auth-form" onSubmit={submit} noValidate>
                         <div>
-                            <h2 style={{ margin: '0 0 8px' }}>Masukkan kode</h2>
+                            <h2 style={{ margin: '0 0 8px' }}>Masukkan kode tab</h2>
                             <p className="text-muted" style={{ margin: 0, fontSize: 14 }}>
-                                Kode tab untuk scan di gerbang, kode kelas untuk melihat kehadiran kelas hari ini.
+                                Kode tab dari admin untuk membuka scanner di gerbang.
                             </p>
                         </div>
 
@@ -61,7 +61,7 @@ export default function CodeLogin() {
                         )}
 
                         <div className="field">
-                            <label htmlFor="code">Kode</label>
+                            <label htmlFor="code">Kode tab</label>
                             <SecretInput
                                 id="code"
                                 label="kode"
@@ -82,7 +82,7 @@ export default function CodeLogin() {
                         </button>
 
                         <div className="auth-foot" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                            <span className="text-muted">Guru piket, wali kelas, atau admin?</span>
+                            <span className="text-muted">Guru atau admin?</span>
                             <Link href="/masuk">Masuk staf</Link>
                         </div>
                     </form>

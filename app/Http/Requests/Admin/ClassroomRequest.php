@@ -29,8 +29,7 @@ class ClassroomRequest extends FormRequest
     }
 
     /**
-     * Build the class name from grade and section. An empty class code
-     * becomes the standard one, e.g. VII-A → "7A".
+     * Build the class name from grade and section.
      */
     protected function prepareForValidation(): void
     {
@@ -40,14 +39,6 @@ class ClassroomRequest extends FormRequest
         if (array_key_exists($grade, Classroom::GRADES) && $section !== '') {
             $this->merge(['name' => Classroom::nameFor($grade, $section)]);
         }
-
-        $code = Classroom::normalizeViewCode($this->input('view_code'));
-
-        if ($code === '' && $section !== '') {
-            $code = Classroom::normalizeViewCode($grade.$section);
-        }
-
-        $this->merge(['view_code' => $code === '' ? null : $code]);
     }
 
     /**
@@ -67,17 +58,10 @@ class ClassroomRequest extends FormRequest
                     ->where('academic_year_id', $academicYearId)
                     ->ignore($this->route('classroom')),
             ],
-            'view_code' => [
-                'required',
-                'string',
-                'max:20',
-                Rule::unique('classrooms', 'view_code')->where('academic_year_id', $academicYearId)->ignore($this->route('classroom')),
-                Rule::unique('gate_stations', 'code'),
-            ],
             'homeroom_teacher_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('users', 'id')->where('role', Role::WaliKelas->value)->where('is_active', true),
+                Rule::exists('users', 'id')->where('role', Role::Guru->value)->where('is_active', true),
                 Rule::unique('classrooms', 'homeroom_teacher_id')
                     ->where('academic_year_id', $academicYearId)
                     ->ignore($this->route('classroom')),
@@ -93,8 +77,7 @@ class ClassroomRequest extends FormRequest
         return [
             'section.regex' => 'Rombel berupa 1–2 huruf, misalnya A.',
             'name.unique' => 'Kelas :input sudah ada di tahun ajaran ini.',
-            'view_code.unique' => 'Kode :input sudah dipakai kelas lain atau tab gerbang. Pilih kode lain.',
-            'homeroom_teacher_id.exists' => 'Pilih guru dengan peran wali kelas yang masih aktif.',
+            'homeroom_teacher_id.exists' => 'Pilih akun guru yang masih aktif.',
             'homeroom_teacher_id.unique' => 'Guru ini sudah menjadi wali kelas lain di tahun ajaran ini.',
         ];
     }

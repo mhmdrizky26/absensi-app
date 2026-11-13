@@ -45,7 +45,9 @@ class DispensationController extends Controller
         return Inertia::render('Staff/Dispensations', [
             'awaiting' => $awaiting->map(fn (Dispensation $dispensation): array => $this->present($dispensation, $user)),
             'others' => $others->map(fn (Dispensation $dispensation): array => $this->present($dispensation, $user)),
-            'homeroom' => $user->hasRole(Role::WaliKelas) ? $user->currentHomeroom()?->name : null,
+            'homeroom' => $user->hasRole(Role::Guru) ? $user->currentHomeroom()?->name : null,
+            'canRequest' => $user->hasRole(Role::Admin) || $user->isOnDuty() || $user->isHomeroomTeacher(),
+            'canRequestAnyClass' => $user->canDoDuty(),
         ]);
     }
 
@@ -126,12 +128,15 @@ class DispensationController extends Controller
     }
 
     /**
+     * Everything for admins and teachers on the duty schedule (also on their
+     * days off); a wali kelas without duty days sees their own class.
+     *
      * @return Builder<Dispensation>
      */
     private function visibleTo(User $user): Builder
     {
         return Dispensation::query()->when(
-            $user->hasRole(Role::WaliKelas),
+            $user->hasRole(Role::Guru) && ! $user->hasDutySchedule() && ! $user->isOnDuty(),
             fn (Builder $query) => $query->where('classroom_id', $user->currentHomeroom()?->id ?? 0),
         );
     }
