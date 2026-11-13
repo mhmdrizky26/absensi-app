@@ -2,11 +2,15 @@
 
 namespace App\Enums;
 
+/**
+ * Account roles. Wali kelas and guru piket are not roles: a guru is wali kelas
+ * by leading a class (Classroom::homeroom_teacher_id) and guru piket on the
+ * days of the duty schedule, so one teacher can be both.
+ */
 enum Role: string
 {
     case Admin = 'admin';
-    case GuruPiket = 'guru_piket';
-    case WaliKelas = 'wali_kelas';
+    case Guru = 'guru';
     case GuruBk = 'guru_bk';
 
     /**
@@ -16,8 +20,7 @@ enum Role: string
     {
         return match ($this) {
             self::Admin => 'Admin',
-            self::GuruPiket => 'Guru Piket',
-            self::WaliKelas => 'Wali Kelas',
+            self::Guru => 'Guru',
             self::GuruBk => 'Guru BK',
         };
     }

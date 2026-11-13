@@ -201,7 +201,7 @@ export default function Monitor({ date, window: scanWindow, finalized, missingCo
                     <Link href="/terlambat" className="btn btn-secondary">
                         <ScanLine size={16} aria-hidden="true" /> Absen piket
                     </Link>
-                    {finalized && !scanWindow.isEnforced && (
+                    {finalized && !scanWindow.isEnforced && !scanWindow.onlineDay && (
                         <button type="button" className="btn btn-secondary" onClick={() => setConfirmingReopen(true)}>
                             <RotateCcw size={16} aria-hidden="true" /> Buka lagi absen hari ini
                         </button>
@@ -216,7 +216,11 @@ export default function Monitor({ date, window: scanWindow, finalized, missingCo
 
             {!scanWindow.isSchoolDay && <p className="alert">{scanWindow.holiday ? `Hari ini libur: ${scanWindow.holiday}.` : 'Hari ini bukan hari sekolah.'} Gerbang tidak dibuka.</p>}
 
-            {finalized ? (
+            {scanWindow.onlineDay ? (
+                <p className="alert">
+                    Hari ini sekolah daring: {scanWindow.onlineDay}. Gerbang tidak dibuka dan semua siswa otomatis dicatat Hadir. Koreksi (mis. sakit/izin) lewat wali kelas.
+                </p>
+            ) : finalized ? (
                 <p className="alert">
                     Absen hari ini sudah diselesaikan pukul {formatTime(finalized.at)}
                     {finalized.by ? ` oleh ${finalized.by}` : ' otomatis'}. {finalized.absentCount} siswa dicatat Alpa.{' '}

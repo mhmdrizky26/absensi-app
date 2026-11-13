@@ -15,6 +15,7 @@ enum AttendanceSource: string
     case Staff = 'staf';
     case Dispensation = 'dispensasi';
     case Automatic = 'otomatis';
+    case Online = 'daring';
 
     public function label(): string
     {
@@ -26,6 +27,7 @@ enum AttendanceSource: string
             self::Staff => 'Diisi staf',
             self::Dispensation => 'Dispensasi disetujui',
             self::Automatic => 'Otomatis',
+            self::Online => 'Sekolah daring',
         };
     }
 }

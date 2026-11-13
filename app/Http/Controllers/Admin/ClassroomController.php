@@ -39,14 +39,13 @@ class ClassroomController extends Controller
                     'grade' => $classroom->grade,
                     'name' => $classroom->name,
                     'section' => Str::after($classroom->name, '-'),
-                    'viewCode' => $classroom->view_code,
                     'studentsCount' => $classroom->students_count,
                     'homeroomTeacher' => $classroom->homeroomTeacher?->only('id', 'name'),
                 ])
             : collect();
 
         $teachers = User::query()
-            ->where('role', Role::WaliKelas)
+            ->where('role', Role::Guru)
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name'])
@@ -73,7 +72,7 @@ class ClassroomController extends Controller
         }
 
         $classroom = Classroom::create([
-            ...$request->safe()->only(['grade', 'name', 'view_code', 'homeroom_teacher_id']),
+            ...$request->safe()->only(['grade', 'name', 'homeroom_teacher_id']),
             'has_room' => $request->boolean('has_room', true),
             'academic_year_id' => $academicYearId,
         ]);
@@ -83,7 +82,7 @@ class ClassroomController extends Controller
 
     public function update(ClassroomRequest $request, Classroom $classroom): RedirectResponse
     {
-        $classroom->fill([...$request->safe()->only(['grade', 'name', 'view_code', 'homeroom_teacher_id']), 'has_room' => $request->boolean('has_room', true)]);
+        $classroom->fill([...$request->safe()->only(['grade', 'name', 'homeroom_teacher_id']), 'has_room' => $request->boolean('has_room', true)]);
 
         if ($classroom->isDirty('has_room')) {
             // Punya ruang lagi: siswanya kembali belajar di kelasnya. Kehilangan ruang: titipan di sini dilepas.

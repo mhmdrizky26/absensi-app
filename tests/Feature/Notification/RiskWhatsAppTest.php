@@ -363,8 +363,10 @@ class RiskWhatsAppTest extends TestCase
         $this->assertNotNull(RiskEpisode::sole()->notified_at);
         Queue::assertNothingPushed();
 
-        $this->actingAs(User::factory()->waliKelas()->create())->post("/siswa-berisiko/{$ayu->id}/kirim-wa")->assertForbidden();
-        $this->actingAs(User::factory()->waliKelas()->create())->get('/siswa-berisiko')->assertInertia(fn (Assert $page) => $page->where('canSendWhatsApp', false));
+        $wali = User::factory()->waliKelas()->create();
+        Classroom::factory()->for($this->academicYear)->create(['homeroom_teacher_id' => $wali->id]);
+        $this->actingAs($wali)->post("/siswa-berisiko/{$ayu->id}/kirim-wa")->assertForbidden();
+        $this->actingAs($wali)->get('/siswa-berisiko')->assertInertia(fn (Assert $page) => $page->where('canSendWhatsApp', false));
     }
 
     public function test_manual_send_needs_a_risky_student_with_a_consenting_number(): void

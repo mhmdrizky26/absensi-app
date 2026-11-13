@@ -38,7 +38,7 @@ class EarlyWarningController extends Controller
         $user = $request->user();
         $academicYear = AcademicYear::active();
         $classrooms = $scope->classroomsFor($user);
-        $isHomeroomTeacher = $user->hasRole(Role::WaliKelas);
+        $isHomeroomTeacher = $user->hasRole(Role::Guru);
         $selectedGrade = $isHomeroomTeacher ? null : ($request->integer('grade') ?: null);
         $selectedId = $isHomeroomTeacher ? null : ($request->integer('classroom') ?: null);
         $target = match (true) {

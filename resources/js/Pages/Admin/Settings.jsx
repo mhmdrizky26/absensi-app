@@ -16,12 +16,14 @@ const RISK_FIELDS = [
     ['excused_watch', 'Sakit + izin — perlu perhatian (kali)'],
 ];
 
-export default function Settings({ settings, general, timezones, holidays, riskSettings }) {
+export default function Settings({ settings, general, timezones, holidays, onlineDays, riskSettings }) {
     const riskForm = useForm(riskSettings);
     const form = useForm(settings);
     const generalForm = useForm(general);
     const holidayForm = useForm({ from: '', to: '', description: '' });
+    const onlineForm = useForm({ from: '', to: '', description: '' });
     const [deleting, setDeleting] = useState(null);
+    const [deletingOnline, setDeletingOnline] = useState(null);
 
     function updateDay(index, changes) {
         form.setData('days', form.data.days.map((day, position) => (position === index ? { ...day, ...changes } : day)));
@@ -46,10 +48,21 @@ export default function Settings({ settings, general, timezones, holidays, riskS
         router.delete(`/libur/${deleting.id}`, { preserveScroll: true, onFinish: () => setDeleting(null) });
     }
 
+    function submitOnline(event) {
+        event.preventDefault();
+        onlineForm.post('/daring', { preserveScroll: true, onSuccess: () => onlineForm.reset() });
+    }
+
+    function destroyOnline() {
+        router.delete(`/daring/${deletingOnline.id}`, { preserveScroll: true, onFinish: () => setDeletingOnline(null) });
+    }
+
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const upcoming = holidays.filter((holiday) => holiday.date >= today);
     const past = holidays.filter((holiday) => !upcoming.includes(holiday));
+    const upcomingOnline = onlineDays.filter((onlineDay) => onlineDay.date >= today);
+    const pastOnline = onlineDays.filter((onlineDay) => !upcomingOnline.includes(onlineDay));
 
     return (
         <>
@@ -200,6 +213,38 @@ export default function Settings({ settings, general, timezones, holidays, riskS
                             </div>
                         ))}
                     </div>
+
+                    <h4 style={{ marginTop: 32 }}>Hari daring</h4>
+                    <p className="text-muted" style={{ fontSize: 13 }}>
+                        Sekolah daring tetap dihitung hari sekolah, tetapi gerbang tidak dibuka dan semua siswa otomatis dicatat Hadir. Tanda yang sudah ada (terlambat, sakit, izin, dispensasi) tetap. Hari libur dan hari tanpa sekolah dilewati.
+                    </p>
+                    <form onSubmit={submitOnline} noValidate className="holiday-form">
+                        <Field label="Tanggal" htmlFor="online-from" error={onlineForm.errors.from}>
+                            <input id="online-from" type="date" className="input" value={onlineForm.data.from} onChange={(event) => onlineForm.setData('from', event.target.value)} />
+                        </Field>
+                        <Field label="Sampai (opsional)" htmlFor="online-to" error={onlineForm.errors.to}>
+                            <input id="online-to" type="date" className="input" min={onlineForm.data.from} value={onlineForm.data.to} onChange={(event) => onlineForm.setData('to', event.target.value)} />
+                        </Field>
+                        <Field label="Keterangan" htmlFor="online-description" error={onlineForm.errors.description}>
+                            <input id="online-description" className="input" placeholder="Contoh: Rapat guru, belajar dari rumah" value={onlineForm.data.description} onChange={(event) => onlineForm.setData('description', event.target.value)} />
+                        </Field>
+                        <button type="submit" className="btn btn-secondary" disabled={onlineForm.processing}>
+                            Tambah hari daring
+                        </button>
+                    </form>
+
+                    <div className="scan-roster" style={{ borderTop: '2px solid var(--color-text)', marginTop: 16 }}>
+                        {upcomingOnline.length === 0 && <p className="text-muted">Belum ada hari daring mendatang.</p>}
+                        {[...upcomingOnline, ...[...pastOnline].reverse()].map((onlineDay) => (
+                            <div key={onlineDay.id} className="scan-roster-row" style={upcomingOnline.includes(onlineDay) ? undefined : { opacity: 0.55 }}>
+                                <span style={{ width: 110 }}>{formatDate(onlineDay.date)}</span>
+                                <span style={{ flex: 1 }}>{onlineDay.description}</span>
+                                <button type="button" className="btn btn-ghost" onClick={() => setDeletingOnline(onlineDay)}>
+                                    Batalkan
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 </section>
             </div>
 
@@ -224,6 +269,10 @@ export default function Settings({ settings, general, timezones, holidays, riskS
 
             <ConfirmDialog open={deleting !== null} title={`Hapus libur ${deleting ? formatDate(deleting.date) : ''}?`} confirmLabel="Hapus" onConfirm={destroyHoliday} onClose={() => setDeleting(null)}>
                 Tanggal ini kembali menjadi hari sekolah biasa.
+            </ConfirmDialog>
+
+            <ConfirmDialog open={deletingOnline !== null} title={`Batalkan hari daring ${deletingOnline ? formatDate(deletingOnline.date) : ''}?`} confirmLabel="Batalkan daring" onConfirm={destroyOnline} onClose={() => setDeletingOnline(null)}>
+                Tanggal ini kembali menjadi hari sekolah biasa. Tanda Hadir otomatis dari hari daring dihapus; bila tanggalnya sudah lewat, siswa tanpa absen lain bisa dicatat Alpa.
             </ConfirmDialog>
         </>
     );

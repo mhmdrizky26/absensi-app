@@ -2,11 +2,8 @@
 
 namespace App\Http\Controllers\Auth;
 
-use App\Http\Controllers\ClassView\ClassViewController;
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\EnsureGateStation;
-use App\Models\AcademicYear;
-use App\Models\Classroom;
 use App\Models\GateStation;
 use App\Support\AttendanceWindow;
 use App\Support\GateNetwork;
@@ -18,10 +15,8 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * One "Masukkan kode" screen for both kinds of codes: a tab code ("TAB1")
- * opens the gate scanner on a tablet, a class code ("7A") shows a subject
- * teacher today's attendance of that class. Admins keep the two kinds of
- * codes apart, so a code always means one thing.
+ * The "Masukkan kode" screen of the gate tablets: a tab code ("TAB1") opens
+ * the gate scanner. Teachers log in with their own account instead.
  */
 class CodeLoginController extends Controller
 {
@@ -42,7 +37,7 @@ class CodeLoginController extends Controller
 
     public function store(Request $request, GateNetwork $network, AttendanceWindow $window): RedirectResponse
     {
-        $request->validate(['code' => ['required', 'string', 'max:30']], ['code.required' => 'Masukkan kode tab atau kode kelas.']);
+        $request->validate(['code' => ['required', 'string', 'max:30']], ['code.required' => 'Masukkan kode tab.']);
 
         $throttleKey = 'code-login|'.$request->ip();
 
@@ -56,17 +51,6 @@ class CodeLoginController extends Controller
 
         if ($station) {
             return $this->openGate($request, $station, $network, $window);
-        }
-
-        $classroom = Classroom::query()
-            ->where('academic_year_id', AcademicYear::active()?->id)
-            ->where('view_code', Classroom::normalizeViewCode($request->input('code')))
-            ->first();
-
-        if ($classroom) {
-            $request->session()->put(ClassViewController::SESSION_KEY, ['id' => $classroom->id, 'code' => $classroom->view_code]);
-
-            return redirect()->route('class-view.show');
         }
 
         RateLimiter::hit($throttleKey);

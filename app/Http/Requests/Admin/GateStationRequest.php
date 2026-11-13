@@ -2,10 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
-use App\Models\AcademicYear;
-use App\Models\Classroom;
 use App\Models\GateStation;
-use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -39,16 +36,6 @@ class GateStationRequest extends FormRequest
                 'max:30',
                 'regex:/^[A-Z0-9_-]+$/',
                 Rule::unique('gate_stations', 'code')->ignore($this->route('gateStation')),
-                function (string $attribute, mixed $value, Closure $fail): void {
-                    $classroom = Classroom::query()
-                        ->where('academic_year_id', AcademicYear::active()?->id)
-                        ->where('view_code', Classroom::normalizeViewCode((string) $value))
-                        ->first();
-
-                    if ($classroom) {
-                        $fail("Kode ini sudah dipakai sebagai kode kelas {$classroom->name}. Pilih kode lain.");
-                    }
-                },
             ],
         ];
     }

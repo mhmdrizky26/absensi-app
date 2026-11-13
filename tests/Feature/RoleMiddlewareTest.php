@@ -15,7 +15,7 @@ class RoleMiddlewareTest extends TestCase
     {
         parent::setUp();
 
-        Route::middleware(['web', 'auth', 'role:admin,guru_piket'])
+        Route::middleware(['web', 'auth', 'role:admin,piket'])
             ->get('/_test/khusus-admin-piket', fn () => 'ok');
     }
 
@@ -32,7 +32,11 @@ class RoleMiddlewareTest extends TestCase
 
     public function test_other_roles_are_forbidden(): void
     {
-        $this->actingAs(User::factory()->waliKelas()->create())
+        $this->actingAs(User::factory()->guru()->create())
+            ->get('/_test/khusus-admin-piket')
+            ->assertForbidden();
+
+        $this->actingAs(User::factory()->guruBk()->create())
             ->get('/_test/khusus-admin-piket')
             ->assertForbidden();
     }

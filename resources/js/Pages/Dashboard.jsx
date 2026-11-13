@@ -16,19 +16,26 @@ import {
     CalendarX,
     TriangleAlert,
     MessageCircle,
+    CalendarClock,
+    Eye,
 } from 'lucide-react';
 import TrendPanel from '@/Components/TrendPanel';
 import AppLayout from '@/Layouts/AppLayout';
+import { dutyLabel } from '@/lib/duties';
+import { formatDate } from '@/lib/format';
+
+const CLASS_VIEW = { icon: Eye, title: 'Absen kelas hari ini', body: 'Lihat siapa yang hadir, terlambat, izin, atau belum absen di kelas mana pun hari ini.', href: '/absen-kelas' };
 
 /**
- * Modul per peran. Modul tanpa href belum dikerjakan dan ditandai "Segera".
+ * Modul per peran dan tugas. Modul tanpa href belum dikerjakan dan ditandai "Segera".
  */
 const MODULES = {
     admin: [
         { icon: School, title: 'Kelas', body: 'Kelas VII–IX, wali kelas, dan kelas tanpa ruang.', href: '/kelas' },
         { icon: Tablet, title: 'Tab gerbang', body: 'Tab untuk scan di gerbang: kode login, status online, dan cabut tab yang hilang.', href: '/tab-gerbang' },
         { icon: Users, title: 'Siswa', body: 'Data siswa per kelas dan import dari Excel.', href: '/siswa' },
-        { icon: UserCog, title: 'Pengguna', body: 'Akun admin, guru piket, wali kelas, dan guru BK.', href: '/pengguna' },
+        { icon: UserCog, title: 'Pengguna', body: 'Akun admin, guru, dan guru BK.', href: '/pengguna' },
+        { icon: CalendarClock, title: 'Jadwal piket', body: 'Guru piket tiap hari Senin–Jumat dan pengganti kalau ada yang berhalangan.', href: '/jadwal-piket' },
         { icon: CalendarRange, title: 'Tahun ajaran', body: 'Tahun ajaran aktif dan tanggal semester.', href: '/tahun-ajaran' },
         { icon: QrCode, title: 'Kartu QR', body: 'Cetak kartu QR massal per kelas, ganti kartu yang hilang.', href: '/kartu' },
         { icon: ListChecks, title: 'Pantauan hari ini', body: 'Siapa yang sudah dan belum absen, siswa terlambat, dan tombol selesaikan absen.', href: '/pantauan' },
@@ -40,11 +47,12 @@ const MODULES = {
     ],
     guru_bk: [
         { icon: TriangleAlert, title: 'Siswa berisiko', body: 'Peringatan dini: siswa yang sering alpa, alpa beruntun, atau kehadirannya menurun, lengkap dengan alasannya.', href: '/siswa-berisiko' },
+        CLASS_VIEW,
     ],
-    guru_piket: [
+    piket: [
         { icon: ListChecks, title: 'Pantauan hari ini', body: 'Siapa yang sudah dan belum absen per kelas. Setelah jam masuk, tekan "Selesaikan absen" agar yang belum absen dicatat alpa.', href: '/pantauan' },
         { icon: ScanLine, title: 'Absen piket', body: 'Catat siswa yang lupa membawa kartu atau datang setelah gerbang ditutup.', href: '/terlambat' },
-        { icon: BadgeCheck, title: 'Dispensasi', body: 'Setujui dispensasi kegiatan sekolah bersama wali kelas.', href: '/dispensasi' },
+        { icon: BadgeCheck, title: 'Dispensasi', body: 'Ajukan dispensasi, dan setujui sebagai guru piket dispensasi kelas lain.', href: '/dispensasi' },
     ],
     wali_kelas: [
         { icon: ClipboardList, title: 'Rekap kelas', body: 'Kehadiran kelas Anda dalam grid bulanan.', href: '/rekap' },
@@ -62,9 +70,62 @@ const today = new Intl.DateTimeFormat('id-ID', {
     year: 'numeric',
 }).format(new Date());
 
-export default function Dashboard({ stats, trends }) {
+/**
+ * Menu seorang guru: tugas piket di hari piketnya, absen kelas untuk semua
+ * guru, lalu menu wali kelas. Dispensasi cukup muncul sekali.
+ */
+function teacherModules(user) {
+    const modules = [...(user.isOnDuty ? MODULES.piket : []), CLASS_VIEW, ...(user.homeroom ? MODULES.wali_kelas : [])];
+
+    if (!user.isOnDuty && !user.homeroom && user.hasDutySchedule) {
+        modules.push({ icon: BadgeCheck, title: 'Dispensasi', body: 'Lihat semua pengajuan dispensasi. Menyetujui hanya bisa di hari piket Anda.', href: '/dispensasi' });
+    }
+
+    return modules.filter((module, index) => modules.findIndex((other) => other.href === module.href) === index);
+}
+
+function DutyPanel({ duty }) {
+    return (
+        <div className="stat-strip">
+            <div className="stat">
+                <div className="stat-label">Jadwal piket Anda</div>
+                <div className="stat-value" style={{ fontSize: 20 }}>
+                    {duty.days.length > 0 ? duty.days.join(', ') : '—'}
+                </div>
+                {duty.days.length === 0 && <p className="text-muted" style={{ fontSize: 13, margin: '4px 0 0' }}>Belum ada jadwal piket.</p>}
+            </div>
+            <div className="stat">
+                <div className="stat-label">Piket hari ini</div>
+                <div style={{ fontWeight: 700, marginTop: 4 }}>{duty.today.length > 0 ? duty.today.join(', ') : <span className="text-muted">Tidak ada jadwal</span>}</div>
+            </div>
+            {duty.substitutions.length > 0 && (
+                <div className="stat" style={{ gridColumn: '1 / -1' }}>
+                    <div className="stat-label">Pergantian piket</div>
+                    <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                        {duty.substitutions.map((substitution) => (
+                            <li key={`${substitution.date}-${substitution.isSubstitute}`}>
+                                {formatDate(substitution.date)}:{' '}
+                                {substitution.isSubstitute ? (
+                                    <>
+                                        Anda <b>menggantikan</b> piket {substitution.otherName}.
+                                    </>
+                                ) : (
+                                    <>
+                                        Piket Anda <b>digantikan</b> {substitution.otherName}.
+                                    </>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+        </div>
+    );
+}
+
+export default function Dashboard({ stats, duty, trends }) {
     const { auth } = usePage().props;
-    const modules = MODULES[auth.user.role] ?? [];
+    const modules = auth.user.role === 'guru' ? teacherModules(auth.user) : (MODULES[auth.user.role] ?? []);
 
     return (
         <>
@@ -72,7 +133,7 @@ export default function Dashboard({ stats, trends }) {
 
             <div className="page-head">
                 <div>
-                    <h6 className="text-muted">{auth.user.roleLabel}</h6>
+                    <h6 className="text-muted">{dutyLabel(auth.user)}</h6>
                     <h1>Halo, {auth.user.name}</h1>
                 </div>
                 <div className="text-muted" style={{ fontSize: 14 }}>
@@ -100,6 +161,8 @@ export default function Dashboard({ stats, trends }) {
                     </div>
                 </div>
             )}
+
+            {duty && <DutyPanel duty={duty} />}
 
             <h4>Menu Anda</h4>
             <div className="module-grid">

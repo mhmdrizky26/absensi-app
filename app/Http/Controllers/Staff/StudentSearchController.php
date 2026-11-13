@@ -21,7 +21,7 @@ class StudentSearchController extends Controller
     /**
      * Find active students by name, NIS or NISN for staff forms; with an empty
      * query, list them so the form shows students right away. A wali kelas
-     * only finds students of their own class. With `date`, students already
+     * only finds students of their own class, except on their duty day. With `date`, students already
      * excused or dispensed on that day are left out and counted as `hidden`.
      */
     public function index(Request $request): JsonResponse
@@ -34,7 +34,7 @@ class StudentSearchController extends Controller
         }
 
         $user = $request->user();
-        $homeroomId = $user->hasRole(Role::WaliKelas) ? ($user->currentHomeroom()?->id ?? 0) : null;
+        $homeroomId = $user->hasRole(Role::Guru) && ! $user->isOnDuty() ? ($user->currentHomeroom()?->id ?? 0) : null;
 
         $matching = Student::query()
             ->where('status', StudentStatus::Active)

@@ -6,6 +6,7 @@ use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\UserRequest;
 use App\Models\AcademicYear;
+use App\Models\DutySchedule;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -27,7 +28,7 @@ class UserController extends Controller
         ];
 
         $users = User::query()
-            ->with(['homeroomClassrooms' => fn (HasMany $query) => $query->where('academic_year_id', $academicYearId)])
+            ->with(['homeroomClassrooms' => fn (HasMany $query) => $query->where('academic_year_id', $academicYearId), 'dutySchedules' => fn (HasMany $query) => $query->orderBy('weekday')])
             ->when($filters['q'], fn (Builder $query, string $term) => $query->where(
                 fn (Builder $query) => $query->where('name', 'like', "%{$term}%")->orWhere('username', 'like', "{$term}%"),
             ))
@@ -45,6 +46,7 @@ class UserController extends Controller
                 'isActive' => $user->is_active,
                 'lastLoginAt' => $user->last_login_at?->toIso8601String(),
                 'homeroomClassroom' => $user->homeroomClassrooms->first()?->name,
+                'dutyDays' => $user->dutySchedules->map(fn (DutySchedule $schedule): string => DutySchedule::WEEKDAYS[$schedule->weekday] ?? '')->filter()->values(),
             ]);
 
         return Inertia::render('Admin/Users/Index', [
@@ -73,9 +75,10 @@ class UserController extends Controller
         DB::transaction(function () use ($user, $attributes): void {
             $user->update($attributes);
 
-            // Only wali kelas can lead a class; release classes of anyone else.
-            if ($user->role !== Role::WaliKelas) {
+            // Only a guru can lead a class or be on the duty schedule.
+            if ($user->role !== Role::Guru) {
                 $user->homeroomClassrooms()->update(['homeroom_teacher_id' => null]);
+                $user->dutySchedules()->delete();
             }
         });
 

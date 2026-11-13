@@ -1,6 +1,6 @@
-import { Head, Link, usePage, usePoll } from '@inertiajs/react';
-import { ArrowLeftRight } from 'lucide-react';
+import { Head, router, usePoll } from '@inertiajs/react';
 import { useState } from 'react';
+import AppLayout from '@/Layouts/AppLayout';
 
 const timeFormatter = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' });
 const dayFormatter = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -18,34 +18,60 @@ const GROUPS = [
     { key: 'none', label: 'Belum absen', statuses: [null] },
 ];
 
-export default function ClassViewShow({ classroom, date, isSchoolDay, isFinalized, students }) {
-    const { appName } = usePage().props;
+export default function ClassViewShow({ classrooms, classroom, date, isSchoolDay, isFinalized, students }) {
     usePoll(30000, { only: ['students', 'isFinalized'] });
     const [filter, setFilter] = useState('all');
+
+    function openClassroom(id) {
+        setFilter('all');
+        router.get('/absen-kelas', id ? { kelas: id } : {}, { preserveScroll: true, replace: true });
+    }
 
     const groups = GROUPS.map((group) => ({ ...group, students: students.filter((student) => group.statuses.includes(student.status)) })).filter((group) => group.students.length > 0);
     const shown = groups.filter((group) => filter === 'all' || group.key === filter);
 
     return (
         <>
-            <Head title={`Kelas ${classroom.name}`} />
+            <Head title={classroom ? `Absen kelas ${classroom.name}` : 'Absen kelas'} />
 
-            <div className="scan-app">
-                <header className="nav scan-nav">
-                    <span className="nav-brand">
-                        {appName} <span className="scan-nav-sub">/ Lihat kelas</span>
-                    </span>
-                    <span className="scan-class">
-                        <b>Kelas {classroom.name}</b>
-                        <span className="scan-class-date"> · {dayFormatter.format(new Date(`${date}T00:00:00`))}</span>
-                    </span>
-                    <Link href="/lihat-kelas/ganti" method="post" as="button" className="btn btn-secondary">
-                        <ArrowLeftRight size={16} aria-hidden="true" /> Ganti kelas
-                    </Link>
-                </header>
+            <div className="page-head">
+                <div>
+                    <h6 className="text-muted">{dayFormatter.format(new Date(`${date}T00:00:00`))}</h6>
+                    <h1>{classroom ? `Absen kelas ${classroom.name}` : 'Absen kelas hari ini'}</h1>
+                </div>
+                <div className="page-actions">
+                    <select className="input" aria-label="Pilih kelas" value={classroom?.id ?? ''} onChange={(event) => openClassroom(Number(event.target.value) || null)}>
+                        <option value="">Pilih kelas…</option>
+                        {classrooms.map((option) => (
+                            <option key={option.id} value={option.id}>
+                                {option.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </div>
 
-                <main className="page" style={{ maxWidth: 720 }}>
-                    {!isSchoolDay && <p className="alert">Hari ini bukan hari sekolah.</p>}
+            <div style={{ maxWidth: 720 }}>
+                {!isSchoolDay && <p className="alert">Hari ini bukan hari sekolah.</p>}
+                {!classroom ? (
+                    classrooms.length === 0 ? (
+                        <p className="text-muted">Belum ada kelas di tahun ajaran aktif.</p>
+                    ) : (
+                        <>
+                            <p className="text-muted" style={{ fontSize: 14 }}>
+                                Pilih kelas yang akan Anda masuki untuk melihat siapa yang hadir hari ini.
+                            </p>
+                            <div className="class-filter" role="group" aria-label="Pilih kelas">
+                                {classrooms.map((option) => (
+                                    <button key={option.id} type="button" className="class-filter-chip" onClick={() => openClassroom(option.id)}>
+                                        {option.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )
+                ) : (
+                    <>
                     <p className="text-muted" style={{ fontSize: 14 }}>
                         {classroom.hasRoom
                             ? 'Siswa yang belajar di ruang ini hari ini, termasuk siswa kelas lain yang dititipkan di sini.'
@@ -98,8 +124,11 @@ export default function ClassViewShow({ classroom, date, isSchoolDay, isFinalize
                             </div>
                         </>
                     )}
-                </main>
+                    </>
+                )}
             </div>
         </>
     );
 }
+
+ClassViewShow.layout = (page) => <AppLayout>{page}</AppLayout>;

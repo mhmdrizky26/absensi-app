@@ -93,6 +93,7 @@ class MonitorController extends Controller
                 'isEnforced' => $window->isEnforced(),
                 'isSchoolDay' => $window->isSchoolDay($today),
                 'holiday' => $holiday?->description,
+                'onlineDay' => $window->onlineDayOn($today)?->description,
             ],
             'finalized' => $finalizedDay ? [
                 'at' => $finalizedDay->finalized_at->toIso8601String(),

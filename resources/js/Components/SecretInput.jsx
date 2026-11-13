@@ -2,7 +2,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 
 /**
- * Kolom isian rahasia (kode tab, kode kelas, token) dengan tombol mata untuk
+ * Kolom isian rahasia (kode tab, token) dengan tombol mata untuk
  * menampilkan atau menyembunyikan isinya.
  */
 export default function SecretInput({ id, value, onChange, className = 'input', label = 'kode', ...props }) {

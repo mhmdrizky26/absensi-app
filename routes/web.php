@@ -10,10 +10,13 @@ use App\Http\Controllers\Admin\ClassroomBatchController;
 use App\Http\Controllers\Admin\ClassroomController;
 use App\Http\Controllers\Admin\ClassroomLodgingController;
 use App\Http\Controllers\Admin\DataExportController;
+use App\Http\Controllers\Admin\DutyScheduleController;
+use App\Http\Controllers\Admin\DutySubstitutionController;
 use App\Http\Controllers\Admin\GateNetworkController;
 use App\Http\Controllers\Admin\GateStationController;
 use App\Http\Controllers\Admin\GateStationRevocationController;
 use App\Http\Controllers\Admin\HolidayController;
+use App\Http\Controllers\Admin\OnlineDayController;
 use App\Http\Controllers\Admin\PromotionController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\StudentCardController;
@@ -62,14 +65,12 @@ Route::get('/', fn (Request $request) => redirect()->route(match (true) {
     default => 'login',
 }));
 
-// Satu layar kode: kode tab (tab1) membuka scanner gerbang, kode kelas (7a)
-// menampilkan kehadiran kelas hari ini untuk guru mapel.
+// Layar kode untuk tab gerbang: kode tab (TAB1) membuka scanner gerbang.
 Route::get('kode', [CodeLoginController::class, 'create'])->name('code.login');
 Route::post('kode', [CodeLoginController::class, 'store'])->name('code.login.store');
 
-Route::redirect('lihat-kelas', 'kode');
-Route::get('lihat-kelas/hari-ini', [ClassViewController::class, 'show'])->name('class-view.show');
-Route::post('lihat-kelas/ganti', [ClassViewController::class, 'destroy'])->name('class-view.logout');
+// Dulu guru mapel membuka kelas dengan kode kelas; sekarang lewat akunnya.
+Route::redirect('lihat-kelas', 'absen-kelas');
 
 // Tab di gerbang: login sekali dengan kode tab, lalu siswa scan sendiri.
 Route::redirect('gerbang', 'kode');
@@ -91,13 +92,17 @@ Route::middleware('auth')->group(function () {
     Route::get('dasbor', DashboardController::class)->name('dashboard');
     Route::get('pembaruan', LiveUpdateController::class)->name('live-updates');
 
+    // Semua guru melihat absen hari ini per kelas (hanya lihat).
+    Route::get('absen-kelas', [ClassViewController::class, 'show'])->name('class-view.show');
+
     // Profil untuk guru; admin mengatur akunnya sendiri lewat halaman Pengguna.
-    Route::middleware('role:guru_piket,wali_kelas,guru_bk')->group(function () {
+    Route::middleware('role:guru,guru_bk')->group(function () {
         Route::put('profil/username', [ProfileController::class, 'updateUsername'])->name('profile.username');
         Route::put('profil/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
     });
 
-    Route::middleware('role:admin,guru_piket')->group(function () {
+    // Tugas piket: admin, dan guru piket hanya di hari jadwalnya.
+    Route::middleware('role:admin,piket')->group(function () {
         Route::get('pantauan', [MonitorController::class, 'index'])->name('duty.monitor');
         Route::get('pantauan/kelas/{classroom}', [MonitorClassroomController::class, 'show'])->name('duty.monitor.classroom');
         Route::get('terlambat', [LateScanController::class, 'create'])->name('duty.late');
@@ -106,16 +111,22 @@ Route::middleware('auth')->group(function () {
         Route::delete('pantauan/selesaikan', [FinalizeDayController::class, 'destroy'])->name('duty.reopen');
     });
 
-    Route::middleware('role:admin,guru_piket,wali_kelas')->group(function () {
+    Route::middleware('role:admin,piket,wali_kelas')->group(function () {
         Route::get('surat/{attendance}', [AttachmentController::class, 'show'])->name('attachments.show');
         Route::get('cari-siswa', [StudentSearchController::class, 'index'])->name('students.search');
+    });
 
+    // Guru yang punya jadwal piket boleh melihat semua dispensasi di hari lain, tanpa mengajukan atau menyetujui.
+    Route::middleware('role:admin,piket,wali_kelas,jadwal_piket')->group(function () {
         Route::get('dispensasi', [DispensationController::class, 'index'])->name('dispensations.index');
+        Route::get('dispensasi/{dispensation}/surat', [DispensationController::class, 'attachment'])->name('dispensations.attachment');
+    });
+
+    Route::middleware('role:admin,piket,wali_kelas')->group(function () {
         Route::post('dispensasi', [DispensationController::class, 'store'])->name('dispensations.store');
         Route::post('dispensasi/{dispensation}/setujui', [DispensationController::class, 'approve'])->name('dispensations.approve');
         Route::post('dispensasi/{dispensation}/tolak', [DispensationController::class, 'reject'])->name('dispensations.reject');
         Route::delete('dispensasi/{dispensation}', [DispensationController::class, 'destroy'])->name('dispensations.destroy');
-        Route::get('dispensasi/{dispensation}/surat', [DispensationController::class, 'attachment'])->name('dispensations.attachment');
     });
 
     // Izin & sakit dicatat admin dan wali kelas; guru piket melihatnya per kelas di Pantauan.
@@ -215,6 +226,13 @@ Route::middleware('auth')->group(function () {
         Route::put('jaringan-gerbang', [GateNetworkController::class, 'update'])->name('gate-network.update');
         Route::post('libur', [HolidayController::class, 'store'])->name('holidays.store');
         Route::delete('libur/{holiday}', [HolidayController::class, 'destroy'])->name('holidays.destroy');
+        Route::post('daring', [OnlineDayController::class, 'store'])->name('online-days.store');
+        Route::delete('daring/{onlineDay}', [OnlineDayController::class, 'destroy'])->name('online-days.destroy');
+
+        Route::get('jadwal-piket', [DutyScheduleController::class, 'index'])->name('duty-schedule.index');
+        Route::put('jadwal-piket', [DutyScheduleController::class, 'update'])->name('duty-schedule.update');
+        Route::post('jadwal-piket/pengganti', [DutySubstitutionController::class, 'store'])->name('duty-substitutions.store');
+        Route::delete('jadwal-piket/pengganti/{dutySubstitution}', [DutySubstitutionController::class, 'destroy'])->name('duty-substitutions.destroy');
 
         Route::get('pengguna/import', [UserImportController::class, 'create'])->name('users.import');
         Route::post('pengguna/import', [UserImportController::class, 'store'])->name('users.import.store');

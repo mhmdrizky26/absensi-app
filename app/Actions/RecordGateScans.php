@@ -41,6 +41,10 @@ class RecordGateScans
 
     private function closedReason(CarbonImmutable $today): ?string
     {
+        if ($onlineDay = $this->window->onlineDayOn($today)) {
+            return "Hari ini sekolah daring ({$onlineDay->description}), semua siswa otomatis Hadir.";
+        }
+
         if (AttendanceDay::forDate($today)) {
             return 'Absen hari ini sudah diselesaikan guru piket. Silakan lapor ke guru piket.';
         }

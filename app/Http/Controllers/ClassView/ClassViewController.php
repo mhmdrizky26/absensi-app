@@ -9,37 +9,46 @@ use App\Models\Attendance;
 use App\Models\AttendanceDay;
 use App\Models\Classroom;
 use App\Support\AttendanceWindow;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Subject teachers type a class code ("7A") on the code screen to see,
- * read-only, who in that room is present today. No account needed; the code
- * only shows today.
+ * Every logged-in teacher, subject teachers included, sees read-only who is
+ * present in any class today. Only today: recaps stay with the wali kelas.
  */
 class ClassViewController extends Controller
 {
     /**
-     * Where the opened class is remembered; set by CodeLoginController.
+     * The class picker and, for the chosen class (the wali kelas's own class
+     * by default), today's marks of the students who sit in that room: its
+     * own students, and students of a class without a room who study here.
+     * For a class without a room, its own students wherever they study.
      */
-    public const SESSION_KEY = 'class_view';
+    public function show(Request $request, AttendanceWindow $window): Response
+    {
+        $academicYear = AcademicYear::active();
+        $classrooms = $academicYear ? $academicYear->classrooms()->orderBy('grade')->orderBy('name')->get(['id', 'academic_year_id', 'grade', 'name', 'has_room']) : collect();
+        $selectedId = $request->integer('kelas') ?: $request->user()->currentHomeroom()?->id;
+        $classroom = $classrooms->firstWhere('id', $selectedId);
+        $today = today();
+
+        return Inertia::render('ClassView/Show', [
+            'classrooms' => $classrooms->map(fn (Classroom $classroom): array => $classroom->only('id', 'grade', 'name'))->values(),
+            'classroom' => $classroom ? ['id' => $classroom->id, 'name' => $classroom->name, 'hasRoom' => $classroom->has_room] : null,
+            'date' => $today->toDateString(),
+            'isSchoolDay' => $window->isSchoolDay($today),
+            'isFinalized' => AttendanceDay::forDate($today) !== null,
+            'students' => $classroom ? $this->studentsIn($classroom) : [],
+        ]);
+    }
 
     /**
-     * Today's marks of the students who sit in this room: its own students,
-     * and students of a class without a room who study here. For a class
-     * without a room, its own students wherever they study.
+     * @return list<array<string, mixed>>
      */
-    public function show(Request $request, AttendanceWindow $window): Response|RedirectResponse
+    private function studentsIn(Classroom $classroom): array
     {
-        $classroom = $this->classroomFrom($request);
-
-        if (! $classroom) {
-            return redirect()->route('code.login')->with('error', 'Masukkan kode kelas.');
-        }
-
         $placements = DB::table('classroom_student')
             ->join('students', 'students.id', '=', 'classroom_student.student_id')
             ->join('classrooms as home', 'home.id', '=', 'classroom_student.classroom_id')
@@ -60,61 +69,19 @@ class ClassViewController extends Controller
             ->get(['student_id', 'status', 'recorded_at'])
             ->keyBy('student_id');
 
-        $today = today();
+        return $placements->map(function (object $student) use ($classroom, $marks): array {
+            $mark = $marks->get($student->id);
 
-        return Inertia::render('ClassView/Show', [
-            'classroom' => ['name' => $classroom->name, 'hasRoom' => $classroom->has_room],
-            'date' => $today->toDateString(),
-            'isSchoolDay' => $window->isSchoolDay($today),
-            'isFinalized' => AttendanceDay::forDate($today) !== null,
-            'students' => $placements->map(function (object $student) use ($classroom, $marks): array {
-                $mark = $marks->get($student->id);
-
-                return [
-                    'id' => $student->id,
-                    'name' => $student->name,
-                    'nis' => $student->nis,
-                    'from' => $student->home !== $classroom->name ? $student->home : null,
-                    'studyIn' => ! $classroom->has_room ? $student->study : null,
-                    'status' => $mark?->status->value,
-                    'statusLabel' => $mark?->status->label(),
-                    'recordedAt' => $mark?->recorded_at->toIso8601String(),
-                ];
-            })->values(),
-        ]);
-    }
-
-    /**
-     * Back to the code screen, to look at another class.
-     */
-    public function destroy(Request $request): RedirectResponse
-    {
-        $request->session()->forget(self::SESSION_KEY);
-
-        return redirect()->route('code.login');
-    }
-
-    /**
-     * The class this browser opened, as long as its code was not changed.
-     */
-    private function classroomFrom(Request $request): ?Classroom
-    {
-        $opened = $request->session()->get(self::SESSION_KEY);
-
-        if (! is_array($opened)) {
-            return null;
-        }
-
-        $classroom = Classroom::query()
-            ->where('academic_year_id', AcademicYear::active()?->id)
-            ->find($opened['id'] ?? null);
-
-        if (! $classroom || $classroom->view_code !== ($opened['code'] ?? null)) {
-            $request->session()->forget(self::SESSION_KEY);
-
-            return null;
-        }
-
-        return $classroom;
+            return [
+                'id' => $student->id,
+                'name' => $student->name,
+                'nis' => $student->nis,
+                'from' => $student->home !== $classroom->name ? $student->home : null,
+                'studyIn' => ! $classroom->has_room ? $student->study : null,
+                'status' => $mark?->status->value,
+                'statusLabel' => $mark?->status->label(),
+                'recordedAt' => $mark?->recorded_at->toIso8601String(),
+            ];
+        })->values()->all();
     }
 }

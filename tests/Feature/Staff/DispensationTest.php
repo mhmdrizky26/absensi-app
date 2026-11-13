@@ -9,6 +9,7 @@ use App\Models\AcademicYear;
 use App\Models\Attendance;
 use App\Models\Classroom;
 use App\Models\Dispensation;
+use App\Models\DutySchedule;
 use App\Models\Student;
 use App\Models\User;
 use App\Support\AttendanceReport;
@@ -146,6 +147,7 @@ class DispensationTest extends TestCase
     public function test_wali_kelas_requests_only_for_their_own_class(): void
     {
         $otherWali = User::factory()->waliKelas()->create();
+        Classroom::factory()->for($this->academicYear)->create(['homeroom_teacher_id' => $otherWali->id]);
 
         $this->actingAs($otherWali)->post('/dispensasi', $this->payload())->assertSessionHasErrors('student_id');
         $this->actingAs($this->wali)->post('/dispensasi', $this->payload(['to' => '2026-10-20']))->assertSessionHasErrors('to');
@@ -185,6 +187,80 @@ class DispensationTest extends TestCase
 
         $this->assertModelMissing($dispensation);
         Storage::disk('local')->assertMissing($dispensation->attachment_path);
+    }
+
+    public function test_a_wali_kelas_on_duty_cannot_give_both_approvals_for_their_own_class(): void
+    {
+        DutySchedule::factory()->create(['user_id' => $this->wali->id, 'weekday' => 1]);
+
+        $this->actingAs($this->wali)->post('/dispensasi', $this->payload())
+            ->assertSessionHas('success', 'Dispensasi Ayu diajukan. Menunggu persetujuan guru piket.');
+        $dispensation = Dispensation::sole();
+
+        $this->assertNull($dispensation->duty_approved_at);
+        $this->assertFalse($dispensation->awaitsDecisionFrom($this->wali));
+        $this->actingAs($this->wali)->post("/dispensasi/{$dispensation->id}/setujui")->assertSessionHas('error');
+        $this->actingAs($this->wali)->get('/dispensasi')->assertInertia(fn (Assert $page) => $page->has('awaiting', 0)->where('navCounts.pendingDispensations', 0));
+
+        $this->actingAs($this->piket)->post("/dispensasi/{$dispensation->id}/setujui");
+
+        $dispensation->refresh();
+        $this->assertSame(DispensationStatus::Approved, $dispensation->status);
+        $this->assertTrue($dispensation->homeroomApprover->is($this->wali));
+        $this->assertTrue($dispensation->dutyApprover->is($this->piket));
+    }
+
+    public function test_a_wali_kelas_on_duty_approves_other_classes_as_guru_piket(): void
+    {
+        DutySchedule::factory()->create(['user_id' => $this->wali->id, 'weekday' => 1]);
+        $otherWali = User::factory()->waliKelas()->create();
+        $otherClass = Classroom::factory()->for($this->academicYear)->create(['name' => 'VII-B', 'homeroom_teacher_id' => $otherWali->id]);
+        $budi = Student::factory()->create(['name' => 'Budi']);
+        $budi->placeIn($otherClass, $this->academicYear);
+
+        $this->actingAs($otherWali)->post('/dispensasi', $this->payload(['student_id' => $budi->id]));
+        $dispensation = Dispensation::sole();
+
+        $this->actingAs($this->wali)->get('/dispensasi')->assertInertia(fn (Assert $page) => $page->has('awaiting', 1)->where('canRequestAnyClass', true));
+        $this->actingAs($this->wali)->post("/dispensasi/{$dispensation->id}/setujui")
+            ->assertSessionHas('success', 'Dispensasi Budi disetujui. 2 hari sekolah dicatat Dispensasi.');
+        $this->assertTrue($dispensation->fresh()->dutyApprover->is($this->wali));
+
+        $this->actingAs($this->wali)->post('/dispensasi', $this->payload(['student_id' => $budi->id, 'from' => '2026-10-01', 'to' => '2026-10-01']))->assertSessionHasNoErrors();
+    }
+
+    public function test_guru_piket_off_duty_only_watches(): void
+    {
+        $tuesdayPiket = User::factory()->guru()->create();
+        DutySchedule::factory()->create(['user_id' => $tuesdayPiket->id, 'weekday' => 2]);
+        $this->actingAs($this->wali)->post('/dispensasi', $this->payload());
+        $dispensation = Dispensation::sole();
+
+        $this->actingAs($tuesdayPiket)->get('/dispensasi')->assertInertia(fn (Assert $page) => $page
+            ->has('awaiting', 0)
+            ->has('others', 1)
+            ->where('others.0.canDecide', false)
+            ->where('canRequest', false)
+        );
+        $this->actingAs($tuesdayPiket)->post("/dispensasi/{$dispensation->id}/setujui")->assertForbidden();
+        $this->actingAs($tuesdayPiket)->post('/dispensasi', $this->payload())->assertForbidden();
+
+        // Keesokan harinya (Selasa) dia piket dan menyetujui pengajuan kemarin.
+        $this->travelTo(now()->addDay());
+        $this->actingAs($tuesdayPiket)->post("/dispensasi/{$dispensation->id}/setujui")->assertSessionHas('success');
+        $this->assertTrue($dispensation->fresh()->dutyApprover->is($tuesdayPiket));
+        $this->assertFalse($this->piket->isOnDuty());
+    }
+
+    public function test_a_teacher_without_class_or_duty_days_has_no_dispensation_menu(): void
+    {
+        $this->actingAs(User::factory()->guru()->create())->get('/dispensasi')->assertForbidden();
+
+        $this->actingAs($this->wali)->post('/dispensasi', $this->payload());
+        $otherWali = User::factory()->waliKelas()->create();
+        Classroom::factory()->for($this->academicYear)->create(['homeroom_teacher_id' => $otherWali->id]);
+
+        $this->actingAs($otherWali)->get('/dispensasi')->assertInertia(fn (Assert $page) => $page->has('awaiting', 0)->has('others', 0));
     }
 
     public function test_dispensasi_counts_as_present_in_the_rate(): void

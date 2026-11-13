@@ -2,8 +2,6 @@
 
 namespace Tests\Feature\Admin;
 
-use App\Models\AcademicYear;
-use App\Models\Classroom;
 use App\Models\GateStation;
 use App\Models\User;
 use App\Support\GateNetwork;
@@ -85,16 +83,15 @@ class GateStationTest extends TestCase
         $this->assertFalse(app(GateNetwork::class)->isRestricted());
     }
 
-    public function test_tab_codes_and_class_codes_never_overlap(): void
+    public function test_wrong_codes_on_the_code_screen_are_throttled(): void
     {
-        $academicYear = AcademicYear::factory()->active()->create();
-        $classroom = Classroom::factory()->for($academicYear)->create(['grade' => 7, 'name' => 'VII-A']);
         GateStation::factory()->create(['code' => 'TAB1']);
 
-        $this->actingAs($this->admin)->post('/tab-gerbang', ['name' => 'Tab 7', 'code' => '7A'])
-            ->assertSessionHasErrors(['code' => 'Kode ini sudah dipakai sebagai kode kelas VII-A. Pilih kode lain.']);
+        foreach (range(1, 10) as $attempt) {
+            $this->post('/kode', ['code' => "SALAH{$attempt}"])->assertSessionHasErrors('code');
+        }
 
-        $this->actingAs($this->admin)->put("/kelas/{$classroom->id}", ['grade' => 7, 'section' => 'A', 'view_code' => 'TAB1'])->assertSessionHasErrors('view_code');
+        $this->post('/kode', ['code' => 'TAB1'])->assertSessionHasErrors(['code' => 'Terlalu banyak kode salah. Coba lagi dalam 60 detik.']);
     }
 
     public function test_only_admins_manage_tabs(): void

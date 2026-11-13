@@ -26,13 +26,14 @@ class ExcuseController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
-        $homeroom = $user->hasRole(Role::WaliKelas) ? $user->currentHomeroom() : null;
+        $isHomeroomTeacher = $user->hasRole(Role::Guru);
+        $homeroom = $isHomeroomTeacher ? $user->currentHomeroom() : null;
 
         $excuses = Attendance::query()
             ->with(['student:id,name,nis', 'classroom:id,name', 'recorder:id,name'])
             ->whereIn('status', [AttendanceStatus::Sick, AttendanceStatus::Excused])
             ->whereDate('date', '>=', today()->subDays(7))
-            ->when($user->hasRole(Role::WaliKelas), fn (Builder $query) => $query->where('classroom_id', $homeroom?->id ?? 0))
+            ->when($isHomeroomTeacher, fn (Builder $query) => $query->where('classroom_id', $homeroom?->id ?? 0))
             ->orderByDesc('date')
             ->latest('recorded_at')
             ->limit(150)
@@ -53,7 +54,7 @@ class ExcuseController extends Controller
         return Inertia::render('Staff/Excuses', [
             'excuses' => $excuses,
             'homeroom' => $homeroom?->name,
-            'isHomeroomTeacher' => $user->hasRole(Role::WaliKelas),
+            'isHomeroomTeacher' => $isHomeroomTeacher,
         ]);
     }
 

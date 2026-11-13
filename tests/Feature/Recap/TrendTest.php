@@ -114,6 +114,6 @@ class TrendTest extends TestCase
             ->where('trends.classroomRanking', [])
         );
 
-        $this->actingAs(User::factory()->guruPiket()->create())->get('/dasbor')->assertRedirect(route('duty.monitor'));
+        $this->actingAs(User::factory()->guruPiket()->create())->get('/dasbor')->assertInertia(fn (Assert $page) => $page->where('trends', null));
     }
 }

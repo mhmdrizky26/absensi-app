@@ -52,6 +52,10 @@ class FinalizeDayController extends Controller
             return back()->with('error', 'Absen hari ini belum diselesaikan.');
         }
 
+        if ($window->onlineDayOn(today())) {
+            return back()->with('error', 'Hari ini sekolah daring. Batalkan hari daring di Pengaturan bila ingin absen biasa.');
+        }
+
         $removed = $finalize->reopen(today());
 
         return back()->with('success', "Absen hari ini dibuka lagi. {$removed} tanda Alpa otomatis dihapus; tab gerbang dan Absen piket menerima absen lagi.");

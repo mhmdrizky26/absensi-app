@@ -64,7 +64,7 @@ class ExcuseRequest extends FormRequest
 
                 $user = $this->user();
 
-                if ($user->hasRole(Role::WaliKelas) && $user->currentHomeroom()?->id !== $classroom->id) {
+                if ($user->hasRole(Role::Guru) && $user->currentHomeroom()?->id !== $classroom->id) {
                     $validator->errors()->add('student_id', 'Wali kelas hanya bisa mengisi izin untuk siswa kelasnya sendiri.');
                 }
             },
