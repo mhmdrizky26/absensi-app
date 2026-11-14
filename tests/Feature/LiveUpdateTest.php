@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AcademicYear;
 use App\Models\Classroom;
 use App\Models\Dispensation;
+use App\Models\Student;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -40,6 +41,24 @@ class LiveUpdateTest extends TestCase
         $this->assertSame($first, $this->actingAs($admin)->getJson('/pembaruan')->json('version'));
         $this->travel(6)->seconds();
         $this->assertNotSame($first, $this->actingAs($admin)->getJson('/pembaruan')->json('version'));
+    }
+
+    public function test_lodging_students_changes_the_version_although_no_row_is_added(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 5)->setTime(7, 0));
+        $admin = User::factory()->admin()->create();
+        $academicYear = AcademicYear::factory()->active()->create();
+        Classroom::factory()->for($academicYear)->create(['grade' => 8, 'name' => 'VIII-A']);
+        $roomless = Classroom::factory()->for($academicYear)->create(['grade' => 8, 'name' => 'VIII-K', 'has_room' => false]);
+        Student::factory()->create()->placeIn($roomless, $academicYear);
+
+        $before = $this->actingAs($admin)->getJson('/pembaruan')->json('version');
+
+        $this->travel(1)->minute();
+        $this->actingAs($admin)->post("/kelas/{$roomless->id}/titipkan")->assertSessionHas('success');
+        Cache::forget('live-updates-version');
+
+        $this->assertNotSame($before, $this->actingAs($admin)->getJson('/pembaruan')->json('version'));
     }
 
     public function test_guests_get_nothing(): void
