@@ -87,7 +87,7 @@ class ClassroomController extends Controller
         if ($classroom->isDirty('has_room')) {
             // Punya ruang lagi: siswanya kembali belajar di kelasnya. Kehilangan ruang: titipan di sini dilepas.
             $column = $classroom->has_room ? 'classroom_id' : 'study_classroom_id';
-            DB::table('classroom_student')->where($column, $classroom->id)->update(['study_classroom_id' => null]);
+            DB::table('classroom_student')->where($column, $classroom->id)->update(['study_classroom_id' => null, 'updated_at' => now()]);
         }
 
         $classroom->save();

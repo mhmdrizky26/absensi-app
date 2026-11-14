@@ -48,18 +48,36 @@ const DETAIL_GROUPS = [
 ];
 
 /**
- * Daftar siswa satu kelas hari ini, dikelompokkan per status.
+ * Daftar siswa satu kelas hari ini, dikelompokkan per status. Dimuat ulang
+ * diam-diam setiap kali jumlah per status kelas ini berubah (scan, izin,
+ * dispensasi) selama jendela masih terbuka.
  */
 function ClassroomDetail({ classroom, onClose }) {
     const [detail, setDetail] = useState(null);
     const [failed, setFailed] = useState(false);
     const [filter, setFilter] = useState('all');
+    const countsKey = JSON.stringify(classroom.counts);
 
     useEffect(() => {
+        let cancelled = false;
+
         getJson(`/pantauan/kelas/${classroom.id}`)
-            .then(setDetail)
-            .catch(() => setFailed(true));
-    }, [classroom.id]);
+            .then((data) => {
+                if (!cancelled) {
+                    setDetail(data);
+                    setFailed(false);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setFailed(true);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [classroom.id, countsKey]);
 
     const groups = detail
         ? DETAIL_GROUPS.map((group) => ({ ...group, status: group.key === 'none' ? null : group.key, students: detail.students.filter((student) => group.statuses.includes(student.status)) })).filter(
@@ -160,7 +178,9 @@ function gatePhase(scanWindow) {
 export default function Monitor({ date, window: scanWindow, finalized, missingCount, stations, classrooms, late }) {
     // Status gerbang ikut berubah karena waktu berjalan, jadi tetap diperbarui walau data tidak berubah.
     usePoll(12000, { only: ['classrooms', 'late', 'stations', 'missingCount', 'finalized'] });
-    const [openClassroom, setOpenClassroom] = useState(null);
+    const [openClassroomId, setOpenClassroomId] = useState(null);
+    // Ambil dari props terbaru supaya jendela detail ikut berubah saat data kelas diperbarui.
+    const openClassroom = classrooms.find((classroom) => classroom.id === openClassroomId) ?? null;
     const [confirmingFinish, setConfirmingFinish] = useState(false);
     const [confirmingReopen, setConfirmingReopen] = useState(false);
 
@@ -292,9 +312,9 @@ export default function Monitor({ date, window: scanWindow, finalized, missingCo
                                     const percent = classroom.total ? Math.round((present / classroom.total) * 100) : 0;
 
                                     return (
-                                        <tr key={classroom.id} className="row-link" onClick={() => setOpenClassroom(classroom)}>
+                                        <tr key={classroom.id} className="row-link" onClick={() => setOpenClassroomId(classroom.id)}>
                                             <td style={{ fontWeight: 800 }}>
-                                                <button type="button" className="row-link-button" onClick={() => setOpenClassroom(classroom)}>
+                                                <button type="button" className="row-link-button" onClick={() => setOpenClassroomId(classroom.id)}>
                                                     {classroom.name} <ChevronRight size={14} aria-hidden="true" />
                                                 </button>
                                             </td>
@@ -345,7 +365,7 @@ export default function Monitor({ date, window: scanWindow, finalized, missingCo
                 </aside>
             </div>
 
-            {openClassroom && <ClassroomDetail classroom={openClassroom} onClose={() => setOpenClassroom(null)} />}
+            {openClassroom && <ClassroomDetail classroom={openClassroom} onClose={() => setOpenClassroomId(null)} />}
 
             <ConfirmDialog open={confirmingReopen} title="Buka lagi absen hari ini?" confirmLabel="Buka lagi" onConfirm={reopen} onClose={() => setConfirmingReopen(false)}>
                 Khusus mode demo. Tanda Alpa yang dibuat saat absen diselesaikan dihapus, lalu tab gerbang dan Absen piket menerima absen lagi. Hadir, terlambat, sakit, dan izin yang sudah tercatat tidak berubah.

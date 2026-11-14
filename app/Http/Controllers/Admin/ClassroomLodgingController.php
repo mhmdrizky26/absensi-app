@@ -54,7 +54,7 @@ class ClassroomLodgingController extends Controller
                     ->where('academic_year_id', $classroom->academic_year_id)
                     ->where('classroom_id', $classroom->id)
                     ->where('student_id', $studentId)
-                    ->update(['study_classroom_id' => $hostId]);
+                    ->update(['study_classroom_id' => $hostId, 'updated_at' => now()]);
             }
         });
 
@@ -79,7 +79,7 @@ class ClassroomLodgingController extends Controller
                 ->where('academic_year_id', $classroom->academic_year_id)
                 ->where('classroom_id', $classroom->id)
                 ->whereNotNull('study_classroom_id')
-                ->update(['study_classroom_id' => null]);
+                ->update(['study_classroom_id' => null, 'updated_at' => now()]);
         });
 
         return back()->with('success', "Kelas {$classroom->name} kini punya ruang sendiri. {$returned} siswa titipan kembali belajar di {$classroom->name}.");
