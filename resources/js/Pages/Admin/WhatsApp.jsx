@@ -70,7 +70,7 @@ export default function WhatsApp({ settings, texts, defaultTexts, placeholders, 
 
     function submitTexts(event) {
         event.preventDefault();
-        textForm.put('/notifikasi-wa/pesan', { preserveScroll: true });
+        textForm.put('/notifikasi-wa/pesan', { preserveScroll: true, onSuccess: () => textForm.setDefaults() });
     }
 
     const form = useForm(settings);
@@ -85,7 +85,7 @@ export default function WhatsApp({ settings, texts, defaultTexts, placeholders, 
 
     function submit(event) {
         event.preventDefault();
-        form.put('/notifikasi-wa', { preserveScroll: true });
+        form.put('/notifikasi-wa', { preserveScroll: true, onSuccess: () => form.setDefaults() });
     }
 
     function sendTest(event) {
@@ -186,7 +186,7 @@ export default function WhatsApp({ settings, texts, defaultTexts, placeholders, 
                     <Toggle id="on_escalation" label="Kabari lagi saat naik ke risiko tinggi" checked={form.data.on_escalation} onChange={(value) => form.setData('on_escalation', value)} />
                     <Toggle id="on_new_streak" label="Kabari lagi saat alpa beruntun lagi" hint="Walau siswa masih di daftar berisiko." checked={form.data.on_new_streak} onChange={(value) => form.setData('on_new_streak', value)} />
                     <div>
-                        <button type="submit" className="btn btn-primary" disabled={form.processing}>
+                        <button type="submit" className="btn btn-primary" disabled={form.processing || !form.isDirty}>
                             Simpan pengaturan
                         </button>
                     </div>
@@ -199,7 +199,7 @@ export default function WhatsApp({ settings, texts, defaultTexts, placeholders, 
                             <input id="test_phone" className="input" inputMode="tel" placeholder="0812 3456 7890" value={testForm.data.phone} onChange={(event) => testForm.setData('phone', event.target.value)} />
                         </Field>
                         <div>
-                            <button type="submit" className="btn btn-secondary" disabled={testForm.processing || !connection.configured}>
+                            <button type="submit" className="btn btn-secondary" disabled={testForm.processing || !connection.configured || testForm.data.phone.trim() === ''}>
                                 {testForm.processing ? 'Mengirim…' : 'Kirim pesan uji'}
                             </button>
                         </div>

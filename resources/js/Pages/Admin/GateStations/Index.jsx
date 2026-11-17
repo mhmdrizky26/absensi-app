@@ -64,9 +64,9 @@ export default function GateStationsIndex({ stations, suggestion, network }) {
     // IP baru ditambahkan ke daftar yang sudah tersimpan.
     function submitNetwork(event) {
         event.preventDefault();
-        networkForm
-            .transform((data) => ({ allowed_ips: [...network.allowedIps, ...data.allowed_ips.split(/[\s,]+/).filter(Boolean)].join('\n') }))
-            .put('/jaringan-gerbang', { preserveScroll: true, onSuccess: () => networkForm.reset() });
+        // Di Inertia React, transform() tidak bisa disambung langsung dengan put().
+        networkForm.transform((data) => ({ allowed_ips: [...network.allowedIps, ...data.allowed_ips.split(/[\s,]+/).filter(Boolean)].join('\n') }));
+        networkForm.put('/jaringan-gerbang', { preserveScroll: true, onSuccess: () => networkForm.reset() });
     }
 
     function removeIp(ip) {
@@ -84,17 +84,17 @@ export default function GateStationsIndex({ stations, suggestion, network }) {
     const codeChanged = editing !== 'new' && editing && form.data.code.trim().toUpperCase() !== editing.code;
     const confirmText = {
         revoke: {
-            title: `Cabut ${confirming?.station.name}?`,
+            title: `Cabut ${confirming?.station?.name}?`,
             label: 'Cabut',
             body: 'Tab itu langsung keluar dan kodenya tidak bisa dipakai login. Pakai ini kalau tab hilang atau rusak. Scan yang sudah tercatat tidak berubah.',
         },
         restore: {
-            title: `Aktifkan lagi ${confirming?.station.name}?`,
+            title: `Aktifkan lagi ${confirming?.station?.name}?`,
             label: 'Aktifkan',
-            body: `Kode ${confirming?.station.code} bisa dipakai lagi. Tab perlu login ulang dengan kode itu.`,
+            body: `Kode ${confirming?.station?.code} bisa dipakai lagi. Tab perlu login ulang dengan kode itu.`,
         },
         delete: {
-            title: `Hapus ${confirming?.station.name}?`,
+            title: `Hapus ${confirming?.station?.name}?`,
             label: 'Hapus',
             body: 'Tab dihapus dan kodenya tidak bisa dipakai lagi. Absensi yang sudah di-scan lewat tab ini tetap tersimpan.',
         },

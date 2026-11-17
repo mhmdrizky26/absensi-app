@@ -82,12 +82,13 @@ class LiveUpdateTest extends TestCase
 
     public function test_only_writes_to_watched_tables_count(): void
     {
-        $this->assertSame(LiveUpdates::ATTENDANCE, LiveUpdates::topicWrittenBy('insert into `attendances` (`student_id`) values (?)'));
-        $this->assertSame(LiveUpdates::ATTENDANCE, LiveUpdates::topicWrittenBy('update "attendance_days" set "absent_count" = ?'));
-        $this->assertSame(LiveUpdates::DATA, LiveUpdates::topicWrittenBy('delete from `classroom_student` where `student_id` = ?'));
-        $this->assertNull(LiveUpdates::topicWrittenBy('select * from `attendances`'));
-        $this->assertNull(LiveUpdates::topicWrittenBy('update `sessions` set `payload` = ?'));
-        $this->assertNull(LiveUpdates::topicWrittenBy('insert into `cache` (`key`) values (?)'));
+        $this->assertSame([LiveUpdates::ATTENDANCE], LiveUpdates::topicsWrittenBy('insert into `attendances` (`student_id`) values (?)'));
+        $this->assertSame([LiveUpdates::ATTENDANCE], LiveUpdates::topicsWrittenBy('insert ignore into `attendances` (`student_id`) values (?)'));
+        $this->assertSame([LiveUpdates::ATTENDANCE, LiveUpdates::DATA], LiveUpdates::topicsWrittenBy('update "attendance_days" set "absent_count" = ?'));
+        $this->assertSame([LiveUpdates::DATA], LiveUpdates::topicsWrittenBy('delete from `classroom_student` where `student_id` = ?'));
+        $this->assertSame([], LiveUpdates::topicsWrittenBy('select * from `attendances`'));
+        $this->assertSame([], LiveUpdates::topicsWrittenBy('update `sessions` set `payload` = ?'));
+        $this->assertSame([], LiveUpdates::topicsWrittenBy('insert into `cache` (`key`) values (?)'));
     }
 
     public function test_lodging_students_changes_the_version_although_no_row_is_added(): void

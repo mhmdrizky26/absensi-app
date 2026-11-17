@@ -47,7 +47,7 @@ class EnsureGateStation
         }
 
         $closedReason = $this->window->gateClosedReason(now());
-        $sendingQueue = $request->routeIs('gate.scan', 'gate.status') && $this->window->acceptsQueuedScans(now());
+        $sendingQueue = $request->routeIs('gate.scan', 'gate.status', 'gate.marks') && $this->window->acceptsQueuedScans(now());
 
         if ($closedReason && ! $sendingQueue) {
             return $this->deny($request, $closedReason, isClosed: true);

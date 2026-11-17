@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Support\AttendanceWindow;
 use App\Support\WhatsAppClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class SettingTest extends TestCase
@@ -41,6 +42,19 @@ class SettingTest extends TestCase
             'opens_at' => $schoolDays[$day][0] ?? '06:30',
             'closes_at' => $schoolDays[$day][1] ?? '07:00',
         ], range(1, 7));
+    }
+
+    public function test_turning_a_day_off_removes_its_guru_piket(): void
+    {
+        $guru = User::factory()->guru()->create();
+        $guru->dutySchedules()->createMany([['weekday' => 1], ['weekday' => 6]]);
+
+        $this->actingAs($this->admin)
+            ->put('/pengaturan', ['days' => $this->week([1 => ['06:00', '07:00'], 2 => ['06:00', '07:00']])])
+            ->assertSessionHas('success', 'Jadwal absensi disimpan. Jadwal piket di hari yang tidak lagi hari sekolah ikut dihapus.');
+
+        $this->assertSame([1], $guru->dutySchedules()->pluck('weekday')->all());
+        $this->assertFalse($guru->isOnDuty(now()->setDate(2026, 10, 3))); // Sabtu
     }
 
     public function test_admin_sets_gate_hours_per_day(): void
@@ -84,6 +98,25 @@ class SettingTest extends TestCase
         $this->actingAs($this->admin)
             ->put('/pengaturan', ['days' => $this->week([3 => ['', '07:00']])])
             ->assertSessionHasErrors('days.2.opens_at');
+    }
+
+    public function test_each_saved_message_gets_its_own_id_so_the_dialog_opens_once(): void
+    {
+        $this->actingAs($this->admin)->from('/pengaturan')
+            ->post('/libur', ['from' => '2026-12-21', 'description' => 'Libur semester'])
+            ->assertRedirect('/pengaturan');
+
+        $first = $this->actingAs($this->admin)->get('/pengaturan')->assertInertia(fn (Assert $page) => $page
+            ->where('flash.success', '1 hari libur ditambahkan.')
+            ->whereType('flash.id', 'string')
+        )->viewData('page')['props']['flash']['id'];
+
+        $this->actingAs($this->admin)->get('/pengaturan')->assertInertia(fn (Assert $page) => $page->where('flash.id', null));
+
+        $this->actingAs($this->admin)->post('/libur', ['from' => '2026-12-28', 'description' => 'Libur semester']);
+        $this->actingAs($this->admin)->get('/pengaturan')->assertInertia(fn (Assert $page) => $page
+            ->where('flash.id', fn (string $id): bool => $id !== $first)
+        );
     }
 
     public function test_admin_adds_a_holiday_range_and_the_gate_stays_shut(): void

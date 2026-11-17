@@ -227,6 +227,11 @@ select.input { appearance: auto; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
 .dialog { max-height: calc(100vh - 32px); overflow-y: auto; }
 .dialog form { display: flex; flex-direction: column; gap: 16px; }
+.notice-dialog { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+.notice-dialog p { margin: 3px 0 0; font-size: 15px; }
+.notice-dialog svg { flex: none; }
+.notice-dialog.is-success svg { color: var(--color-accent); }
+.notice-dialog.is-error svg { color: var(--color-danger); }
 .empty { padding: 32px 0; border-top: 2px solid var(--color-divider); }
 .empty p { max-width: 520px; }
 .section-title { display: flex; align-items: baseline; gap: 8px; margin: 32px 0 8px; }

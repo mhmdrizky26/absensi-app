@@ -31,12 +31,13 @@ export default function Settings({ settings, general, timezones, holidays, onlin
 
     function submitSettings(event) {
         event.preventDefault();
-        form.put('/pengaturan', { preserveScroll: true });
+        // Setelah tersimpan, isian sekarang menjadi patokan: tombol mati lagi sampai ada perubahan.
+        form.put('/pengaturan', { preserveScroll: true, onSuccess: () => form.setDefaults() });
     }
 
     function submitGeneral(event) {
         event.preventDefault();
-        generalForm.put('/pengaturan/umum', { preserveScroll: true });
+        generalForm.put('/pengaturan/umum', { preserveScroll: true, onSuccess: () => generalForm.setDefaults() });
     }
 
     function submitHoliday(event) {
@@ -115,7 +116,7 @@ export default function Settings({ settings, general, timezones, holidays, onlin
                     </span>
                 </label>
                 <div>
-                    <button type="submit" className="btn btn-primary" disabled={generalForm.processing}>
+                    <button type="submit" className="btn btn-primary" disabled={generalForm.processing || !generalForm.isDirty}>
                         Simpan
                     </button>
                 </div>
@@ -175,7 +176,7 @@ export default function Settings({ settings, general, timezones, holidays, onlin
                         </table>
                     </div>
                     <div>
-                        <button type="submit" className="btn btn-primary" disabled={form.processing}>
+                        <button type="submit" className="btn btn-primary" disabled={form.processing || !form.isDirty}>
                             Simpan jadwal
                         </button>
                     </div>
@@ -196,7 +197,7 @@ export default function Settings({ settings, general, timezones, holidays, onlin
                         <Field label="Keterangan" htmlFor="holiday-description" error={holidayForm.errors.description}>
                             <input id="holiday-description" className="input" placeholder="Contoh: Maulid Nabi" value={holidayForm.data.description} onChange={(event) => holidayForm.setData('description', event.target.value)} />
                         </Field>
-                        <button type="submit" className="btn btn-secondary" disabled={holidayForm.processing}>
+                        <button type="submit" className="btn btn-secondary" disabled={holidayForm.processing || !holidayForm.data.from || holidayForm.data.description.trim() === ''}>
                             Tambah libur
                         </button>
                     </form>
@@ -228,7 +229,7 @@ export default function Settings({ settings, general, timezones, holidays, onlin
                         <Field label="Keterangan" htmlFor="online-description" error={onlineForm.errors.description}>
                             <input id="online-description" className="input" placeholder="Contoh: Rapat guru, belajar dari rumah" value={onlineForm.data.description} onChange={(event) => onlineForm.setData('description', event.target.value)} />
                         </Field>
-                        <button type="submit" className="btn btn-secondary" disabled={onlineForm.processing}>
+                        <button type="submit" className="btn btn-secondary" disabled={onlineForm.processing || !onlineForm.data.from || onlineForm.data.description.trim() === ''}>
                             Tambah hari daring
                         </button>
                     </form>
@@ -248,7 +249,7 @@ export default function Settings({ settings, general, timezones, holidays, onlin
                 </section>
             </div>
 
-            <form onSubmit={(event) => { event.preventDefault(); riskForm.put('/pengaturan/risiko', { preserveScroll: true }); }} noValidate className="excuse-form" style={{ marginTop: 40 }}>
+            <form onSubmit={(event) => { event.preventDefault(); riskForm.put('/pengaturan/risiko', { preserveScroll: true, onSuccess: () => riskForm.setDefaults() }); }} noValidate className="excuse-form" style={{ marginTop: 40 }}>
                 <h4 style={{ margin: 0 }}>Aturan siswa berisiko</h4>
                 <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
                     Siswa masuk daftar Siswa berisiko bila memenuhi salah satu aturan. Daftar diperbarui setiap hari; siswa yang sudah membaik keluar dari daftar dan datanya dihapus.

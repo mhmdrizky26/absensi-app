@@ -27,12 +27,14 @@ class LiveUpdates
     public const DATA = 'data';
 
     /**
-     * Topic => tables whose changes show up on other users' pages.
+     * Topic => tables whose changes show up on other users' pages. Finishing
+     * the day (attendance_days) is in both: gate tablets follow attendance,
+     * and staff pages show it at once instead of waiting like for scans.
      */
     private const TOPICS = [
         self::ATTENDANCE => ['attendances', 'attendance_days'],
         self::DATA => [
-            'dispensations', 'guardian_contacts', 'risk_episodes', 'risk_messages', 'holidays', 'online_days',
+            'attendance_days', 'dispensations', 'guardian_contacts', 'risk_episodes', 'risk_messages', 'holidays', 'online_days',
             'students', 'classrooms', 'classroom_student', 'duty_schedules', 'duty_substitutions',
         ],
     ];
@@ -51,41 +53,39 @@ class LiveUpdates
     public static function watchWrites(): void
     {
         Event::listen(function (QueryExecuted $query): void {
-            $topic = self::topicWrittenBy($query->sql);
+            foreach (self::topicsWrittenBy($query->sql) as $topic) {
+                if (isset(self::$pending[$topic])) {
+                    continue;
+                }
 
-            if ($topic === null || isset(self::$pending[$topic])) {
-                return;
+                // Outside a transaction this runs at once; inside one, after the
+                // commit, so other pages never reload before the data is visible.
+                self::$pending[$topic] = true;
+                $query->connection->afterRollBack(function () use ($topic): void {
+                    unset(self::$pending[$topic]);
+                });
+                $query->connection->afterCommit(function () use ($topic): void {
+                    unset(self::$pending[$topic]);
+                    self::bump([$topic]);
+                });
             }
-
-            // Outside a transaction this runs at once; inside one, after the
-            // commit, so other pages never reload before the data is visible.
-            self::$pending[$topic] = true;
-            $query->connection->afterRollBack(function () use ($topic): void {
-                unset(self::$pending[$topic]);
-            });
-            $query->connection->afterCommit(function () use ($topic): void {
-                unset(self::$pending[$topic]);
-                self::bump([$topic]);
-            });
         });
     }
 
     /**
-     * The table an insert, update or delete writes to, as its topic.
+     * The topics of the table an insert, update or delete writes to.
+     *
+     * @return list<string>
      */
-    public static function topicWrittenBy(string $sql): ?string
+    public static function topicsWrittenBy(string $sql): array
     {
-        if (! preg_match('/^\s*(?:insert\s+(?:ignore\s+)?into|replace\s+into|update|delete\s+from)\s+[`"\[]?(\w+)/i', $sql, $match)) {
-            return null;
+        if (! preg_match('/^\s*(?:insert\s+(?:(?:or\s+)?ignore\s+)?into|replace\s+into|update|delete\s+from)\s+[`"\[]?(\w+)/i', $sql, $match)) {
+            return [];
         }
 
-        foreach (self::TOPICS as $topic => $tables) {
-            if (in_array(strtolower($match[1]), $tables, true)) {
-                return $topic;
-            }
-        }
+        $table = strtolower($match[1]);
 
-        return null;
+        return array_keys(array_filter(self::TOPICS, fn (array $tables): bool => in_array($table, $tables, true)));
     }
 
     /**

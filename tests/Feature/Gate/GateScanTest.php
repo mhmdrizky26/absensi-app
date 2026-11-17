@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Gate;
 
+use App\Actions\FinalizeAttendanceDay;
 use App\Enums\AttendanceSource;
 use App\Enums\AttendanceStatus;
 use App\Enums\StudentStatus;
@@ -202,6 +203,27 @@ class GateScanTest extends TestCase
         $this->asTablet($tab2)->getJson('/gerbang/absen?since='.urlencode($synced))
             ->assertOk()
             ->assertJsonPath("marks.{$ayu->id}", null);
+    }
+
+    public function test_syncing_after_jam_masuk_keeps_the_tab_logged_in_so_its_queue_can_still_be_sent(): void
+    {
+        $ayu = $this->student();
+        $this->travelTo(now()->setTime(7, 10));
+
+        $this->asTablet()->getJson('/gerbang/absen')->assertOk()->assertCookieMissing(EnsureGateStation::COOKIE);
+        $this->sendScans([['ref' => 'a', 'payload' => $ayu->qrPayload(), 'scanned_at' => now()->setTime(6, 55)->toIso8601String()]]);
+
+        $this->assertSame(1, Attendance::count());
+    }
+
+    public function test_a_tab_is_sent_away_at_the_next_sync_once_the_day_is_finished(): void
+    {
+        $this->student();
+        $this->asTablet()->getJson('/gerbang/absen')->assertOk();
+
+        app(FinalizeAttendanceDay::class)->handle(today());
+
+        $this->asTablet()->getJson('/gerbang/absen')->assertUnauthorized();
     }
 
     public function test_scan_after_jam_masuk_is_rejected_but_an_offline_scan_from_before_counts(): void

@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { LogOut, Menu, UserRound, X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import NoticeDialog from '@/Components/NoticeDialog';
 import ProfileModal from '@/Components/ProfileModal';
 import { dutyLabel, navLinksFor } from '@/lib/duties';
 import { labelStackedTables } from '@/lib/stackTables';
@@ -46,6 +47,20 @@ export default function AppLayout({ children }) {
     const [menuOpen, setMenuOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
     const [toast, setToast] = useState(null);
+    const [notice, setNotice] = useState(null);
+
+    // Pesan berhasil/gagal dari server: buka dialog sekali per pesan baru.
+    useEffect(() => {
+        if (!flash.id) {
+            return;
+        }
+
+        if (flash.error) {
+            setNotice({ kind: 'error', message: flash.error });
+        } else if (flash.success) {
+            setNotice({ kind: 'success', message: flash.success });
+        }
+    }, [flash.id]);
 
     useLiveUpdates({
         onNewPendingDispensations: (count) => setToast(count === 1 ? 'Ada 1 pengajuan dispensasi baru yang menunggu persetujuan Anda.' : `Ada ${count} pengajuan dispensasi baru yang menunggu persetujuan Anda.`),
@@ -231,17 +246,8 @@ export default function AppLayout({ children }) {
                         )}
                     </p>
                 )}
-                {flash.success && (
-                    <p className="alert" role="status">
-                        {flash.success}
-                    </p>
-                )}
-                {flash.error && (
-                    <p className="alert alert-error" role="alert">
-                        {flash.error}
-                    </p>
-                )}
                 {children}
+                <NoticeDialog notice={notice} onClose={() => setNotice(null)} />
             </main>
         </div>
     );

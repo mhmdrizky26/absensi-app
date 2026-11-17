@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Enums\Role;
 use App\Support\LiveUpdates;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -85,6 +86,10 @@ class HandleInertiaRequests extends Middleware
             'serverWarnings' => fn () => $user?->hasRole(Role::Admin) ? self::serverWarnings($request) : [],
             'navCounts' => fn () => $user ? ['pendingDispensations' => app(LiveUpdates::class)->pendingDispensations($user)] : [],
             'flash' => [
+                // A new id per message, so the layout opens its dialog once per
+                // save, also for the same message twice, but not again when a
+                // partial reload keeps the old flash props.
+                'id' => fn () => $request->session()->hasAny(['success', 'error']) ? (string) Str::uuid() : null,
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
                 'gateClosed' => fn () => $request->session()->get('gateClosed'),
