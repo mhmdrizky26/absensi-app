@@ -78,6 +78,7 @@ Route::redirect('gerbang', 'kode');
 Route::middleware('gate.station')->prefix('gerbang')->group(function () {
     Route::get('scan', [GateScannerController::class, 'show'])->name('gate.scanner');
     Route::post('status', [GateScannerController::class, 'status'])->name('gate.status');
+    Route::get('absen', [GateScannerController::class, 'marks'])->name('gate.marks');
     Route::post('scan', [GateScanController::class, 'store'])->name('gate.scan');
 });
 
@@ -225,6 +226,7 @@ Route::middleware('auth')->group(function () {
         Route::post('tab-gerbang/{gateStation}/cabut', [GateStationRevocationController::class, 'store'])->name('gate-stations.revoke');
         Route::delete('tab-gerbang/{gateStation}/cabut', [GateStationRevocationController::class, 'destroy'])->name('gate-stations.restore');
         Route::put('jaringan-gerbang', [GateNetworkController::class, 'update'])->name('gate-network.update');
+        Route::delete('jaringan-gerbang', [GateNetworkController::class, 'destroy'])->name('gate-network.destroy');
         Route::post('libur', [HolidayController::class, 'store'])->name('holidays.store');
         Route::delete('libur/{holiday}', [HolidayController::class, 'destroy'])->name('holidays.destroy');
         Route::post('daring', [OnlineDayController::class, 'store'])->name('online-days.store');

@@ -25,7 +25,7 @@ class RecordGateScans
 
     /**
      * @param  list<array{ref: string, payload: string, scanned_at?: ?string}>  $items
-     * @return list<array{ref: string, result: string, studentId?: int, recordedAt?: string, status?: string, message?: string}>
+     * @return list<array{ref: string, result: string, studentId?: int, recordedAt?: string, status?: string, station?: ?string, message?: string}>
      */
     public function handle(GateStation $station, array $items): array
     {
@@ -62,7 +62,7 @@ class RecordGateScans
 
     /**
      * @param  array{payload: string, scanned_at?: ?string}  $item
-     * @return array{result: string, studentId?: int, recordedAt?: string, status?: string, message?: string}
+     * @return array{result: string, studentId?: int, recordedAt?: string, status?: string, station?: ?string, message?: string}
      */
     private function record(GateStation $station, CarbonImmutable $today, array $item): array
     {
@@ -125,20 +125,15 @@ class RecordGateScans
             return $this->duplicate(Attendance::query()->where('student_id', $student->id)->whereDate('date', $today)->firstOrFail());
         }
 
-        return ['result' => 'recorded', 'studentId' => $student->id, 'recordedAt' => $scannedAt->toIso8601String(), 'status' => AttendanceStatus::Present->value];
+        return ['result' => 'recorded', 'studentId' => $student->id, 'recordedAt' => $scannedAt->toIso8601String(), 'status' => AttendanceStatus::Present->value, 'station' => $station->name];
     }
 
     /**
-     * @return array{result: string, studentId: int, recordedAt: string, status: string}
+     * @return array{result: string, studentId: int, recordedAt: string, status: string, station: ?string}
      */
     private function duplicate(Attendance $attendance): array
     {
-        return [
-            'result' => 'duplicate',
-            'studentId' => $attendance->student_id,
-            'recordedAt' => $attendance->recorded_at->toIso8601String(),
-            'status' => $attendance->status->value,
-        ];
+        return ['result' => 'duplicate', 'studentId' => $attendance->student_id, ...$attendance->gateMark()];
     }
 
     /**

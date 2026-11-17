@@ -32,4 +32,14 @@ class GateNetworkController extends Controller
             ? 'Batas jaringan dimatikan: tab bisa login dari jaringan mana saja.'
             : 'Tab gerbang sekarang hanya bisa dipakai dari jaringan sekolah.');
     }
+
+    /**
+     * Remove every school address: the tablets work from any network again.
+     */
+    public function destroy(GateNetwork $network): RedirectResponse
+    {
+        $network->save([]);
+
+        return back()->with('success', 'Batas jaringan dihapus: tab bisa login dari jaringan mana saja.');
+    }
 }

@@ -71,6 +71,7 @@ class ImportUsers
         $parsed = [];
         $seenUsernames = [];
         $seenClassrooms = [];
+        $dutyWeekdays = DutySchedule::dutyWeekdays();
 
         foreach ($rows as $index => $row) {
             $line = $index + 2;
@@ -94,10 +95,10 @@ class ImportUsers
                 $errors[] = "Peran \"{$values['role']}\" harus guru atau guru bk";
             }
 
-            $dutyDays = $this->parseDutyDays($values['duty_days']);
+            $dutyDays = $this->parseDutyDays($values['duty_days'], $dutyWeekdays);
 
             if ($dutyDays === null) {
-                $errors[] = "Hari Piket \"{$values['duty_days']}\" harus nama hari Senin sampai Jumat, misalnya Senin, Rabu";
+                $errors[] = "Hari Piket \"{$values['duty_days']}\" harus nama hari sekolah (".implode(', ', $dutyWeekdays).'), misalnya Senin, Rabu';
             } elseif ($dutyDays !== [] && $role && $role !== Role::Guru) {
                 $errors[] = 'Kolom Hari Piket hanya untuk peran guru';
             }
@@ -256,14 +257,15 @@ class ImportUsers
     }
 
     /**
-     * "Senin, Rabu" → [1, 3]; empty → []; null when a day is not Senin–Jumat.
+     * "Senin, Rabu" → [1, 3]; empty → []; null when a day is not a school day.
      *
+     * @param  array<int, string>  $dutyWeekdays
      * @return list<int>|null
      */
-    private function parseDutyDays(string $value): ?array
+    private function parseDutyDays(string $value, array $dutyWeekdays): ?array
     {
         $words = preg_split('/[\s,;\/&]+/', Str::lower(str_replace("'", '', $value)), -1, PREG_SPLIT_NO_EMPTY) ?: [];
-        $weekdays = array_flip(array_map(fn (string $day): string => Str::lower($day), DutySchedule::WEEKDAYS));
+        $weekdays = array_flip(array_map(fn (string $day): string => Str::lower($day), $dutyWeekdays));
         $days = [];
 
         foreach (array_diff($words, ['dan']) as $word) {

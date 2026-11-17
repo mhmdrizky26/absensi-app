@@ -74,4 +74,19 @@ class Attendance extends Model
     {
         return $this->belongsTo(User::class, 'recorded_by');
     }
+
+    /**
+     * How a gate tablet shows this mark: when, and at which tab (null when
+     * the guru piket recorded it).
+     *
+     * @return array{status: string, recordedAt: string, station: ?string}
+     */
+    public function gateMark(): array
+    {
+        return [
+            'status' => $this->status->value,
+            'recordedAt' => $this->recorded_at->toIso8601String(),
+            'station' => $this->gateStation?->name,
+        ];
+    }
 }

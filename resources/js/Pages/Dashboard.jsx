@@ -35,7 +35,7 @@ const MODULES = {
         { icon: Tablet, title: 'Tab gerbang', body: 'Tab untuk scan di gerbang: kode login, status online, dan cabut tab yang hilang.', href: '/tab-gerbang' },
         { icon: Users, title: 'Siswa', body: 'Data siswa per kelas dan import dari Excel.', href: '/siswa' },
         { icon: UserCog, title: 'Pengguna', body: 'Akun admin, guru, dan guru BK.', href: '/pengguna' },
-        { icon: CalendarClock, title: 'Jadwal piket', body: 'Guru piket tiap hari Senin–Jumat dan pengganti kalau ada yang berhalangan.', href: '/jadwal-piket' },
+        { icon: CalendarClock, title: 'Jadwal piket', body: 'Guru piket tiap hari sekolah dan pengganti kalau ada yang berhalangan.', href: '/jadwal-piket' },
         { icon: CalendarRange, title: 'Tahun ajaran', body: 'Tahun ajaran aktif dan tanggal semester.', href: '/tahun-ajaran' },
         { icon: QrCode, title: 'Kartu QR', body: 'Cetak kartu QR massal per kelas, ganti kartu yang hilang.', href: '/kartu' },
         { icon: ListChecks, title: 'Pantauan hari ini', body: 'Siapa yang sudah dan belum absen, siswa terlambat, dan tombol selesaikan absen.', href: '/pantauan' },

@@ -7,7 +7,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { formatDate } from '@/lib/format';
 
 /**
- * Senin = 1 … Jumat = 5, sama seperti di server (ISO).
+ * Senin = 1 … Minggu = 7, sama seperti di server (ISO).
  */
 function weekdayOf(date) {
     if (!date) {

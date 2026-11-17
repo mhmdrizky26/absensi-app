@@ -40,7 +40,7 @@ class DutyScheduleController extends Controller
         $schedule = DutySchedule::query()->get(['user_id', 'weekday'])->groupBy('weekday');
 
         return Inertia::render('Admin/DutySchedule', [
-            'weekdays' => collect(DutySchedule::WEEKDAYS)->map(fn (string $label, int $weekday): array => [
+            'weekdays' => collect(DutySchedule::dutyWeekdays())->map(fn (string $label, int $weekday): array => [
                 'value' => $weekday,
                 'label' => $label,
                 'userIds' => $schedule->get($weekday, collect())->pluck('user_id')->values(),
@@ -61,7 +61,8 @@ class DutyScheduleController extends Controller
     }
 
     /**
-     * Replace the whole weekly schedule.
+     * Replace the whole weekly schedule. Days that are no longer school days
+     * lose their guru piket.
      */
     public function update(DutyScheduleRequest $request): RedirectResponse
     {

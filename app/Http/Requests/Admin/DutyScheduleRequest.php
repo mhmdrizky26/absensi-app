@@ -36,7 +36,7 @@ class DutyScheduleRequest extends FormRequest
     {
         $days = (array) $this->validated('days');
 
-        return collect(DutySchedule::WEEKDAYS)
+        return collect(DutySchedule::dutyWeekdays())
             ->keys()
             ->mapWithKeys(fn (int $weekday): array => [$weekday => array_values(array_unique(array_map('intval', (array) ($days[$weekday] ?? []))))])
             ->all();

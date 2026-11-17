@@ -7,6 +7,8 @@ use App\Models\Classroom;
 use App\Models\DutySchedule;
 use App\Models\DutySubstitution;
 use App\Models\User;
+use App\Support\AttendanceWindow;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -52,6 +54,34 @@ class DutyScheduleTest extends TestCase
             ->where('weekdays.2.userIds', [$this->rina->id])
             ->has('teachers', 2)
         );
+    }
+
+    public function test_duty_days_follow_the_active_school_days(): void
+    {
+        app(AttendanceWindow::class)->saveSchedule([
+            1 => ['opens_at' => '06:30', 'closes_at' => '07:00'],
+            3 => ['opens_at' => '06:30', 'closes_at' => '07:00'],
+            6 => ['opens_at' => '07:00', 'closes_at' => '07:30'],
+        ]);
+
+        $this->actingAs($this->admin)->get('/jadwal-piket')->assertInertia(fn (Assert $page) => $page
+            ->has('weekdays', 3)
+            ->where('weekdays.2.label', 'Sabtu')
+            ->where('weekdays.2.value', 6)
+        );
+
+        $this->actingAs($this->admin)->put('/jadwal-piket', ['days' => [2 => [$this->rina->id], 6 => [$this->andi->id]]]);
+
+        $this->assertSame([6], $this->andi->dutySchedules()->pluck('weekday')->all());
+        $this->assertSame(0, $this->rina->dutySchedules()->count());
+
+        $dodi = User::factory()->guru()->create(['name' => 'Pak Dodi']);
+
+        $this->actingAs($this->admin)
+            ->post('/jadwal-piket/pengganti', ['date' => '2026-11-21', 'absent_user_id' => $this->andi->id, 'substitute_user_id' => $dodi->id])
+            ->assertSessionHas('success');
+
+        $this->assertTrue($dodi->isOnDuty(CarbonImmutable::parse('2026-11-21')));
     }
 
     public function test_only_active_guru_accounts_can_be_scheduled(): void
@@ -131,7 +161,7 @@ class DutyScheduleTest extends TestCase
 
         $this->actingAs($this->admin)
             ->post('/jadwal-piket/pengganti', ['date' => '2026-11-21', 'absent_user_id' => $this->andi->id, 'substitute_user_id' => $dodi->id])
-            ->assertSessionHasErrors(['date' => 'Jadwal piket hanya Senin sampai Jumat.']);
+            ->assertSessionHasErrors(['date' => 'Tanggal itu bukan hari sekolah, jadi tidak ada guru piket.']);
 
         $this->assertDatabaseCount('duty_substitutions', 0);
     }

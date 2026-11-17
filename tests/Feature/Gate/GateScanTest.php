@@ -168,7 +168,40 @@ class GateScanTest extends TestCase
 
         $this->assertSame('duplicate', $results[0]['result']);
         $this->assertSame('H', $results[0]['status']);
+        $this->assertSame('Tab 1', $results[0]['station']);
         $this->assertSame(1, Attendance::count());
+    }
+
+    public function test_a_tab_learns_within_seconds_who_scanned_at_another_tab(): void
+    {
+        $ayu = $this->student();
+        $budi = $this->student();
+        $tab2 = GateStation::factory()->create(['code' => 'TAB2']);
+
+        $first = $this->asTablet($tab2)->getJson('/gerbang/absen')->assertOk()->assertJsonPath('marks', [])->assertJsonPath('syncedAt', now()->toIso8601String());
+        $query = ['since' => $first->json('syncedAt'), 'version' => $first->json('version')];
+
+        $this->travel(10)->seconds();
+        $this->asTablet($tab2)->getJson('/gerbang/absen?'.http_build_query($query))
+            ->assertJsonPath('marks', [])
+            ->assertJsonPath('syncedAt', $query['since']);
+
+        $this->sendScans([['ref' => 'a', 'payload' => $ayu->qrPayload()]]);
+
+        $this->asTablet($tab2)->getJson('/gerbang/absen?'.http_build_query($query))
+            ->assertOk()
+            ->assertJsonPath("marks.{$ayu->id}.station", 'Tab 1')
+            ->assertJsonPath("marks.{$ayu->id}.status", 'H')
+            ->assertJsonMissingPath("marks.{$budi->id}");
+
+        $this->travel(10)->seconds();
+        $synced = now()->toIso8601String();
+        $this->travel(10)->seconds();
+        Attendance::query()->where('student_id', $ayu->id)->update(['status' => AttendanceStatus::Sick, 'updated_at' => now()]);
+
+        $this->asTablet($tab2)->getJson('/gerbang/absen?since='.urlencode($synced))
+            ->assertOk()
+            ->assertJsonPath("marks.{$ayu->id}", null);
     }
 
     public function test_scan_after_jam_masuk_is_rejected_but_an_offline_scan_from_before_counts(): void

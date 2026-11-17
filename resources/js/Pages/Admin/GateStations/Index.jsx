@@ -1,5 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Eye, EyeOff, Plus } from 'lucide-react';
+import { Eye, EyeOff, Plus, X } from 'lucide-react';
 import { useState } from 'react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Field from '@/Components/Field';
@@ -21,7 +21,7 @@ export default function GateStationsIndex({ stations, suggestion, network }) {
     const [confirming, setConfirming] = useState(null);
     const [showCodes, setShowCodes] = useState(false);
     const form = useForm({ name: '', code: '' });
-    const networkForm = useForm({ allowed_ips: network.allowedIps });
+    const networkForm = useForm({ allowed_ips: '' });
 
     function openCreate() {
         form.clearErrors();
@@ -50,7 +50,9 @@ export default function GateStationsIndex({ stations, suggestion, network }) {
         const { action, station } = confirming;
         const options = { preserveScroll: true, onFinish: () => setConfirming(null) };
 
-        if (action === 'revoke') {
+        if (action === 'network') {
+            router.delete('/jaringan-gerbang', options);
+        } else if (action === 'revoke') {
             router.post(`/tab-gerbang/${station.id}/cabut`, {}, options);
         } else if (action === 'restore') {
             router.delete(`/tab-gerbang/${station.id}/cabut`, options);
@@ -59,15 +61,22 @@ export default function GateStationsIndex({ stations, suggestion, network }) {
         }
     }
 
+    // IP baru ditambahkan ke daftar yang sudah tersimpan.
     function submitNetwork(event) {
         event.preventDefault();
-        networkForm.put('/jaringan-gerbang', { preserveScroll: true });
+        networkForm
+            .transform((data) => ({ allowed_ips: [...network.allowedIps, ...data.allowed_ips.split(/[\s,]+/).filter(Boolean)].join('\n') }))
+            .put('/jaringan-gerbang', { preserveScroll: true, onSuccess: () => networkForm.reset() });
+    }
+
+    function removeIp(ip) {
+        router.put('/jaringan-gerbang', { allowed_ips: network.allowedIps.filter((saved) => saved !== ip).join('\n') }, { preserveScroll: true });
     }
 
     function useCurrentIp() {
         const ips = networkForm.data.allowed_ips.split(/[\s,]+/).filter(Boolean);
 
-        if (!ips.includes(network.currentIp)) {
+        if (!ips.includes(network.currentIp) && !network.allowedIps.includes(network.currentIp)) {
             networkForm.setData('allowed_ips', [...ips, network.currentIp].join('\n'));
         }
     }
@@ -88,6 +97,11 @@ export default function GateStationsIndex({ stations, suggestion, network }) {
             title: `Hapus ${confirming?.station.name}?`,
             label: 'Hapus',
             body: 'Tab dihapus dan kodenya tidak bisa dipakai lagi. Absensi yang sudah di-scan lewat tab ini tetap tersimpan.',
+        },
+        network: {
+            title: 'Hapus batas jaringan?',
+            label: 'Hapus batas',
+            body: 'Semua alamat IP sekolah dihapus. Tab bisa login dan scan dari jaringan mana saja lagi, termasuk dari luar sekolah.',
         },
     }[confirming?.action ?? 'delete'];
 
@@ -168,18 +182,39 @@ export default function GateStationsIndex({ stations, suggestion, network }) {
             <form onSubmit={submitNetwork} noValidate className="excuse-form" style={{ marginTop: 40, maxWidth: 560 }}>
                 <h4 style={{ margin: 0 }}>Batasi ke jaringan sekolah</h4>
                 <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
-                    Kalau diisi, tab hanya bisa login dan scan dari alamat IP ini, jadi kode tab tidak bisa dipakai dari rumah. Kosongkan untuk mematikan batas ini. Buka halaman ini dari WiFi sekolah lalu tekan "Pakai IP saya".
+                    Kalau ada alamat IP di sini, tab hanya bisa login dan scan dari alamat itu, jadi kode tab tidak bisa dipakai dari rumah. Buka halaman ini dari WiFi sekolah lalu tekan "Pakai IP saya".
                 </p>
-                <Field label="Alamat IP sekolah" htmlFor="allowed_ips" error={networkForm.errors.allowed_ips} hint={`IP Anda sekarang: ${network.currentIp}. Satu alamat per baris; rentang seperti 10.0.0.0/24 juga bisa.`}>
-                    <textarea id="allowed_ips" className="input" rows={3} value={networkForm.data.allowed_ips} onChange={(event) => networkForm.setData('allowed_ips', event.target.value)} />
+                {network.allowedIps.length === 0 ? (
+                    <p style={{ fontSize: 14, margin: 0 }}>
+                        <span className="tag tag-outline">Tidak dibatasi</span> Tab bisa dipakai dari jaringan mana saja.
+                    </p>
+                ) : (
+                    <div className="chip-list" style={{ marginTop: 0 }}>
+                        {network.allowedIps.map((ip) => (
+                            <span key={ip} className="tag tag-neutral mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                {ip}
+                                <button type="button" className="btn btn-ghost" style={{ padding: 0, minHeight: 0 }} aria-label={`Hapus ${ip}`} onClick={() => removeIp(ip)}>
+                                    <X size={14} aria-hidden="true" />
+                                </button>
+                            </span>
+                        ))}
+                    </div>
+                )}
+                <Field label="Tambah alamat IP" htmlFor="allowed_ips" error={networkForm.errors.allowed_ips} hint={`IP Anda sekarang: ${network.currentIp}. Satu alamat per baris; rentang seperti 10.0.0.0/24 juga bisa.`}>
+                    <textarea id="allowed_ips" className="input" rows={2} value={networkForm.data.allowed_ips} onChange={(event) => networkForm.setData('allowed_ips', event.target.value)} />
                 </Field>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button type="button" className="btn btn-secondary" onClick={useCurrentIp}>
                         Pakai IP saya
                     </button>
-                    <button type="submit" className="btn btn-primary" disabled={networkForm.processing}>
-                        Simpan
+                    <button type="submit" className="btn btn-primary" disabled={networkForm.processing || networkForm.data.allowed_ips.trim() === ''}>
+                        Tambah
                     </button>
+                    {network.allowedIps.length > 0 && (
+                        <button type="button" className="btn btn-ghost" onClick={() => setConfirming({ action: 'network' })}>
+                            Hapus batas jaringan
+                        </button>
+                    )}
                 </div>
             </form>
 

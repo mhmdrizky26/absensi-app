@@ -12,6 +12,8 @@ const SAME_CARD_COOLDOWN_MS = 4000;
 const RESULT_RESET_MS = 4000;
 const RECENT_LIMIT = 6;
 const STATUS_INTERVAL_MS = 60_000;
+const MARKS_INTERVAL_MS = 3000;
+const CONFIRM_TIMEOUT_MS = 3000;
 const FACING_KEY = 'absen:gerbang:kamera';
 
 const timeFormatter = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -65,6 +67,12 @@ function classLabel(student) {
     return student.studyIn ? `${student.classroom} · belajar di ${student.studyIn}` : student.classroom;
 }
 
+function markDetail(student, mark) {
+    const where = mark.station ? ` di ${mark.station}` : '';
+
+    return `${student ? `${classLabel(student)} · ` : ''}tercatat pukul ${formatTime(mark.recordedAt)}${where}`;
+}
+
 export default function GateScanner({ station, today: initialToday, roster, marks: initialMarks }) {
     const { appName } = usePage().props;
     const [today, setToday] = useState(initialToday);
@@ -76,6 +84,7 @@ export default function GateScanner({ station, today: initialToday, roster, mark
     const [result, setResult] = useState(IDLE_RESULT);
     const [recent, setRecent] = useState([]);
     const [queueState, setQueueState] = useState({ pending: 0, sending: false, online: true });
+    const [, setMarksVersion] = useState(0);
 
     const videoRef = useRef(null);
     const stopCameraRef = useRef(null);
@@ -83,6 +92,7 @@ export default function GateScanner({ station, today: initialToday, roster, mark
     const marksRef = useRef({ ...initialMarks });
     const lastReadRef = useRef({ text: null, at: 0 });
     const resetTimerRef = useRef(null);
+    const awaitingRef = useRef(new Map());
     const clockOffsetRef = useRef(clockOffset);
     clockOffsetRef.current = clockOffset;
 
@@ -110,23 +120,49 @@ export default function GateScanner({ station, today: initialToday, roster, mark
         return () => clearInterval(timer);
     }, [serverNow]);
 
-    // Hasil dari server untuk scan yang sudah terkirim.
+    // Scan yang sudah ditampilkan sebagai Hadir tanpa menunggu server (offline / server lambat).
+    const showPresent = useCallback(
+        (student, time) => {
+            signal('ok');
+            showResult({ kind: 'ok', kicker: 'Hadir', title: student.name, detail: classLabel(student) });
+            pushRecent({ name: student.name, time, label: student.classroom, kind: 'ok' });
+        },
+        [showResult, pushRecent],
+    );
+
+    // Hasil dari server untuk scan yang sudah terkirim. Saat online, hasil
+    // layar menunggu jawaban ini, jadi hanya satu tab yang menampilkan Hadir.
     const handleResults = useCallback(
         (results, batch) => {
             for (const outcome of results) {
                 const item = batch.find((queued) => queued.ref === outcome.ref);
                 const student = rosterById.get(outcome.studentId ?? item?.meta?.studentId);
+                const awaiting = awaitingRef.current.get(outcome.ref);
+
+                if (awaiting) {
+                    clearTimeout(awaiting);
+                    awaitingRef.current.delete(outcome.ref);
+                }
+
+                const waitingForAnswer = Boolean(awaiting) || Boolean(item?.meta?.unknown);
 
                 if (outcome.result === 'recorded' || outcome.result === 'duplicate') {
+                    const mark = { status: outcome.status ?? 'H', recordedAt: outcome.recordedAt, station: outcome.station ?? null };
+
                     if (student) {
-                        marksRef.current[student.id] = { status: outcome.status ?? 'H', recordedAt: outcome.recordedAt };
+                        marksRef.current[student.id] = mark;
                     }
 
-                    // Kartu yang tidak ada di daftar tab: baru sekarang hasilnya diketahui.
-                    if (item?.meta?.unknown) {
+                    if (waitingForAnswer && outcome.result === 'duplicate') {
+                        signal('duplicate');
+                        showResult({ kind: 'duplicate', kicker: 'Sudah absen', title: student?.name ?? 'Kartu ini', detail: markDetail(student, mark) });
+                    } else if (waitingForAnswer && student) {
+                        showPresent(student, outcome.recordedAt);
+                    } else if (waitingForAnswer) {
+                        // Kartu yang tidak ada di daftar tab.
                         signal('ok');
-                        showResult({ kind: 'ok', kicker: 'Hadir', title: student?.name ?? 'Tercatat hadir', detail: student ? classLabel(student) : 'Muat ulang tab untuk memperbarui daftar siswa.' });
-                        pushRecent({ name: student?.name ?? 'Kartu baru', time: outcome.recordedAt, label: 'Hadir', kind: 'ok' });
+                        showResult({ kind: 'ok', kicker: 'Hadir', title: 'Tercatat hadir', detail: 'Muat ulang tab untuk memperbarui daftar siswa.' });
+                        pushRecent({ name: 'Kartu baru', time: outcome.recordedAt, label: 'Hadir', kind: 'ok' });
                     }
 
                     continue;
@@ -141,7 +177,7 @@ export default function GateScanner({ station, today: initialToday, roster, mark
                 pushRecent({ name: student?.name ?? 'Kartu ditolak', time: serverNow().toISOString(), label: 'Ditolak', kind: 'error' });
             }
         },
-        [rosterById, showResult, pushRecent, serverNow],
+        [rosterById, showResult, showPresent, pushRecent, serverNow],
     );
 
     const handleResultsRef = useRef(handleResults);
@@ -170,6 +206,62 @@ export default function GateScanner({ station, today: initialToday, roster, mark
 
         return () => queue.destroy();
     }, [station.id, serverNow]);
+
+    // Absen dari tab lain (dan dari guru piket) ikut diketahui tab ini tiap beberapa detik.
+    useEffect(() => {
+        let since = null;
+        let version = null;
+        let busy = false;
+
+        async function syncMarks() {
+            if (busy) {
+                return;
+            }
+
+            busy = true;
+
+            try {
+                const query = since ? `?${new URLSearchParams({ since, version: version ?? '' })}` : '';
+                const response = await fetch(`/gerbang/absen${query}`, {
+                    credentials: 'same-origin',
+                    headers: jsonHeaders(),
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const data = await response.json();
+                let changed = false;
+
+                for (const [studentId, mark] of Object.entries(data.marks)) {
+                    if (mark) {
+                        marksRef.current[studentId] = mark;
+                        changed = true;
+                    } else if (marksRef.current[studentId] && !marksRef.current[studentId].pending) {
+                        delete marksRef.current[studentId];
+                        changed = true;
+                    }
+                }
+
+                since = data.syncedAt;
+                version = data.version;
+
+                if (changed) {
+                    setMarksVersion((version) => version + 1);
+                }
+            } catch {
+                // Offline: coba lagi pada putaran berikutnya.
+            } finally {
+                busy = false;
+            }
+        }
+
+        syncMarks();
+        const timer = setInterval(syncMarks, MARKS_INTERVAL_MS);
+
+        return () => clearInterval(timer);
+    }, []);
 
     // Lapor ke server tiap menit: jumlah antrean, jadwal terbaru, dan ganti hari.
     useEffect(() => {
@@ -251,19 +343,39 @@ export default function GateScanner({ station, today: initialToday, roster, mark
 
             if (mark) {
                 signal('duplicate');
-                showResult({ kind: 'duplicate', kicker: 'Sudah absen', title: student.name, detail: `${classLabel(student)} · tercatat pukul ${formatTime(mark.recordedAt)}` });
+                showResult({ kind: 'duplicate', kicker: 'Sudah absen', title: student.name, detail: markDetail(student, mark) });
 
                 return;
             }
 
             const scannedAt = serverNow().toISOString();
-            marksRef.current[student.id] = { status: 'H', recordedAt: scannedAt, pending: true };
-            queueRef.current.add({ payload, meta: { studentId: student.id } });
-            signal('ok');
-            showResult({ kind: 'ok', kicker: 'Hadir', title: student.name, detail: classLabel(student) });
-            pushRecent({ name: student.name, time: scannedAt, label: student.classroom, kind: 'ok' });
+            const queue = queueRef.current;
+            marksRef.current[student.id] = { status: 'H', recordedAt: scannedAt, station: station.name, pending: true };
+
+            if (!queue.online) {
+                // Offline: tidak bisa bertanya ke server, langsung tampilkan Hadir.
+                queue.add({ payload, meta: { studentId: student.id } });
+                showPresent(student, scannedAt);
+
+                return;
+            }
+
+            // Online: tunggu jawaban server supaya siswa yang sudah scan di tab
+            // lain tidak tampil Hadir dua kali. Server lambat: tampilkan Hadir saja.
+            showResult({ kind: 'checking', kicker: 'Memeriksa', title: student.name, detail: 'Tunggu sebentar…' });
+            const ref = queue.add({ payload, meta: { studentId: student.id } });
+
+            if (queue.pendingItems().some((item) => item.ref === ref)) {
+                awaitingRef.current.set(
+                    ref,
+                    setTimeout(() => {
+                        awaitingRef.current.delete(ref);
+                        showPresent(student, scannedAt);
+                    }, CONFIRM_TIMEOUT_MS),
+                );
+            }
         },
-        [rosterByHash, showResult, pushRecent, serverNow],
+        [rosterByHash, showResult, showPresent, serverNow, station.name],
     );
 
     // Pembaca kamera selalu memanggil versi handleRead terbaru.
@@ -301,7 +413,13 @@ export default function GateScanner({ station, today: initialToday, roster, mark
         };
     }, [scanning, facing, startCamera]);
 
-    useEffect(() => () => clearTimeout(resetTimerRef.current), []);
+    useEffect(
+        () => () => {
+            clearTimeout(resetTimerRef.current);
+            awaitingRef.current.forEach((timer) => clearTimeout(timer));
+        },
+        [],
+    );
 
     // Gerbang ditutup (jam masuk lewat, absen diselesaikan, atau bukan hari
     // sekolah): tab keluar sendiri setelah semua scan terkirim. Server lalu
