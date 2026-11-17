@@ -44,8 +44,8 @@ class DutySubstitutionRequest extends FormRequest
 
                 $date = $this->date('date');
 
-                if (! array_key_exists($date->dayOfWeekIso, DutySchedule::WEEKDAYS)) {
-                    $validator->errors()->add('date', 'Jadwal piket hanya Senin sampai Jumat.');
+                if (! array_key_exists($date->dayOfWeekIso, DutySchedule::dutyWeekdays())) {
+                    $validator->errors()->add('date', 'Tanggal itu bukan hari sekolah, jadi tidak ada guru piket.');
 
                     return;
                 }

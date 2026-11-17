@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Setting;
+use App\Support\LiveUpdates;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -22,5 +23,8 @@ class AppServiceProvider extends ServiceProvider
     {
         // Pengaturan yang disimpan admin menggantikan nilai dari .env.
         Setting::applyToConfig();
+
+        // Halaman yang terbuka tahu ada perubahan dari pengguna lain.
+        LiveUpdates::watchWrites();
     }
 }

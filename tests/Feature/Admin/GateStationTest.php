@@ -83,6 +83,20 @@ class GateStationTest extends TestCase
         $this->assertFalse(app(GateNetwork::class)->isRestricted());
     }
 
+    public function test_admin_removes_the_network_lock_in_one_go(): void
+    {
+        app(GateNetwork::class)->save(['203.0.113.7', '10.0.0.0/24']);
+
+        $this->actingAs($this->admin)->get('/tab-gerbang')->assertInertia(fn (Assert $page) => $page
+            ->where('network.allowedIps', ['203.0.113.7', '10.0.0.0/24'])
+        );
+
+        $this->actingAs($this->admin)->delete('/jaringan-gerbang')
+            ->assertSessionHas('success', 'Batas jaringan dihapus: tab bisa login dari jaringan mana saja.');
+
+        $this->assertFalse(app(GateNetwork::class)->isRestricted());
+    }
+
     public function test_wrong_codes_on_the_code_screen_are_throttled(): void
     {
         GateStation::factory()->create(['code' => 'TAB1']);

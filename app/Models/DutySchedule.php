@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\AttendanceWindow;
 use Database\Factories\DutyScheduleFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -18,9 +19,20 @@ class DutySchedule extends Model
     use HasFactory;
 
     /**
-     * School weekdays with a duty schedule, ISO numbered (1 = Senin).
+     * Every weekday, ISO numbered (1 = Senin).
      */
-    public const WEEKDAYS = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat'];
+    public const WEEKDAYS = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
+
+    /**
+     * The weekdays guru piket can be scheduled on: the school days switched
+     * on in the weekly schedule in Pengaturan.
+     *
+     * @return array<int, string>
+     */
+    public static function dutyWeekdays(): array
+    {
+        return array_intersect_key(self::WEEKDAYS, array_flip(app(AttendanceWindow::class)->schoolDays()));
+    }
 
     protected function casts(): array
     {

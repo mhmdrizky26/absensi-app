@@ -33,7 +33,7 @@ class GateStationController extends Controller
                 ]),
             'suggestion' => GateStation::nextSuggestion(),
             'network' => [
-                'allowedIps' => implode("\n", $network->allowedIps()),
+                'allowedIps' => $network->allowedIps(),
                 'currentIp' => $request->ip(),
             ],
         ]);

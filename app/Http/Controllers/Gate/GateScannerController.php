@@ -9,6 +9,9 @@ use App\Models\GateStation;
 use App\Models\Student;
 use App\Support\AttendanceWindow;
 use App\Support\GateRoster;
+use App\Support\LiveUpdates;
+use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,6 +19,12 @@ use Inertia\Response;
 
 class GateScannerController extends Controller
 {
+    /**
+     * A sync also returns marks changed shortly before the last one, in case
+     * a save was still running then. Sending a mark twice does no harm.
+     */
+    private const SYNC_OVERLAP_SECONDS = 10;
+
     /**
      * The gate tablet's scanner. It caches every active student so it keeps
      * scanning offline, and opens and closes itself on the day's schedule.
@@ -37,14 +46,7 @@ class GateScannerController extends Controller
                 'classroom' => $student->classroom,
                 'studyIn' => $student->study_classroom,
             ])->values(),
-            'marks' => (object) Attendance::query()
-                ->whereDate('date', today())
-                ->get(['student_id', 'status', 'recorded_at'])
-                ->filter(fn (Attendance $attendance): bool => $attendance->status->isAtSchool())
-                ->mapWithKeys(fn (Attendance $attendance): array => [
-                    $attendance->student_id => ['status' => $attendance->status->value, 'recordedAt' => $attendance->recorded_at->toIso8601String()],
-                ])
-                ->all(),
+            'marks' => (object) $this->marksSince(null),
         ]);
     }
 
@@ -61,6 +63,47 @@ class GateScannerController extends Controller
         $station->markSeen($request->integer('pending'));
 
         return response()->json(['today' => $this->today($window)]);
+    }
+
+    /**
+     * Today's marks changed since the tablet's last sync, so a student who
+     * scanned at another tab is known here within seconds. A student whose
+     * mark no longer counts as at school comes back as null.
+     */
+    public function marks(Request $request, LiveUpdates $liveUpdates): JsonResponse
+    {
+        $request->validate(['since' => ['nullable', 'date'], 'version' => ['nullable', 'string', 'max:20']]);
+        $syncedAt = now();
+        $version = $liveUpdates->versions()[LiveUpdates::ATTENDANCE];
+        $since = $request->date('since');
+
+        // Tidak ada absen yang berubah sejak sinkron terakhir: tanpa query.
+        if ($since !== null && $request->input('version') === $version) {
+            return response()->json(['marks' => (object) [], 'syncedAt' => $since->toIso8601String(), 'version' => $version]);
+        }
+
+        return response()->json([
+            'marks' => (object) $this->marksSince($since),
+            'syncedAt' => $syncedAt->toIso8601String(),
+            'version' => $version,
+        ]);
+    }
+
+    /**
+     * @return array<int, array{status: string, recordedAt: string, station: ?string}|null>
+     */
+    private function marksSince(?CarbonInterface $since): array
+    {
+        return Attendance::query()
+            ->with('gateStation:id,name')
+            ->whereBetween('date', [today(), today()->endOfDay()])
+            ->when($since, fn (Builder $query) => $query->where('updated_at', '>=', $since->copy()->subSeconds(self::SYNC_OVERLAP_SECONDS)))
+            ->get(['student_id', 'status', 'recorded_at', 'gate_station_id'])
+            ->filter(fn (Attendance $attendance): bool => $since !== null || $attendance->status->isAtSchool())
+            ->mapWithKeys(fn (Attendance $attendance): array => [
+                $attendance->student_id => $attendance->status->isAtSchool() ? $attendance->gateMark() : null,
+            ])
+            ->all();
     }
 
     /**
