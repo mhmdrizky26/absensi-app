@@ -227,6 +227,14 @@ export default function GateScanner({ station, today: initialToday, roster, mark
                     headers: jsonHeaders(),
                 });
 
+                // Tab dikeluarkan (absen diselesaikan, dicabut admin, …): layar kode
+                // menampilkan alasannya, seperti saat cek status tiap menit.
+                if (response.status === 401) {
+                    window.location.assign('/kode');
+
+                    return;
+                }
+
                 if (!response.ok) {
                     return;
                 }

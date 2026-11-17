@@ -8,7 +8,9 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('attendance:finalize-days')->everyTenMinutes()->withoutOverlapping();
+// Tiap menit supaya absen selesai tepat pada jam yang diatur admin; kalau
+// tidak ada yang perlu diselesaikan, perintah ini hanya beberapa query ringan.
+Schedule::command('attendance:finalize-days')->everyMinute()->withoutOverlapping();
 Schedule::command('risiko:kirim-wa')->everyMinute()->withoutOverlapping();
 
 // Shared hosting tidak bisa menjalankan queue worker terus-menerus: setiap menit cron

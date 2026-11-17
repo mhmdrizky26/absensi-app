@@ -178,7 +178,7 @@ function gatePhase(scanWindow) {
 export default function Monitor({ date, window: scanWindow, finalized, missingCount, stations, classrooms, late }) {
     // Absen baru sudah dimuat lewat pembaruan langsung; ini untuk status tab
     // gerbang yang ikut berubah karena waktu berjalan walau data tidak berubah.
-    usePoll(30000,{ only: ['classrooms', 'late', 'stations', 'missingCount', 'finalized'] });
+    usePoll(30000, { only: ['classrooms', 'late', 'stations', 'missingCount', 'finalized'] });
     const [openClassroomId, setOpenClassroomId] = useState(null);
     // Ambil dari props terbaru supaya jendela detail ikut berubah saat data kelas diperbarui.
     const openClassroom = classrooms.find((classroom) => classroom.id === openClassroomId) ?? null;

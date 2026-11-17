@@ -14,7 +14,7 @@ class ScheduleTest extends TestCase
             trim(str($event->command)->after('artisan')->replace(["'", '"'], '')) => $event->expression,
         ]);
 
-        $this->assertSame('*/10 * * * *', $events['attendance:finalize-days']);
+        $this->assertSame('* * * * *', $events['attendance:finalize-days']);
         $this->assertSame('* * * * *', $events['risiko:kirim-wa']);
         $this->assertSame('* * * * *', $events['queue:work --stop-when-empty --max-time=50 --tries=1']);
     }
