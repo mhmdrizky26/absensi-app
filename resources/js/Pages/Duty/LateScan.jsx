@@ -23,8 +23,13 @@ function idleResult(closesAt) {
     };
 }
 
-export default function LateScan({ recorded: initialRecorded, closesAt, isFinalized }) {
+export default function LateScan({ recorded: initialRecorded, opensAt, closesAt, isSchoolDay, isFinalized, scanUntil }) {
     const [recorded, setRecorded] = useState(initialRecorded);
+    const [now, setNow] = useState(() => new Date());
+    const isBeforeOpening = opensAt !== null && now < new Date(opensAt);
+    const isPastScanUntil = scanUntil !== null && now >= new Date(scanUntil);
+    const canRecord = isSchoolDay && !isFinalized && !isBeforeOpening && !isPastScanUntil;
+    const waitsForClock = isBeforeOpening || (scanUntil !== null && !isPastScanUntil);
     const IDLE_RESULT = idleResult(closesAt);
     const [result, setResult] = useState(IDLE_RESULT);
     const [camera, setCamera] = useState({ state: 'idle', error: null });
@@ -36,6 +41,24 @@ export default function LateScan({ recorded: initialRecorded, closesAt, isFinali
     const lastReadRef = useRef({ text: null, at: 0 });
 
     useEffect(() => () => stopCameraRef.current?.(), []);
+
+    // Tombol scan muncul sendiri saat jam buka, dan untuk sapa pagi hilang saat jam masuk, tanpa memuat ulang halaman.
+    useEffect(() => {
+        if (!waitsForClock) {
+            return undefined;
+        }
+
+        const timer = setInterval(() => setNow(new Date()), 15000);
+
+        return () => clearInterval(timer);
+    }, [waitsForClock]);
+
+    useEffect(() => {
+        if (!canRecord) {
+            stopCameraRef.current?.();
+            stopCameraRef.current = null;
+        }
+    }, [canRecord]);
 
     async function record(body) {
         setSending(true);
@@ -103,18 +126,22 @@ export default function LateScan({ recorded: initialRecorded, closesAt, isFinali
 
     return (
         <>
-            <Head title="Absen piket" />
+            <Head title="Scan absen" />
 
             <div className="page-head">
                 <div>
-                    <h6 className="text-muted">Guru piket</h6>
-                    <h1>Absen piket</h1>
+                    <h6 className="text-muted">Piket & sapa pagi</h6>
+                    <h1>Scan absen</h1>
                 </div>
             </div>
 
             {isFinalized ? (
                 <p className="alert">
                     Absen hari ini sudah diselesaikan. Siswa yang datang sekarang dikoreksi wali kelas lewat <Link href="/rekap">rekap</Link>.
+                </p>
+            ) : scanUntil ? (
+                <p className="text-muted" style={{ fontSize: 14, maxWidth: 760 }}>
+                    Sapa pagi: catat siswa yang lupa membawa kartu, sampai jam masuk ({formatTime(scanUntil)}). Setelah itu siswa yang terlambat dicatat guru piket.
                 </p>
             ) : (
                 <p className="text-muted" style={{ fontSize: 14, maxWidth: 760 }}>
@@ -123,53 +150,67 @@ export default function LateScan({ recorded: initialRecorded, closesAt, isFinali
             )}
 
             <div className="late-layout">
-                <section className="scan-col" style={{ padding: 0 }}>
-                    <div className="scan-camera">
-                        <video ref={videoRef} className="scan-video" muted playsInline />
-                        {camera.state === 'on' && (
-                            <button type="button" className="scan-switch" onClick={() => startCamera(facing === 'user' ? 'environment' : 'user')}>
-                                <SwitchCamera size={18} aria-hidden="true" /> {facing === 'user' ? 'Kamera belakang' : 'Kamera depan'}
-                            </button>
-                        )}
-                        <div className="scan-frame" aria-hidden="true">
-                            <span />
-                            <span />
-                            <span />
-                            <span />
-                        </div>
-                        {camera.state !== 'on' && (
-                            <div className="scan-overlay">
-                                {camera.state === 'error' && <p>{camera.error}</p>}
-                                <button type="button" className="btn btn-primary scan-start" onClick={() => startCamera()} disabled={camera.state === 'starting'}>
-                                    {camera.state === 'error' ? <RefreshCw size={18} aria-hidden="true" /> : <Camera size={20} aria-hidden="true" />}
-                                    {camera.state === 'starting' ? 'Membuka kamera…' : camera.state === 'error' ? 'Coba lagi' : 'Mulai scan'}
+                {canRecord ? (
+                    <section className="scan-col" style={{ padding: 0 }}>
+                        <div className="scan-camera">
+                            <video ref={videoRef} className="scan-video" muted playsInline />
+                            {camera.state === 'on' && (
+                                <button type="button" className="scan-switch" onClick={() => startCamera(facing === 'user' ? 'environment' : 'user')}>
+                                    <SwitchCamera size={18} aria-hidden="true" /> {facing === 'user' ? 'Kamera belakang' : 'Kamera depan'}
                                 </button>
+                            )}
+                            <div className="scan-frame" aria-hidden="true">
+                                <span />
+                                <span />
+                                <span />
+                                <span />
                             </div>
-                        )}
-                    </div>
+                            {camera.state !== 'on' && (
+                                <div className="scan-overlay">
+                                    {camera.state === 'error' && <p>{camera.error}</p>}
+                                    <button type="button" className="btn btn-primary scan-start" onClick={() => startCamera()} disabled={camera.state === 'starting'}>
+                                        {camera.state === 'error' ? <RefreshCw size={18} aria-hidden="true" /> : <Camera size={20} aria-hidden="true" />}
+                                        {camera.state === 'starting' ? 'Membuka kamera…' : camera.state === 'error' ? 'Coba lagi' : 'Mulai scan'}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
 
-                    <div className={`scan-result is-${result.kind}`} role="status" aria-live="assertive">
-                        <div className="scan-result-kicker">{result.kicker}</div>
-                        <div className="scan-result-title">{result.title}</div>
-                        <div className="scan-result-detail">{result.detail}</div>
-                    </div>
+                        <div className={`scan-result is-${result.kind}`} role="status" aria-live="assertive">
+                            <div className="scan-result-kicker">{result.kicker}</div>
+                            <div className="scan-result-title">{result.title}</div>
+                            <div className="scan-result-detail">{result.detail}</div>
+                        </div>
 
-                    <form onSubmit={submitManual} className="late-manual">
-                        <Field label="Kartu tertinggal? Cari siswanya" htmlFor="manual-student">
-                            <StudentPicker id="manual-student" value={manualStudent} onChange={setManualStudent} />
-                        </Field>
-                        {manualStudent && (
-                            <button type="submit" className="btn btn-primary" disabled={sending}>
-                                Catat absen
-                            </button>
-                        )}
-                    </form>
-                </section>
+                        <form onSubmit={submitManual} className="late-manual">
+                            <Field label="Kartu tertinggal? Cari siswanya" htmlFor="manual-student">
+                                <StudentPicker id="manual-student" value={manualStudent} onChange={setManualStudent} />
+                            </Field>
+                            {manualStudent && (
+                                <button type="submit" className="btn btn-primary" disabled={sending}>
+                                    Catat absen
+                                </button>
+                            )}
+                        </form>
+                    </section>
+                ) : (
+                    <section className="scan-col">
+                        <p className="alert" style={{ margin: 0 }}>
+                            {isFinalized
+                                ? 'Scan absen ditutup karena absen hari ini sudah diselesaikan.'
+                                : !isSchoolDay
+                                  ? 'Hari ini bukan hari sekolah, jadi scan absen tidak dibuka.'
+                                  : isPastScanUntil
+                                    ? `Scan sapa pagi ditutup pukul ${formatTime(scanUntil)}. Siswa yang datang terlambat dicatat guru piket.`
+                                    : `Scan absen baru dibuka pukul ${formatTime(opensAt)}, sama dengan tab gerbang. Tombol scan muncul otomatis pada jamnya.`}
+                        </p>
+                    </section>
+                )}
 
                 <aside style={{ minWidth: 0 }}>
-                    <h4>Dicatat piket hari ini ({recorded.length})</h4>
+                    <h4>Dicatat lewat scan absen hari ini ({recorded.length})</h4>
                     <div className="scan-roster" style={{ borderTop: '2px solid var(--color-text)' }}>
-                        {recorded.length === 0 && <p className="text-muted">Belum ada siswa yang dicatat piket.</p>}
+                        {recorded.length === 0 && <p className="text-muted">Belum ada siswa yang dicatat lewat scan absen.</p>}
                         {recorded.map((row) => (
                             <div key={row.id} className="scan-roster-row">
                                 <span style={{ width: 48, fontWeight: 800, fontSize: 13 }}>{row.classroom}</span>

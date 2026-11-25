@@ -51,7 +51,7 @@ const MODULES = {
     ],
     piket: [
         { icon: ListChecks, title: 'Pantauan hari ini', body: 'Siapa yang sudah dan belum absen per kelas. Setelah jam masuk, tekan "Selesaikan absen" agar yang belum absen dicatat alpa.', href: '/pantauan' },
-        { icon: ScanLine, title: 'Absen piket', body: 'Catat siswa yang lupa membawa kartu atau datang setelah gerbang ditutup.', href: '/terlambat' },
+        { icon: ScanLine, title: 'Scan absen', body: 'Catat siswa yang lupa membawa kartu atau datang setelah gerbang ditutup.', href: '/terlambat' },
         { icon: BadgeCheck, title: 'Dispensasi', body: 'Ajukan dispensasi, dan setujui sebagai guru piket dispensasi kelas lain.', href: '/dispensasi' },
     ],
     wali_kelas: [
@@ -62,6 +62,9 @@ const MODULES = {
         { icon: FileDown, title: 'Export untuk rapor', body: 'Rekap S/I/A per semester dalam Excel, atau cetak ke PDF.', href: '/rekap/semester' },
     ],
 };
+
+/** Guru sapa pagi di hari jadwalnya: scan sampai jam masuk. */
+const GREETING_SCAN = { icon: ScanLine, title: 'Scan absen', body: 'Sapa pagi: catat siswa yang lupa membawa kartu, sampai jam masuk.', href: '/terlambat' };
 
 const today = new Intl.DateTimeFormat('id-ID', {
     weekday: 'long',
@@ -75,7 +78,7 @@ const today = new Intl.DateTimeFormat('id-ID', {
  * guru, lalu menu wali kelas. Dispensasi cukup muncul sekali.
  */
 function teacherModules(user) {
-    const modules = [...(user.isOnDuty ? MODULES.piket : []), CLASS_VIEW, ...(user.homeroom ? MODULES.wali_kelas : [])];
+    const modules = [...(user.isOnDuty ? MODULES.piket : user.isOnGreetingDuty ? [GREETING_SCAN] : []), CLASS_VIEW, ...(user.homeroom ? MODULES.wali_kelas : [])];
 
     if (!user.isOnDuty && !user.homeroom && user.hasDutySchedule) {
         modules.push({ icon: BadgeCheck, title: 'Dispensasi', body: 'Lihat semua pengajuan dispensasi. Menyetujui hanya bisa di hari piket Anda.', href: '/dispensasi' });
@@ -125,7 +128,8 @@ function DutyPanel({ duty }) {
 
 export default function Dashboard({ stats, duty, trends }) {
     const { auth } = usePage().props;
-    const modules = auth.user.role === 'guru' ? teacherModules(auth.user) : (MODULES[auth.user.role] ?? []);
+    const roleModules = auth.user.role === 'guru' ? teacherModules(auth.user) : (MODULES[auth.user.role] ?? []);
+    const modules = auth.user.role === 'guru_bk' && auth.user.isOnGreetingDuty ? [GREETING_SCAN, ...roleModules] : roleModules;
 
     return (
         <>

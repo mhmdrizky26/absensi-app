@@ -20,6 +20,7 @@ const ADMIN_LINKS = [
     { href: '/kartu', label: 'Kartu QR' },
     { href: '/tab-gerbang', label: 'Tab gerbang' },
     { href: '/jadwal-piket', label: 'Jadwal piket' },
+    { href: '/jadwal-sapa-pagi', label: 'Jadwal sapa pagi' },
     { href: '/izin', label: 'Izin & sakit' },
     DISPENSATIONS,
     { href: '/rekap', label: 'Rekap' },
@@ -31,8 +32,11 @@ const ADMIN_LINKS = [
 
 const DUTY_LINKS = [
     { href: '/pantauan', label: 'Pantauan' },
-    { href: '/terlambat', label: 'Absen piket' },
+    { href: '/terlambat', label: 'Scan absen' },
 ];
+
+// Guru sapa pagi (yang bukan guru piket hari itu) hanya mendapat halaman scan.
+const GREETING_SCAN = { href: '/terlambat', label: 'Scan absen' };
 
 const HOMEROOM_LINKS = [
     { href: '/rekap', label: 'Rekap kelas' },
@@ -45,11 +49,15 @@ export function navLinksFor(user) {
         return ADMIN_LINKS;
     }
 
+    const greetingLinks = user.isOnGreetingDuty ? [GREETING_SCAN] : [];
+
     if (user.role === 'guru_bk') {
-        return [DASHBOARD, { href: '/siswa-berisiko', label: 'Siswa berisiko' }, CLASS_VIEW];
+        return [DASHBOARD, ...greetingLinks, { href: '/siswa-berisiko', label: 'Siswa berisiko' }, CLASS_VIEW];
     }
 
-    return [DASHBOARD, ...(user.isOnDuty ? DUTY_LINKS : []), CLASS_VIEW, ...(user.homeroom ? HOMEROOM_LINKS : []), ...(user.homeroom || user.isOnDuty || user.hasDutySchedule ? [DISPENSATIONS] : [])];
+    const dutyLinks = user.isOnDuty ? DUTY_LINKS : greetingLinks;
+
+    return [DASHBOARD, ...dutyLinks, CLASS_VIEW, ...(user.homeroom ? HOMEROOM_LINKS : []), ...(user.homeroom || user.isOnDuty || user.hasDutySchedule ? [DISPENSATIONS] : [])];
 }
 
 /**
@@ -60,7 +68,7 @@ export function dutyLabel(user) {
         return user.roleLabel;
     }
 
-    const parts = [user.homeroom ? `Wali kelas ${user.homeroom}` : null, user.isOnDuty ? 'Piket hari ini' : null].filter(Boolean);
+    const parts = [user.homeroom ? `Wali kelas ${user.homeroom}` : null, user.isOnDuty ? 'Piket hari ini' : null, user.isOnGreetingDuty ? 'Sapa pagi hari ini' : null].filter(Boolean);
 
     return parts.length > 0 ? parts.join(' · ') : 'Guru';
 }

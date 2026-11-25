@@ -5,13 +5,16 @@ namespace App\Http\Controllers\Duty;
 use App\Actions\SetAttendanceStatus;
 use App\Enums\AttendanceSource;
 use App\Enums\AttendanceStatus;
+use App\Enums\Role;
 use App\Enums\StudentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicYear;
 use App\Models\Attendance;
 use App\Models\AttendanceDay;
 use App\Models\Student;
+use App\Models\User;
 use App\Support\AttendanceWindow;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -20,10 +23,11 @@ use Inertia\Response;
 class LateScanController extends Controller
 {
     /**
-     * The guru piket's scanner for students the gate tablets did not record:
-     * those who forgot their card, and those who arrive after jam masuk.
+     * Scan absen, for students the gate tablets did not record: those who
+     * forgot their card (guru piket and guru sapa pagi), and those who arrive
+     * after jam masuk (guru piket only).
      */
-    public function create(AttendanceWindow $window): Response
+    public function create(Request $request, AttendanceWindow $window): Response
     {
         $recorded = Attendance::query()
             ->with(['student:id,name,nis', 'classroom:id,name'])
@@ -37,9 +41,25 @@ class LateScanController extends Controller
 
         return Inertia::render('Duty/LateScan', [
             'recorded' => $recorded,
+            'opensAt' => $window->isEnforced() ? $window->opensAt(today())->toIso8601String() : null,
             'closesAt' => $window->isEnforced() ? $window->closesAt(today())->toIso8601String() : null,
+            'isSchoolDay' => ! $window->isEnforced() || $window->isSchoolDay(today()),
             'isFinalized' => AttendanceDay::forDate(today()) !== null,
+            'scanUntil' => $this->greetingScanUntil($request->user(), $window)?->toIso8601String(),
         ]);
+    }
+
+    /**
+     * Guru sapa pagi (not also guru piket today) record only until jam masuk;
+     * later arrivals are the guru piket's. Null when there is no such limit.
+     */
+    private function greetingScanUntil(User $user, AttendanceWindow $window): ?CarbonImmutable
+    {
+        if (! $window->isEnforced() || $user->hasRole(Role::Admin) || $user->isOnDuty()) {
+            return null;
+        }
+
+        return $window->closesAt(today());
     }
 
     /**
@@ -75,6 +95,16 @@ class LateScanController extends Controller
             return $this->rejected('Hari ini bukan hari sekolah.');
         }
 
+        if ($window->isEnforced() && now()->lessThan($window->opensAt(today()))) {
+            return $this->rejected('Absen baru dibuka pukul '.$window->opensAt(today())->format('H:i').', sama dengan tab gerbang.');
+        }
+
+        $scanUntil = $this->greetingScanUntil($request->user(), $window);
+
+        if ($scanUntil && now()->greaterThanOrEqualTo($scanUntil)) {
+            return $this->rejected('Scan sapa pagi ditutup pukul '.$scanUntil->format('H:i').'. Siswa yang datang terlambat dicatat guru piket.');
+        }
+
         if (AttendanceDay::forDate(today())) {
             return $this->rejected('Absen hari ini sudah diselesaikan. Perubahan dilakukan wali kelas lewat koreksi rekap.');
         }
@@ -93,7 +123,7 @@ class LateScanController extends Controller
         $time = now()->format('H:i');
 
         $attendance = $setAttendanceStatus->handle($student, today(), $isLate ? AttendanceStatus::Late : AttendanceStatus::Present, AttendanceSource::DutyScan, $request->user(), [
-            'note' => $isLate ? "Datang pukul {$time}." : 'Lupa membawa kartu, diabsen guru piket.',
+            'note' => $isLate ? "Datang pukul {$time}." : 'Lupa membawa kartu, dicatat lewat scan absen.',
         ]);
 
         return response()->json([

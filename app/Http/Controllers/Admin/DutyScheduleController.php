@@ -9,8 +9,10 @@ use App\Models\AcademicYear;
 use App\Models\DutySchedule;
 use App\Models\DutySubstitution;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,29 +25,9 @@ class DutyScheduleController extends Controller
 {
     public function index(): Response
     {
-        $academicYearId = AcademicYear::active()?->id;
-
-        $teachers = User::query()
-            ->where('role', Role::Guru)
-            ->where('is_active', true)
-            ->with(['homeroomClassrooms' => fn (HasMany $query) => $query->where('academic_year_id', $academicYearId)])
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn (User $teacher): array => [
-                'id' => $teacher->id,
-                'name' => $teacher->name,
-                'homeroom' => $teacher->homeroomClassrooms->first()?->name,
-            ]);
-
-        $schedule = DutySchedule::query()->get(['user_id', 'weekday'])->groupBy('weekday');
-
         return Inertia::render('Admin/DutySchedule', [
-            'weekdays' => collect(DutySchedule::dutyWeekdays())->map(fn (string $label, int $weekday): array => [
-                'value' => $weekday,
-                'label' => $label,
-                'userIds' => $schedule->get($weekday, collect())->pluck('user_id')->values(),
-            ])->values(),
-            'teachers' => $teachers,
+            'weekdays' => self::weekdays(DutySchedule::query()->get(['user_id', 'weekday'])->groupBy('weekday')),
+            'teachers' => self::teachers(),
             'substitutions' => DutySubstitution::query()
                 ->with(['absentUser:id,name', 'substituteUser:id,name'])
                 ->whereDate('date', '>=', today())
@@ -58,6 +40,44 @@ class DutyScheduleController extends Controller
                     'substitute' => $substitution->substituteUser?->name,
                 ]),
         ]);
+    }
+
+    /**
+     * Active teachers that can be scheduled, with the class they lead.
+     *
+     * @param  list<Role>  $roles
+     * @return Collection<int, array{id: int, name: string, homeroom: ?string}>
+     */
+    public static function teachers(array $roles = [Role::Guru]): Collection
+    {
+        $academicYearId = AcademicYear::active()?->id;
+
+        return User::query()
+            ->whereIn('role', $roles)
+            ->where('is_active', true)
+            ->with(['homeroomClassrooms' => fn (HasMany $query) => $query->where('academic_year_id', $academicYearId)])
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (User $teacher): array => [
+                'id' => $teacher->id,
+                'name' => $teacher->name,
+                'homeroom' => $teacher->homeroomClassrooms->first()?->name,
+            ]);
+    }
+
+    /**
+     * Every school weekday with the teachers scheduled on it.
+     *
+     * @param  Collection<int, Collection<int, Model>>  $schedule  rows with user_id, grouped by weekday
+     * @return Collection<int, array{value: int, label: string, userIds: Collection<int, int>}>
+     */
+    public static function weekdays(Collection $schedule): Collection
+    {
+        return collect(DutySchedule::dutyWeekdays())->map(fn (string $label, int $weekday): array => [
+            'value' => $weekday,
+            'label' => $label,
+            'userIds' => $schedule->get($weekday, collect())->pluck('user_id')->values(),
+        ])->values();
     }
 
     /**

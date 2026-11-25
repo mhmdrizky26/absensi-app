@@ -80,7 +80,23 @@ class DutyTest extends TestCase
         $this->assertSame(AttendanceStatus::Present, $attendance->status);
         $this->assertSame(AttendanceSource::DutyScan, $attendance->source);
         $this->assertTrue($attendance->recorder->is($this->piket));
-        $this->assertSame('Lupa membawa kartu, diabsen guru piket.', $attendance->note);
+        $this->assertSame('Lupa membawa kartu, dicatat lewat scan absen.', $attendance->note);
+    }
+
+    public function test_before_the_gate_opens_piket_cannot_record(): void
+    {
+        $student = $this->studentInClass();
+        $this->travelTo(now()->setTime(6, 15));
+
+        $this->actingAs($this->piket)->postJson('/terlambat', ['student_id' => $student->id])
+            ->assertJson(['result' => 'rejected', 'message' => 'Absen baru dibuka pukul 06:30, sama dengan tab gerbang.']);
+
+        $this->assertDatabaseCount('attendances', 0);
+
+        $this->actingAs($this->piket)->get('/terlambat')->assertInertia(fn (Assert $page) => $page
+            ->where('opensAt', now()->setTime(6, 30)->toIso8601String())
+            ->where('isSchoolDay', true)
+        );
     }
 
     public function test_after_jam_masuk_piket_records_terlambat_and_logs_who_did_it(): void

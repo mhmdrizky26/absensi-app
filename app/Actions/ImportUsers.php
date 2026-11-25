@@ -197,6 +197,10 @@ class ImportUsers
                     $user->dutySchedules()->delete();
                 }
 
+                if (! in_array($row['role'], [Role::Guru, Role::GuruBk], true)) {
+                    $user->greetingSchedules()->delete();
+                }
+
                 if ($row['dutyDays'] !== []) {
                     $user->dutySchedules()->delete();
 

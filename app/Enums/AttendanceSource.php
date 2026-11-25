@@ -23,7 +23,7 @@ enum AttendanceSource: string
             self::GateScan => 'Scan di gerbang',
             self::ClassScan => 'Scan di kelas',
             self::ClassManual => 'Ditandai guru di kelas',
-            self::DutyScan => 'Dicatat guru piket',
+            self::DutyScan => 'Dicatat lewat scan absen',
             self::Staff => 'Diisi staf',
             self::Dispensation => 'Dispensasi disetujui',
             self::Automatic => 'Otomatis',

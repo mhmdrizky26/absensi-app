@@ -15,7 +15,8 @@ class EnsureUserHasRole
      * or duties. Besides the account roles (admin, guru, guru_bk) it accepts:
      * - wali_kelas: a guru leading a class this academic year;
      * - piket: a guru on duty today;
-     * - jadwal_piket: a guru with any day on the duty schedule.
+     * - jadwal_piket: a guru with any day on the duty schedule;
+     * - sapa_pagi: a guru on the sapa pagi schedule today.
      *
      * Usage in routes: ->middleware('role:admin,piket')
      *
@@ -36,6 +37,7 @@ class EnsureUserHasRole
             'wali_kelas' => $user->isHomeroomTeacher(),
             'piket' => $user->isOnDuty(),
             'jadwal_piket' => $user->hasDutySchedule(),
+            'sapa_pagi' => $user->isOnGreetingDuty(),
             default => $user->hasRole(Role::from($role)),
         };
     }

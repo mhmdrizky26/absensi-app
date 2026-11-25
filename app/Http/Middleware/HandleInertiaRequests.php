@@ -80,6 +80,7 @@ class HandleInertiaRequests extends Middleware
                     'roleLabel' => $user->role->label(),
                     'homeroom' => $user->hasRole(Role::Guru) ? $user->currentHomeroom()?->name : null,
                     'isOnDuty' => $user->isOnDuty(),
+                    'isOnGreetingDuty' => $user->isOnGreetingDuty(),
                     'hasDutySchedule' => $user->hasDutySchedule(),
                 ] : null,
             ],
