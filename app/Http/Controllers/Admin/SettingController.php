@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\GeneralSettingRequest;
 use App\Http\Requests\Admin\RiskSettingRequest;
 use App\Http\Requests\Admin\SettingRequest;
 use App\Models\DutySchedule;
+use App\Models\GreetingSchedule;
 use App\Models\Holiday;
 use App\Models\OnlineDay;
 use App\Models\Setting;
@@ -61,10 +62,11 @@ class SettingController extends Controller
     {
         $schedule = $request->schedule();
         $window->saveSchedule($schedule);
-        $removed = DutySchedule::query()->whereNotIn('weekday', array_keys($schedule))->delete();
+        $removed = DutySchedule::query()->whereNotIn('weekday', array_keys($schedule))->delete()
+            + GreetingSchedule::query()->whereNotIn('weekday', array_keys($schedule))->delete();
 
         return back()->with('success', $removed > 0
-            ? 'Jadwal absensi disimpan. Jadwal piket di hari yang tidak lagi hari sekolah ikut dihapus.'
+            ? 'Jadwal absensi disimpan. Jadwal piket dan sapa pagi di hari yang tidak lagi hari sekolah ikut dihapus.'
             : 'Jadwal absensi disimpan.');
     }
 

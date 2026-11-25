@@ -89,6 +89,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Whether this guru or guru BK is on sapa pagi on the given day (today by default).
+     */
+    public function isOnGreetingDuty(?CarbonInterface $date = null): bool
+    {
+        return $this->hasRole(Role::Guru, Role::GuruBk) && $this->greetingSchedules()->where('weekday', ($date ?? today())->dayOfWeekIso)->exists();
+    }
+
+    /**
+     * @return HasMany<GreetingSchedule, $this>
+     */
+    public function greetingSchedules(): HasMany
+    {
+        return $this->hasMany(GreetingSchedule::class);
+    }
+
+    /**
      * Admins, and guru piket on their duty day, do the duty teacher's work.
      */
     public function canDoDuty(): bool

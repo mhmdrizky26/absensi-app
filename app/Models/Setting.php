@@ -64,7 +64,8 @@ class Setting extends Model
 
     public static function value(string $key, ?string $default = null): ?string
     {
-        $values = Cache::rememberForever(self::CACHE_KEY, fn (): array => static::query()->pluck('value', 'key')->all());
+        // memo: one cache read per request or queue job, not one per call (the early-warning list asks thousands of times).
+        $values = Cache::memo()->rememberForever(self::CACHE_KEY, fn (): array => static::query()->pluck('value', 'key')->all());
 
         return $values[$key] ?? $default;
     }
@@ -82,7 +83,7 @@ class Setting extends Model
             static::query()->updateOrCreate(['key' => $key], ['value' => $value]);
         }
 
-        Cache::forget(self::CACHE_KEY);
+        Cache::memo()->forget(self::CACHE_KEY);
         static::applyToConfig();
     }
 

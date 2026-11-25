@@ -80,6 +80,11 @@ class UserController extends Controller
                 $user->homeroomClassrooms()->update(['homeroom_teacher_id' => null]);
                 $user->dutySchedules()->delete();
             }
+
+            // Guru BK may stay on the sapa pagi schedule.
+            if (! $user->hasRole(Role::Guru, Role::GuruBk)) {
+                $user->greetingSchedules()->delete();
+            }
         });
 
         return back()->with('success', "Akun {$user->name} diperbarui.");

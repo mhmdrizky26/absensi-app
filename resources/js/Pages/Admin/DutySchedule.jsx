@@ -1,8 +1,9 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Plus, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Field from '@/Components/Field';
+import WeeklyScheduleForm from '@/Components/WeeklyScheduleForm';
 import AppLayout from '@/Layouts/AppLayout';
 import { formatDate } from '@/lib/format';
 
@@ -24,9 +25,6 @@ const now = new Date();
 const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
 export default function DutySchedule({ weekdays, teachers, substitutions }) {
-    const form = useForm({
-        days: Object.fromEntries(weekdays.map((day) => [day.value, day.userIds])),
-    });
     const substitutionForm = useForm({
         date: today,
         absent_user_id: '',
@@ -34,27 +32,6 @@ export default function DutySchedule({ weekdays, teachers, substitutions }) {
     });
     const [deleting, setDeleting] = useState(null);
     const teacherById = Object.fromEntries(teachers.map((teacher) => [teacher.id, teacher]));
-
-    function addTeacher(weekday, userId) {
-        if (userId && !form.data.days[weekday].includes(userId)) {
-            form.setData('days', {
-                ...form.data.days,
-                [weekday]: [...form.data.days[weekday], userId],
-            });
-        }
-    }
-
-    function removeTeacher(weekday, userId) {
-        form.setData('days', {
-            ...form.data.days,
-            [weekday]: form.data.days[weekday].filter((id) => id !== userId),
-        });
-    }
-
-    function submitSchedule(event) {
-        event.preventDefault();
-        form.put('/jadwal-piket', { preserveScroll: true });
-    }
 
     function submitSubstitution(event) {
         event.preventDefault();
@@ -68,7 +45,6 @@ export default function DutySchedule({ weekdays, teachers, substitutions }) {
     const substitutionWeekday = weekdayOf(substitutionForm.data.date);
     const savedDay = weekdays.find((day) => day.value === substitutionWeekday);
     const scheduledThatDay = (savedDay?.userIds ?? []).map((id) => teacherById[id]).filter(Boolean);
-    const isDirty = weekdays.some((day) => day.userIds.join(',') !== form.data.days[day.value].join(','));
 
     return (
         <>
@@ -82,7 +58,7 @@ export default function DutySchedule({ weekdays, teachers, substitutions }) {
             </div>
 
             <p className="text-muted" style={{ fontSize: 14, maxWidth: 760 }}>
-                Jadwal yang sama setiap minggu. Menu piket (Pantauan, Absen piket, Selesaikan absen, persetujuan dispensasi) hanya terbuka untuk guru piket di hari jadwalnya. Admin selalu bisa menjalankan tugas piket. Akun guru dibuat di menu{' '}
+                Jadwal yang sama setiap minggu. Menu piket (Pantauan, Scan absen, Selesaikan absen, persetujuan dispensasi) hanya terbuka untuk guru piket di hari jadwalnya. Admin selalu bisa menjalankan tugas piket. Akun guru dibuat di menu{' '}
                 <Link href="/pengguna">Pengguna</Link>.
             </p>
 
@@ -92,104 +68,7 @@ export default function DutySchedule({ weekdays, teachers, substitutions }) {
                     <p className="text-muted">Buat akun guru dulu di menu Pengguna, lalu kembali ke sini.</p>
                 </div>
             ) : (
-                <form onSubmit={submitSchedule} noValidate>
-                    {form.errors.days && <p className="field-error">{form.errors.days}</p>}
-                    <div className="table-wrap">
-                        <table className="table schedule-table">
-                            <thead>
-                                <tr>
-                                    <th style={{ width: 110 }}>Hari</th>
-                                    <th>Guru piket</th>
-                                    <th style={{ width: 260 }}>Tambah guru</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {weekdays.map((day) => {
-                                    const assigned = form.data.days[day.value];
-                                    const available = teachers.filter((teacher) => !assigned.includes(teacher.id));
-
-                                    return (
-                                        <tr key={day.value}>
-                                            <td style={{ fontWeight: 700 }}>
-                                                {day.label}
-                                                <span className="cell-sub">{assigned.length} guru</span>
-                                            </td>
-                                            <td>
-                                                {assigned.length === 0 ? (
-                                                    <span className="text-muted">Belum ada guru piket</span>
-                                                ) : (
-                                                    <div className="chip-list" style={{ marginTop: 0 }}>
-                                                        {assigned.map((id) => (
-                                                            <span
-                                                                key={id}
-                                                                className="tag tag-neutral"
-                                                                style={{
-                                                                    display: 'inline-flex',
-                                                                    alignItems: 'center',
-                                                                    gap: 4,
-                                                                }}
-                                                            >
-                                                                {teacherById[id]?.name ?? 'Akun nonaktif'}
-                                                                {teacherById[id]?.homeroom && <span className="text-muted">· wali {teacherById[id].homeroom}</span>}
-                                                                <button
-                                                                    type="button"
-                                                                    className="btn btn-ghost"
-                                                                    style={{
-                                                                        padding: 0,
-                                                                        minHeight: 0,
-                                                                    }}
-                                                                    aria-label={`Hapus ${teacherById[id]?.name ?? 'guru'} dari ${day.label}`}
-                                                                    onClick={() => removeTeacher(day.value, id)}
-                                                                >
-                                                                    <X size={14} aria-hidden="true" />
-                                                                </button>
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                                {Object.keys(form.errors)
-                                                    .filter((key) => key.startsWith(`days.${day.value}.`))
-                                                    .map((key) => (
-                                                        <p key={key} className="field-error">
-                                                            {form.errors[key]}
-                                                        </p>
-                                                    ))}
-                                            </td>
-                                            <td>
-                                                <select className="input" aria-label={`Tambah guru piket hari ${day.label}`} value="" disabled={available.length === 0} onChange={(event) => addTeacher(day.value, Number(event.target.value))}>
-                                                    <option value="">Pilih guru…</option>
-                                                    {available.map((teacher) => (
-                                                        <option key={teacher.id} value={teacher.id}>
-                                                            {teacher.name}
-                                                            {teacher.homeroom ? ` (wali ${teacher.homeroom})` : ''}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 12,
-                            marginTop: 12,
-                        }}
-                    >
-                        <button type="submit" className="btn btn-primary" disabled={form.processing || !isDirty}>
-                            Simpan jadwal
-                        </button>
-                        {isDirty && (
-                            <span className="text-muted" style={{ fontSize: 13 }}>
-                                Ada perubahan yang belum disimpan.
-                            </span>
-                        )}
-                    </div>
-                </form>
+                <WeeklyScheduleForm weekdays={weekdays} teachers={teachers} url="/jadwal-piket" dutyLabel="Guru piket" />
             )}
 
             <h4 className="section-title">Pengganti piket</h4>

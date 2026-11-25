@@ -48,12 +48,14 @@ class SettingTest extends TestCase
     {
         $guru = User::factory()->guru()->create();
         $guru->dutySchedules()->createMany([['weekday' => 1], ['weekday' => 6]]);
+        $guru->greetingSchedules()->createMany([['weekday' => 2], ['weekday' => 6]]);
 
         $this->actingAs($this->admin)
             ->put('/pengaturan', ['days' => $this->week([1 => ['06:00', '07:00'], 2 => ['06:00', '07:00']])])
-            ->assertSessionHas('success', 'Jadwal absensi disimpan. Jadwal piket di hari yang tidak lagi hari sekolah ikut dihapus.');
+            ->assertSessionHas('success', 'Jadwal absensi disimpan. Jadwal piket dan sapa pagi di hari yang tidak lagi hari sekolah ikut dihapus.');
 
         $this->assertSame([1], $guru->dutySchedules()->pluck('weekday')->all());
+        $this->assertSame([2], $guru->greetingSchedules()->pluck('weekday')->all());
         $this->assertFalse($guru->isOnDuty(now()->setDate(2026, 10, 3))); // Sabtu
     }
 

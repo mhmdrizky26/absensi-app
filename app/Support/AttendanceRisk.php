@@ -82,7 +82,8 @@ class AttendanceRisk
         $marks = [];
 
         foreach (Attendance::query()
-            ->whereIn('student_id', $students->modelKeys())
+            // Raw integer list: with ~1500 bound ids MySQL takes ~8x longer for the same rows.
+            ->whereIntegerInRaw('student_id', $students->modelKeys())
             ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
             ->toBase()
             ->get(['student_id', 'date', 'status']) as $mark) {

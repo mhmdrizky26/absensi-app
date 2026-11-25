@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\DutySubstitutionController;
 use App\Http\Controllers\Admin\GateNetworkController;
 use App\Http\Controllers\Admin\GateStationController;
 use App\Http\Controllers\Admin\GateStationRevocationController;
+use App\Http\Controllers\Admin\GreetingScheduleController;
 use App\Http\Controllers\Admin\HolidayController;
 use App\Http\Controllers\Admin\OnlineDayController;
 use App\Http\Controllers\Admin\PromotionController;
@@ -106,15 +107,20 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:admin,piket')->group(function () {
         Route::get('pantauan', [MonitorController::class, 'index'])->name('duty.monitor');
         Route::get('pantauan/kelas/{classroom}', [MonitorClassroomController::class, 'show'])->name('duty.monitor.classroom');
-        Route::get('terlambat', [LateScanController::class, 'create'])->name('duty.late');
-        Route::post('terlambat', [LateScanController::class, 'store'])->name('duty.late.store');
         Route::post('pantauan/selesaikan', [FinalizeDayController::class, 'store'])->name('duty.finalize');
         Route::delete('pantauan/selesaikan', [FinalizeDayController::class, 'destroy'])->name('duty.reopen');
     });
 
+    // Absen piket: juga guru sapa pagi di hari jadwalnya, sampai jam masuk.
+    Route::middleware('role:admin,piket,sapa_pagi')->group(function () {
+        Route::get('terlambat', [LateScanController::class, 'create'])->name('duty.late');
+        Route::post('terlambat', [LateScanController::class, 'store'])->name('duty.late.store');
+    });
+
+    Route::middleware('role:admin,piket,wali_kelas,sapa_pagi')->get('cari-siswa', [StudentSearchController::class, 'index'])->name('students.search');
+
     Route::middleware('role:admin,piket,wali_kelas')->group(function () {
         Route::get('surat/{attendance}', [AttachmentController::class, 'show'])->name('attachments.show');
-        Route::get('cari-siswa', [StudentSearchController::class, 'index'])->name('students.search');
     });
 
     // Guru yang punya jadwal piket boleh melihat semua dispensasi di hari lain, tanpa mengajukan atau menyetujui.
@@ -234,6 +240,8 @@ Route::middleware('auth')->group(function () {
 
         Route::get('jadwal-piket', [DutyScheduleController::class, 'index'])->name('duty-schedule.index');
         Route::put('jadwal-piket', [DutyScheduleController::class, 'update'])->name('duty-schedule.update');
+        Route::get('jadwal-sapa-pagi', [GreetingScheduleController::class, 'index'])->name('greeting-schedule.index');
+        Route::put('jadwal-sapa-pagi', [GreetingScheduleController::class, 'update'])->name('greeting-schedule.update');
         Route::post('jadwal-piket/pengganti', [DutySubstitutionController::class, 'store'])->name('duty-substitutions.store');
         Route::delete('jadwal-piket/pengganti/{dutySubstitution}', [DutySubstitutionController::class, 'destroy'])->name('duty-substitutions.destroy');
 

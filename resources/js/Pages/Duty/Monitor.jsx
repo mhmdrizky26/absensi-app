@@ -220,7 +220,7 @@ export default function Monitor({ date, window: scanWindow, finalized, missingCo
                 </div>
                 <div className="page-actions">
                     <Link href="/terlambat" className="btn btn-secondary">
-                        <ScanLine size={16} aria-hidden="true" /> Absen piket
+                        <ScanLine size={16} aria-hidden="true" /> Scan absen
                     </Link>
                     {finalized && !scanWindow.isEnforced && !scanWindow.onlineDay && (
                         <button type="button" className="btn btn-secondary" onClick={() => setConfirmingReopen(true)}>
@@ -250,7 +250,7 @@ export default function Monitor({ date, window: scanWindow, finalized, missingCo
             ) : (
                 scanWindow.isSchoolDay && (
                     <p className="text-muted" style={{ fontSize: 14 }}>
-                        Gerbang dibuka {formatTime(scanWindow.opensAt)}, jam masuk {formatTime(scanWindow.closesAt)}. Setelah jam masuk, catat siswa terlambat dan yang lupa kartu lewat &quot;Absen piket&quot;, lalu tekan
+                        Gerbang dibuka {formatTime(scanWindow.opensAt)}, jam masuk {formatTime(scanWindow.closesAt)}. Setelah jam masuk, catat siswa terlambat dan yang lupa kartu lewat &quot;Scan absen&quot;, lalu tekan
                         &quot;Selesaikan absen&quot;: siswa yang belum absen dicatat Alpa. Kalau lupa ditekan, absen diselesaikan otomatis malam hari. Klik kelas untuk melihat daftar siswanya.
                     </p>
                 )
@@ -349,7 +349,7 @@ export default function Monitor({ date, window: scanWindow, finalized, missingCo
                 <aside style={{ minWidth: 0 }}>
                     <h4>Terlambat ({late.length})</h4>
                     <p className="text-muted" style={{ fontSize: 13 }}>
-                        Siswa yang datang setelah jam masuk dicatat lewat &quot;Absen piket&quot;.
+                        Siswa yang datang setelah jam masuk dicatat lewat &quot;Scan absen&quot;.
                     </p>
                     <div className="scan-roster" style={{ borderTop: '2px solid var(--color-divider)' }}>
                         {late.length === 0 && <p className="text-muted">Belum ada siswa terlambat.</p>}
@@ -369,11 +369,11 @@ export default function Monitor({ date, window: scanWindow, finalized, missingCo
             {openClassroom && <ClassroomDetail classroom={openClassroom} onClose={() => setOpenClassroomId(null)} />}
 
             <ConfirmDialog open={confirmingReopen} title="Buka lagi absen hari ini?" confirmLabel="Buka lagi" onConfirm={reopen} onClose={() => setConfirmingReopen(false)}>
-                Khusus mode demo. Tanda Alpa yang dibuat saat absen diselesaikan dihapus, lalu tab gerbang dan Absen piket menerima absen lagi. Hadir, terlambat, sakit, dan izin yang sudah tercatat tidak berubah.
+                Khusus mode demo. Tanda Alpa yang dibuat saat absen diselesaikan dihapus, lalu tab gerbang dan Scan absen menerima absen lagi. Hadir, terlambat, sakit, dan izin yang sudah tercatat tidak berubah.
             </ConfirmDialog>
 
             <ConfirmDialog open={confirmingFinish} title="Selesaikan absen hari ini?" confirmLabel="Ya, selesaikan" onConfirm={finish} onClose={() => setConfirmingFinish(false)}>
-                {missingCount > 0 ? `${missingCount} siswa yang belum absen akan dicatat Alpa.` : 'Semua siswa sudah tercatat.'} Setelah diselesaikan, tab gerbang dan Absen piket tidak menerima absen hari ini lagi; perubahan
+                {missingCount > 0 ? `${missingCount} siswa yang belum absen akan dicatat Alpa.` : 'Semua siswa sudah tercatat.'} Setelah diselesaikan, tab gerbang dan Scan absen tidak menerima absen hari ini lagi; perubahan
                 dilakukan wali kelas.
                 {pendingScans > 0 && ` Perhatian: masih ada ${pendingScans} scan di tab gerbang yang belum terkirim. Tunggu sampai terkirim dulu.`}
                 {offlineStations.length > 0 && pendingScans === 0 && ` ${offlineStations.map((station) => station.name).join(', ')} sedang offline; pastikan tidak ada scan yang tertahan di tab itu.`}

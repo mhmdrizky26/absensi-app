@@ -58,6 +58,6 @@ class FinalizeDayController extends Controller
 
         $removed = $finalize->reopen(today());
 
-        return back()->with('success', "Absen hari ini dibuka lagi. {$removed} tanda Alpa otomatis dihapus; tab gerbang dan Absen piket menerima absen lagi.");
+        return back()->with('success', "Absen hari ini dibuka lagi. {$removed} tanda Alpa otomatis dihapus; tab gerbang dan Scan absen menerima absen lagi.");
     }
 }
