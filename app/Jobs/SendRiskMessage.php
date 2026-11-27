@@ -6,6 +6,7 @@ use App\Models\AcademicYear;
 use App\Models\Classroom;
 use App\Models\RiskMessage;
 use App\Models\Student;
+use App\Support\AttendanceWindow;
 use App\Support\WhatsAppClient;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -40,6 +41,13 @@ class SendRiskMessage implements ShouldQueue
      */
     public static function deliver(RiskMessage $message, WhatsAppClient $client): bool
     {
+        // Pesan yang sudah antre sebelum mode demo dinyalakan: dicatat saja.
+        if (! app(AttendanceWindow::class)->isEnforced()) {
+            $message->update(['status' => RiskMessage::STATUS_TEST]);
+
+            return false;
+        }
+
         try {
             $providerId = $client->sendRiskAlert($message->phone, $message->level, self::parameters($message->student, $message->reason));
             $message->update(['status' => RiskMessage::STATUS_SENT, 'provider_message_id' => $providerId, 'sent_at' => now(), 'error' => null]);

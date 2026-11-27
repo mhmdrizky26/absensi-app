@@ -11,6 +11,7 @@ use App\Models\AcademicYear;
 use App\Models\GuardianContact;
 use App\Models\RiskMessage;
 use App\Models\Setting;
+use App\Support\AttendanceWindow;
 use App\Support\WhatsAppClient;
 use App\Support\WhatsAppSettings;
 use Illuminate\Http\RedirectResponse;
@@ -152,13 +153,17 @@ class WhatsAppController extends Controller
             $summary['closed'],
             $summary['notified'],
             $summary['messages'],
-            $settings->testMode() ? ' — mode uji, pesan hanya dicatat' : '',
+            $settings->recordsOnly() ? ' — mode uji atau demo, pesan hanya dicatat' : '',
         ));
     }
 
-    public function resend(RiskMessage $riskMessage): RedirectResponse
+    public function resend(RiskMessage $riskMessage, AttendanceWindow $window): RedirectResponse
     {
         abort_if($riskMessage->phone === null, 422);
+
+        if (! $window->isEnforced()) {
+            return back()->with('error', 'Mode demo aktif: pesan WhatsApp ke orang tua tidak dikirim.');
+        }
 
         $riskMessage->update(['status' => RiskMessage::STATUS_QUEUED, 'error' => null]);
         SendRiskMessage::dispatch($riskMessage);

@@ -184,7 +184,7 @@ export default function LateScan({ recorded: initialRecorded, opensAt, closesAt,
 
                         <form onSubmit={submitManual} className="late-manual">
                             <Field label="Kartu tertinggal? Cari siswanya" htmlFor="manual-student">
-                                <StudentPicker id="manual-student" value={manualStudent} onChange={setManualStudent} />
+                                <StudentPicker id="manual-student" value={manualStudent} onChange={setManualStudent} unrecorded />
                             </Field>
                             {manualStudent && (
                                 <button type="submit" className="btn btn-primary" disabled={sending}>

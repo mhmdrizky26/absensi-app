@@ -43,6 +43,15 @@ class WhatsAppSettings
         return Setting::value(self::TEST_MODE, '1') === '1';
     }
 
+    /**
+     * Whether parent messages are only recorded: in test mode, and always in
+     * demo mode.
+     */
+    public function recordsOnly(): bool
+    {
+        return $this->testMode() || ! $this->window->isEnforced();
+    }
+
     public function sendAt(): string
     {
         return Setting::value(self::SEND_AT, '15:00');
@@ -99,10 +108,12 @@ class WhatsAppSettings
     /**
      * The daily check runs once per school day, at or after the send time,
      * even with WhatsApp off: it also keeps the risk list and its data tidy.
+     * Not in demo mode, so practice marks open no risk episodes by themselves.
      */
     public function isDue(CarbonInterface $now): bool
     {
-        return $now->format('H:i') >= $this->sendAt()
+        return $this->window->isEnforced()
+            && $now->format('H:i') >= $this->sendAt()
             && $this->lastRunOn() !== $now->toDateString()
             && $this->window->isSchoolDay($now);
     }

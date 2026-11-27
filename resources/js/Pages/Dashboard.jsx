@@ -87,16 +87,27 @@ function teacherModules(user) {
     return modules.filter((module, index) => modules.findIndex((other) => other.href === module.href) === index);
 }
 
+/** Jadwal yang dimiliki guru, lalu di sebelahnya guru piket hari ini. */
 function DutyPanel({ duty }) {
+    const schedules = [
+        { label: 'piket', days: duty.days },
+        { label: 'sapa pagi', days: duty.greetingDays },
+    ].filter(({ days }) => days.length > 0);
+
     return (
         <div className="stat-strip">
-            <div className="stat">
-                <div className="stat-label">Jadwal piket Anda</div>
-                <div className="stat-value" style={{ fontSize: 20 }}>
-                    {duty.days.length > 0 ? duty.days.join(', ') : '—'}
+            {schedules.length > 0 && (
+                <div className="stat">
+                    {schedules.map(({ label, days }, index) => (
+                        <div key={label} style={{ marginTop: index > 0 ? 16 : 0 }}>
+                            <div className="stat-label">Jadwal {label} Anda</div>
+                            <div className="stat-value" style={{ fontSize: 20 }}>
+                                {days.join(', ')}
+                            </div>
+                        </div>
+                    ))}
                 </div>
-                {duty.days.length === 0 && <p className="text-muted" style={{ fontSize: 13, margin: '4px 0 0' }}>Belum ada jadwal piket.</p>}
-            </div>
+            )}
             <div className="stat">
                 <div className="stat-label">Piket hari ini</div>
                 <div style={{ fontWeight: 700, marginTop: 4 }}>{duty.today.length > 0 ? duty.today.join(', ') : <span className="text-muted">Tidak ada jadwal</span>}</div>

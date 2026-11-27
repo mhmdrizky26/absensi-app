@@ -309,4 +309,30 @@ class DutyTest extends TestCase
         $this->assertDatabaseCount('attendance_days', 0);
         $this->assertSame(1, Attendance::count());
     }
+
+    public function test_demo_mode_never_finishes_days_automatically_not_even_after_it_ends(): void
+    {
+        $this->travelTo(now()->setDate(2026, 9, 20)); // Minggu sebelumnya
+        GateStation::factory()->create();
+        $this->travelTo(now()->setDate(2026, 9, 28)->setTime(23, 0)); // Senin malam
+
+        $present = $this->studentInClass();
+        $this->studentInClass();
+        $this->mark($present, AttendanceStatus::Present, '2026-09-28');
+
+        config(['attendance.enforce_window' => false]);
+        $this->artisan('attendance:finalize-days')->assertSuccessful();
+        $this->assertDatabaseCount('attendance_days', 0);
+
+        config(['attendance.enforce_window' => true]);
+        $this->artisan('attendance:finalize-days')->assertSuccessful();
+        $this->assertDatabaseCount('attendance_days', 0);
+
+        $this->travelTo(now()->addDay()); // Selasa malam, sudah tidak demo
+        $this->mark($present, AttendanceStatus::Present, '2026-09-29');
+        $this->artisan('attendance:finalize-days')->assertSuccessful();
+
+        $this->assertNull(AttendanceDay::forDate(now()->subDay()), 'Hari yang dipakai demo tidak pernah diselesaikan otomatis.');
+        $this->assertNotNull(AttendanceDay::forDate(now()));
+    }
 }

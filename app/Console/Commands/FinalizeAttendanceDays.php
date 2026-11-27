@@ -7,6 +7,7 @@ use App\Models\Attendance;
 use App\Models\AttendanceDay;
 use App\Models\GateStation;
 use App\Models\OnlineDay;
+use App\Models\Setting;
 use App\Support\AttendanceWindow;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Attributes\Description;
@@ -28,10 +29,24 @@ class FinalizeAttendanceDays extends Command
      * marking the whole school Alpa means the gate was not used that day.
      * Today is finished from the time set in Pengaturan (finalize_at).
      * Sekolah daring days are finished from the start of the day.
+     *
+     * Demo mode finishes no gate day, and days up to the last one in demo mode
+     * are never finished here afterwards: practice scans must not turn the
+     * rest of the school Alpa. The guru piket can still finish them by hand.
      */
     public function handle(AttendanceWindow $window, FinalizeAttendanceDay $finalize): int
     {
         $this->finishOnlineDays($finalize);
+
+        if (! $window->isEnforced()) {
+            if (Setting::value(Setting::DEMO_LAST_ON) !== today()->toDateString()) {
+                Setting::put([Setting::DEMO_LAST_ON => today()->toDateString()]);
+            }
+
+            $this->info('Mode demo aktif, absen tidak diselesaikan otomatis.');
+
+            return self::SUCCESS;
+        }
 
         $firstStation = GateStation::query()->min('created_at');
 
@@ -43,6 +58,12 @@ class FinalizeAttendanceDays extends Command
 
         $now = CarbonImmutable::now();
         $from = CarbonImmutable::parse($firstStation)->startOfDay()->max($now->subDays(self::CATCH_UP_DAYS)->startOfDay());
+        $demoLastOn = Setting::value(Setting::DEMO_LAST_ON);
+
+        if ($demoLastOn !== null) {
+            $from = $from->max(CarbonImmutable::parse($demoLastOn)->addDay());
+        }
+
         [$hour, $minute] = array_map('intval', explode(':', (string) config('attendance.finalize_at')));
         $to = $now->greaterThanOrEqualTo($now->setTime($hour, $minute)) ? $now->startOfDay() : $now->subDay()->startOfDay();
 

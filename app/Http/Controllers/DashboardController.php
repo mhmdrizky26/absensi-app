@@ -12,6 +12,8 @@ use App\Models\User;
 use App\Support\AttendanceTrend;
 use App\Support\DutyRoster;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -35,16 +37,17 @@ class DashboardController extends Controller
     }
 
     /**
-     * The guru's weekly duty days, who is on duty today, and upcoming
-     * substitutions that involve them.
+     * The guru's weekly duty and sapa pagi days, who is guru piket
+     * today, and upcoming substitutions that involve them.
      *
-     * @return array{days: list<string>, today: list<string>, substitutions: list<array{date: string, isSubstitute: bool, otherName: ?string}>}
+     * @return array{days: list<string>, today: list<string>, greetingDays: list<string>, substitutions: list<array{date: string, isSubstitute: bool, otherName: ?string}>}
      */
     private function dutyInfo(User $user, DutyRoster $roster): array
     {
         return [
-            'days' => $user->dutySchedules()->orderBy('weekday')->pluck('weekday')->map(fn (int $weekday): string => DutySchedule::WEEKDAYS[$weekday] ?? '')->filter()->values()->all(),
+            'days' => $this->weekdayNames($user->dutySchedules()),
             'today' => $roster->teachersOn(today())->pluck('name')->all(),
+            'greetingDays' => $this->weekdayNames($user->greetingSchedules()),
             'substitutions' => DutySubstitution::query()
                 ->with(['absentUser:id,name', 'substituteUser:id,name'])
                 ->whereDate('date', '>=', today())
@@ -59,6 +62,15 @@ class DashboardController extends Controller
                 ])
                 ->all(),
         ];
+    }
+
+    /**
+     * @param  HasMany<covariant Model, User>  $schedules
+     * @return list<string>
+     */
+    private function weekdayNames(HasMany $schedules): array
+    {
+        return $schedules->orderBy('weekday')->pluck('weekday')->map(fn (int $weekday): string => DutySchedule::WEEKDAYS[$weekday] ?? '')->filter()->values()->all();
     }
 
     /**

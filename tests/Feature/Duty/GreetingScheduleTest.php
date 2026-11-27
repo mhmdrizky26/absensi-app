@@ -106,6 +106,40 @@ class GreetingScheduleTest extends TestCase
             ->assertJson(['result' => 'recorded']);
     }
 
+    public function test_dashboard_sends_the_sapa_pagi_schedule_beside_the_piket_schedule(): void
+    {
+        $both = User::factory()->guruPiket()->create(['name' => 'Pak Andi']);
+        GreetingSchedule::factory()->create(['user_id' => $both->id, 'weekday' => 3]);
+
+        $this->actingAs($both)->get('/dasbor')->assertInertia(fn (Assert $page) => $page
+            ->where('duty.greetingDays', ['Rabu'])
+        );
+        $this->actingAs($this->greeter)->get('/dasbor')->assertInertia(fn (Assert $page) => $page
+            ->where('duty.days', [])
+            ->where('duty.greetingDays', ['Senin'])
+        );
+    }
+
+    public function test_greeter_searches_every_class_on_scan_absen_but_not_on_staff_forms(): void
+    {
+        $this->actingAs($this->greeter)->getJson('/cari-siswa?unrecorded=1')
+            ->assertJsonPath('students.*.id', [$this->student->id]);
+        $this->actingAs($this->greeter)->getJson('/cari-siswa')->assertJsonCount(0, 'students');
+
+        $homeroomGreeter = User::factory()->waliKelas()->create();
+        $academicYear = AcademicYear::active();
+        $ownStudent = Student::factory()->create();
+        $ownStudent->placeIn(Classroom::factory()->for($academicYear)->create(['homeroom_teacher_id' => $homeroomGreeter->id]), $academicYear);
+        GreetingSchedule::factory()->create(['user_id' => $homeroomGreeter->id, 'weekday' => 1]);
+
+        $this->actingAs($homeroomGreeter)->getJson('/cari-siswa?unrecorded=1')->assertJsonCount(2, 'students');
+        $this->actingAs($homeroomGreeter)->getJson('/cari-siswa')->assertJsonPath('students.*.id', [$ownStudent->id]);
+
+        $this->travelTo(now()->addDay()); // Selasa
+
+        $this->actingAs($homeroomGreeter)->getJson('/cari-siswa?unrecorded=1')->assertJsonPath('students.*.id', [$ownStudent->id]);
+    }
+
     public function test_greeter_who_is_also_guru_piket_today_keeps_recording_late_students(): void
     {
         $both = User::factory()->guruPiket()->create();

@@ -4,10 +4,12 @@ import { getJson } from '@/lib/http';
 /**
  * Pilih satu siswa aktif. Begitu kolom diklik, daftar siswa langsung muncul
  * (wali kelas: seluruh kelasnya), lalu menyempit sambil guru mengetik nama/NIS.
- * Wali kelas hanya menemukan siswa kelasnya sendiri (dibatasi di server).
+ * Wali kelas hanya menemukan siswa kelasnya sendiri, kecuali saat piket atau
+ * scan sapa pagi (dibatasi di server).
  * Dengan `date`, siswa yang sudah izin/sakit/dispensasi pada tanggal itu tidak ditampilkan.
+ * Dengan `unrecorded`, siswa yang sudah absen hari ini tidak ditampilkan.
  */
-export default function StudentPicker({ id, value, onChange, placeholder = 'Klik untuk melihat siswa, atau ketik nama/NIS', error, date }) {
+export default function StudentPicker({ id, value, onChange, placeholder = 'Klik untuk melihat siswa, atau ketik nama/NIS', error, date, unrecorded = false }) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState([]);
     const [total, setTotal] = useState(0);
@@ -26,7 +28,7 @@ export default function StudentPicker({ id, value, onChange, placeholder = 'Klik
         const timer = setTimeout(
             async () => {
                 try {
-                    const params = new URLSearchParams({ q: query.trim(), ...(date ? { date } : {}) });
+                    const params = new URLSearchParams({ q: query.trim(), ...(date ? { date } : {}), ...(unrecorded ? { unrecorded: 1 } : {}) });
                     const response = await getJson(`/cari-siswa?${params}`);
 
                     if (current === requestId.current) {
@@ -48,7 +50,7 @@ export default function StudentPicker({ id, value, onChange, placeholder = 'Klik
         );
 
         return () => clearTimeout(timer);
-    }, [open, query, date]);
+    }, [open, query, date, unrecorded]);
 
     function choose(student) {
         onChange(student);
@@ -118,7 +120,11 @@ export default function StudentPicker({ id, value, onChange, placeholder = 'Klik
                             <b>{student.classroom}</b>
                         </button>
                     ))}
-                    {!loading && hidden > 0 && <div className="picker-empty">{hidden} siswa tidak ditampilkan karena sudah tercatat izin, sakit, atau dispensasi pada tanggal itu.</div>}
+                    {!loading && hidden > 0 && (
+                        <div className="picker-empty">
+                            {hidden} siswa tidak ditampilkan karena {unrecorded ? 'sudah absen hari ini' : 'sudah tercatat izin, sakit, atau dispensasi pada tanggal itu'}.
+                        </div>
+                    )}
                 </div>
             )}
         </div>

@@ -35,6 +35,9 @@ class Setting extends Model
 
     public const DEMO_MODE = 'demo_mode';
 
+    /** The last date the scheduler saw demo mode on; see attendance:finalize-days. */
+    public const DEMO_LAST_ON = 'demo_last_on';
+
     public const FINALIZE_AT = 'finalize_at';
 
     public const FONNTE_TOKEN = 'fonnte_token';
