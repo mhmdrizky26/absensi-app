@@ -110,8 +110,8 @@ export default function Settings({ settings, general, timezones, holidays, onlin
                     <span>
                         <b>Mode demo</b>
                         <span className="cell-sub">
-                            Untuk latihan dan presentasi saja. Selama aktif, jadwal tidak dipakai: tab gerbang selalu terbuka (juga di hari libur), guru piket selalu mencatat Hadir (tidak pernah Terlambat), dan absen bisa diselesaikan kapan saja. Matikan saat
-                            dipakai sungguhan di sekolah.
+                            Untuk latihan dan presentasi saja. Selama aktif, jadwal tidak dipakai: tab gerbang selalu terbuka (juga di hari libur), guru piket selalu mencatat Hadir (tidak pernah Terlambat), dan absen bisa diselesaikan kapan saja. Absen tidak
+                            diselesaikan otomatis dan WhatsApp ke orang tua tidak dikirim, tetapi data yang dicatat tetap tersimpan. Matikan saat dipakai sungguhan di sekolah.
                         </span>
                     </span>
                 </label>

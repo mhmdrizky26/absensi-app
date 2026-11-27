@@ -251,7 +251,7 @@ export default function Monitor({ date, window: scanWindow, finalized, missingCo
                 scanWindow.isSchoolDay && (
                     <p className="text-muted" style={{ fontSize: 14 }}>
                         Gerbang dibuka {formatTime(scanWindow.opensAt)}, jam masuk {formatTime(scanWindow.closesAt)}. Setelah jam masuk, catat siswa terlambat dan yang lupa kartu lewat &quot;Scan absen&quot;, lalu tekan
-                        &quot;Selesaikan absen&quot;: siswa yang belum absen dicatat Alpa. Kalau lupa ditekan, absen diselesaikan otomatis malam hari. Klik kelas untuk melihat daftar siswanya.
+                        &quot;Selesaikan absen&quot;: siswa yang belum absen dicatat Alpa. {scanWindow.isEnforced ? 'Kalau lupa ditekan, absen diselesaikan otomatis malam hari.' : 'Mode demo: absen tidak diselesaikan otomatis.'} Klik kelas untuk melihat daftar siswanya.
                     </p>
                 )
             )}

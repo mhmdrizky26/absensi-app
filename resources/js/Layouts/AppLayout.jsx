@@ -235,7 +235,7 @@ export default function AppLayout({ children }) {
                 )}
                 {props.demoMode && (
                     <p className="alert alert-warning demo-banner" role="note">
-                        <b>Mode demo aktif.</b> Jadwal gerbang tidak dipakai dan siswa tidak pernah tercatat Terlambat.
+                        <b>Mode demo aktif.</b> Jadwal gerbang tidak dipakai, siswa tidak pernah tercatat Terlambat, absen tidak diselesaikan otomatis, dan WhatsApp ke orang tua tidak dikirim. Data yang dicatat tetap tersimpan.
                         {user.role === 'admin' ? (
                             <>
                                 {' '}

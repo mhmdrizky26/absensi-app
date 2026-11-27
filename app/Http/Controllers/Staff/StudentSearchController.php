@@ -22,7 +22,9 @@ class StudentSearchController extends Controller
      * Find active students by name, NIS or NISN for staff forms; with an empty
      * query, list them so the form shows students right away. A wali kelas
      * only finds students of their own class, except on their duty day. With `date`, students already
-     * excused or dispensed on that day are left out and counted as `hidden`.
+     * excused or dispensed on that day are left out and counted as `hidden`. With
+     * `unrecorded` (scan absen), so are students already at school today, and a
+     * guru on sapa pagi finds every class.
      */
     public function index(Request $request): JsonResponse
     {
@@ -34,7 +36,9 @@ class StudentSearchController extends Controller
         }
 
         $user = $request->user();
-        $homeroomId = $user->hasRole(Role::Guru) && ! $user->isOnDuty() ? ($user->currentHomeroom()?->id ?? 0) : null;
+        $unrecorded = $request->boolean('unrecorded');
+        $seesEveryClass = ! $user->hasRole(Role::Guru) || $user->isOnDuty() || ($unrecorded && $user->isOnGreetingDuty());
+        $homeroomId = $seesEveryClass ? null : ($user->currentHomeroom()?->id ?? 0);
 
         $matching = Student::query()
             ->where('status', StudentStatus::Active)
@@ -44,7 +48,9 @@ class StudentSearchController extends Controller
                 ->when($homeroomId !== null, fn (Builder $query) => $query->whereKey($homeroomId)));
 
         $date = $request->date('date');
-        $available = (clone $matching)->when($date, fn (Builder $query) => $query->notExcusedOn($date));
+        $available = (clone $matching)
+            ->when($date, fn (Builder $query) => $query->notExcusedOn($date))
+            ->when($unrecorded, fn (Builder $query) => $query->notAtSchoolOn(today()));
 
         $total = (clone $available)->count();
 
@@ -63,7 +69,7 @@ class StudentSearchController extends Controller
         return response()->json([
             'students' => $students,
             'total' => $total,
-            'hidden' => $date ? $matching->count() - $total : 0,
+            'hidden' => $date || $unrecorded ? $matching->count() - $total : 0,
         ]);
     }
 }

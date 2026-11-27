@@ -237,6 +237,18 @@ class Student extends Model
                 ->whereDate('ends_on', '>=', $date));
     }
 
+    /**
+     * Students a scan would still record on the date: no Hadir, Terlambat or
+     * Dispensasi mark yet.
+     */
+    #[Scope]
+    protected function notAtSchoolOn(Builder $query, CarbonInterface $date): void
+    {
+        $query->whereDoesntHave('attendances', fn (Builder $query) => $query
+            ->whereDate('date', $date)
+            ->whereIn('status', array_filter(AttendanceStatus::cases(), fn (AttendanceStatus $status): bool => $status->isAtSchool())));
+    }
+
     #[Scope]
     protected function search(Builder $query, ?string $term): void
     {

@@ -31,7 +31,7 @@ class SendRiskAlerts extends Command
             $summary['closed'],
             $summary['notified'],
             $summary['messages'],
-            ! $settings->enabled() ? ', notifikasi WA mati' : ($settings->testMode() ? ', mode uji: tidak dikirim' : ''),
+            ! $settings->enabled() ? ', notifikasi WA mati' : ($settings->recordsOnly() ? ', mode uji atau demo: tidak dikirim' : ''),
         ));
 
         return self::SUCCESS;

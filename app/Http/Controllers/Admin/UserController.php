@@ -7,11 +7,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\UserRequest;
 use App\Models\AcademicYear;
 use App\Models\DutySchedule;
+use App\Models\GreetingSchedule;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -27,8 +29,14 @@ class UserController extends Controller
             'role' => $request->string('role')->value(),
         ];
 
+        $weekdayNames = fn (Collection $schedules): Collection => $schedules->toBase()->map(fn (DutySchedule|GreetingSchedule $schedule): string => DutySchedule::WEEKDAYS[$schedule->weekday] ?? '')->filter()->values();
+
         $users = User::query()
-            ->with(['homeroomClassrooms' => fn (HasMany $query) => $query->where('academic_year_id', $academicYearId), 'dutySchedules' => fn (HasMany $query) => $query->orderBy('weekday')])
+            ->with([
+                'homeroomClassrooms' => fn (HasMany $query) => $query->where('academic_year_id', $academicYearId),
+                'dutySchedules' => fn (HasMany $query) => $query->orderBy('weekday'),
+                'greetingSchedules' => fn (HasMany $query) => $query->orderBy('weekday'),
+            ])
             ->when($filters['q'], fn (Builder $query, string $term) => $query->where(
                 fn (Builder $query) => $query->where('name', 'like', "%{$term}%")->orWhere('username', 'like', "{$term}%"),
             ))
@@ -46,7 +54,8 @@ class UserController extends Controller
                 'isActive' => $user->is_active,
                 'lastLoginAt' => $user->last_login_at?->toIso8601String(),
                 'homeroomClassroom' => $user->homeroomClassrooms->first()?->name,
-                'dutyDays' => $user->dutySchedules->map(fn (DutySchedule $schedule): string => DutySchedule::WEEKDAYS[$schedule->weekday] ?? '')->filter()->values(),
+                'dutyDays' => $weekdayNames($user->dutySchedules),
+                'greetingDays' => $weekdayNames($user->greetingSchedules),
             ]);
 
         return Inertia::render('Admin/Users/Index', [

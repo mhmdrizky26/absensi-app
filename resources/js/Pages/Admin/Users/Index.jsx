@@ -124,13 +124,14 @@ export default function UsersIndex({ users, filters, roles, importedAccounts }) 
                 </div>
             ) : (
                 <div className="table-wrap">
-                    <table className="table" style={{ minWidth: 720 }}>
+                    <table className="table" style={{ minWidth: 850 }}>
                         <thead>
                             <tr>
                                 <th>Nama</th>
                                 <th style={{ width: 120 }}>Peran</th>
                                 <th style={{ width: 110 }}>Wali kelas</th>
                                 <th style={{ width: 130 }}>Hari piket</th>
+                                <th style={{ width: 130 }}>Hari sapa pagi</th>
                                 <th style={{ width: 100 }}>Status</th>
                                 <th style={{ width: 150 }}>Login terakhir</th>
                                 <th />
@@ -146,6 +147,7 @@ export default function UsersIndex({ users, filters, roles, importedAccounts }) 
                                     <td>{user.roleLabel}</td>
                                     <td style={{ fontWeight: 800 }}>{user.homeroomClassroom ?? <span className="text-muted" style={{ fontWeight: 400 }}>—</span>}</td>
                                     <td>{user.dutyDays.length > 0 ? user.dutyDays.join(', ') : <span className="text-muted">—</span>}</td>
+                                    <td>{user.greetingDays.length > 0 ? user.greetingDays.join(', ') : <span className="text-muted">—</span>}</td>
                                     <td>
                                         <span className={`tag ${user.isActive ? 'tag-neutral' : 'tag-outline'}`}>{user.isActive ? 'Aktif' : 'Nonaktif'}</span>
                                     </td>

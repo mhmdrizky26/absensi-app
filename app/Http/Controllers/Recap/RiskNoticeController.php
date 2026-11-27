@@ -10,6 +10,7 @@ use App\Models\RiskEpisode;
 use App\Models\RiskMessage;
 use App\Models\Student;
 use App\Support\AttendanceRisk;
+use App\Support\AttendanceWindow;
 use App\Support\WhatsAppClient;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\RedirectResponse;
@@ -21,8 +22,12 @@ class RiskNoticeController extends Controller
      * or guru BK's request. It is logged like the automatic ones and marks the
      * current risk episode as notified.
      */
-    public function store(Student $student, AttendanceRisk $risk, WhatsAppClient $client): RedirectResponse
+    public function store(Student $student, AttendanceRisk $risk, WhatsAppClient $client, AttendanceWindow $window): RedirectResponse
     {
+        if (! $window->isEnforced()) {
+            return back()->with('error', 'Mode demo aktif: pesan WhatsApp ke orang tua tidak dikirim.');
+        }
+
         $academicYear = AcademicYear::active();
         $classroom = $academicYear ? $student->classroomIn($academicYear)?->load('homeroomTeacher') : null;
         abort_if($classroom === null, 404);

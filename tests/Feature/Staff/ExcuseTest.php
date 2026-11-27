@@ -174,6 +174,27 @@ class ExcuseTest extends TestCase
             ->assertJsonPath('hidden', 0);
     }
 
+    public function test_scan_search_hides_students_already_at_school_today(): void
+    {
+        $statuses = ['Ayu Hadir' => AttendanceStatus::Present, 'Ayu Telat' => AttendanceStatus::Late, 'Ayu Lomba' => AttendanceStatus::Dispensation, 'Ayu Sakit' => AttendanceStatus::Sick];
+        foreach ($statuses as $name => $status) {
+            $student = Student::factory()->create(['name' => $name]);
+            $student->placeIn($this->classroom, $this->academicYear);
+            Attendance::factory()->create(['student_id' => $student->id, 'classroom_id' => $this->classroom->id, 'date' => today(), 'status' => $status]);
+        }
+        Attendance::factory()->create(['student_id' => $this->student->id, 'classroom_id' => $this->classroom->id, 'date' => today()->subDay(), 'status' => AttendanceStatus::Present]);
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)->getJson('/cari-siswa?q=ayu&unrecorded=1')
+            ->assertJsonPath('students.*.name', ['Ayu', 'Ayu Sakit'])
+            ->assertJsonPath('total', 2)
+            ->assertJsonPath('hidden', 3);
+
+        $this->actingAs($admin)->getJson('/cari-siswa?q=ayu')
+            ->assertJsonCount(5, 'students')
+            ->assertJsonPath('hidden', 0);
+    }
+
     public function test_empty_search_lists_students_so_the_form_shows_them_right_away(): void
     {
         $wali = User::factory()->waliKelas()->create();

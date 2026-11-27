@@ -96,6 +96,17 @@ class UserTest extends TestCase
         $this->assertSame(0, $teacher->dutySchedules()->count());
     }
 
+    public function test_the_user_table_lists_sapa_pagi_days_in_week_order(): void
+    {
+        $counselor = User::factory()->guruBk()->create();
+        $counselor->greetingSchedules()->createMany([['weekday' => 5], ['weekday' => 1]]);
+
+        $this->actingAs($this->admin)->get('/pengguna?role=guru_bk')->assertInertia(fn (Assert $page) => $page
+            ->where('users.data.0.greetingDays', ['Senin', 'Jumat'])
+            ->where('users.data.0.dutyDays', [])
+        );
+    }
+
     public function test_deactivated_account_can_no_longer_log_in(): void
     {
         $teacher = User::factory()->waliKelas()->create(['username' => 'guru']);

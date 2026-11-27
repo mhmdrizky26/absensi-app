@@ -38,6 +38,7 @@ class RiskWhatsAppTest extends TestCase
         parent::setUp();
 
         config([
+            'attendance.enforce_window' => true,
             'attendance.school_days' => [1, 2, 3, 4, 5],
             'app.school_name' => 'SMP Contoh',
             'services.fonnte.token' => 'fonnte-token',
@@ -443,5 +444,37 @@ class RiskWhatsAppTest extends TestCase
         Http::assertSent(fn (HttpRequest $request): bool => str_starts_with((string) $request['message'], 'Halo wali Ayu kelas VII-A: Alpa 3 hari') && str_ends_with((string) $request['message'], 'Hubungi Bu Dirja. SMP Contoh'));
 
         $this->actingAs($admin)->put('/notifikasi-wa/pesan', ['high' => '', 'watch' => 'x', 'test' => 'y'])->assertSessionHasErrors('high');
+    }
+
+    public function test_demo_mode_sends_nothing_to_parents(): void
+    {
+        Http::fake();
+        $ayu = $this->student('Ayu');
+        $this->mark($ayu, ['2026-10-01' => 'A', '2026-10-02' => 'A', '2026-10-05' => 'A']);
+        Setting::put([WhatsAppSettings::ENABLED => '1', WhatsAppSettings::SEND_AT => '15:00']);
+        config(['attendance.enforce_window' => false]);
+        $admin = User::factory()->admin()->create();
+        $this->travelTo(CarbonImmutable::parse('2026-10-06 15:00'));
+
+        $this->artisan('risiko:kirim-wa')->assertSuccessful();
+        $this->assertSame(0, RiskEpisode::count());
+
+        $this->actingAs($admin)->post("/siswa-berisiko/{$ayu->id}/kirim-wa")->assertSessionHas('error');
+        $this->assertSame(0, RiskMessage::count());
+
+        $this->actingAs($admin)->post('/notifikasi-wa/jalankan')->assertSessionHas('success');
+        $message = RiskMessage::sole();
+        $this->assertSame(RiskMessage::STATUS_TEST, $message->status);
+
+        $this->actingAs($admin)->post("/notifikasi-wa/pesan/{$message->id}/kirim-ulang")->assertSessionHas('error');
+        $this->assertSame(RiskMessage::STATUS_TEST, $message->fresh()->status);
+
+        // Pesan yang sudah antre sebelum mode demo dinyalakan.
+        $message->update(['status' => RiskMessage::STATUS_QUEUED]);
+        (new SendRiskMessage($message))->handle(app(WhatsAppClient::class));
+        $this->assertSame(RiskMessage::STATUS_TEST, $message->fresh()->status);
+
+        Queue::assertNothingPushed();
+        Http::assertNothingSent();
     }
 }

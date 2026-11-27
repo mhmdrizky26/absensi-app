@@ -124,7 +124,7 @@ class TrackRiskEpisodes
 
     /**
      * Record one message per parent number that agreed to messages, and queue
-     * it unless the sender is in test mode or today's limit is reached.
+     * it unless messages are only recorded or today's limit is reached.
      *
      * @param  array{level: string, reasons: list<array{level: string, text: string}>}  $row
      */
@@ -150,7 +150,7 @@ class TrackRiskEpisodes
 
         foreach ($contacts as $contact) {
             $status = match (true) {
-                $this->settings->testMode() => RiskMessage::STATUS_TEST,
+                $this->settings->recordsOnly() => RiskMessage::STATUS_TEST,
                 $this->queuedToday >= $this->settings->dailyLimit() => RiskMessage::STATUS_LIMITED,
                 default => RiskMessage::STATUS_QUEUED,
             };

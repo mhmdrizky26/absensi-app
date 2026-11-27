@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import ConfirmDialog from '@/Components/ConfirmDialog';
 import Field from '@/Components/Field';
@@ -66,6 +66,7 @@ function TextEditor({ id, label, hint, value, defaultValue, error, placeholders,
 }
 
 export default function WhatsApp({ settings, texts, defaultTexts, placeholders, schoolName, lastRunOn, connection, stats, messages, filters, statuses }) {
+    const { demoMode } = usePage().props;
     const textForm = useForm(texts);
 
     function submitTexts(event) {
@@ -321,8 +322,8 @@ export default function WhatsApp({ settings, texts, defaultTexts, placeholders, 
                 onConfirm={() => router.post('/notifikasi-wa/jalankan', {}, { preserveScroll: true, onFinish: () => setConfirmRun(false) })}
                 onClose={() => setConfirmRun(false)}
             >
-                {settings.test_mode
-                    ? 'Mode uji aktif: siswa berisiko akan dicatat dan pesan hanya ditulis di log, tidak dikirim.'
+                {demoMode || settings.test_mode
+                    ? `Mode ${demoMode ? 'demo' : 'uji'} aktif: siswa berisiko akan dicatat dan pesan hanya ditulis di log, tidak dikirim.`
                     : 'Mode uji mati: orang tua siswa yang baru berisiko akan langsung dikirimi pesan WhatsApp.'}
             </ConfirmDialog>
         </>
